@@ -1,0 +1,68 @@
+{
+    "summary": {
+        "id": "tones",
+        "name": "Random Tones",
+        "createdBy": {
+            "id":"0",
+            "name":"billmarcy"
+        }
+    },
+    "nodes": [
+        {
+            "id": "C",
+            "type": "song",
+            "content": {
+                "path": "C.wav"
+            },
+            "next":[ { "node": "F" }, { "node": "GtoA" }, { "node": "GtoC" } ]
+        },
+        {
+            "id": "A",
+            "type": "song",
+            "content": {
+                "path": "A.wav"
+            },
+            "next":[ { "node": "F" }, { "node": "GtoA" }, { "node":"GtoC" } ]
+        },
+        {
+            "id": "F",
+            "type": "song",
+            "content": {
+                "path": "F.wav"
+            },
+            "next": [ { "node": "GtoC" }, { "node": "GtoA" } ]
+        },
+        {
+            "id": "GtoC",
+            "type": "song",
+            "content": {
+                "path": "G.wav"
+            },
+            "repeat": {
+                "times": 4,
+                "from": "C"
+            }
+        },
+        {
+            "id": "GtoA",
+            "type": "song",
+            "content": {
+                "path": "G.wav"
+            },
+            "repeat": {
+                "times": 4,
+                "from": "A"
+            }
+        }
+    ],
+    "playheads": [
+        {
+            "name": "major",
+            "nodeID": "C"
+        },
+        {
+            "name": "minor",
+            "nodeID": "A"
+        }
+    ]
+}
