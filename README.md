@@ -2,7 +2,7 @@
 
 Playtree is an application that plays audio non-linearly. Instead of playing songs from a playlist in a row or shuffling, a playtree chooses the next song by randomly choosing one of a song node's children. Loops from one of a node's ancestors can also be specified. Finally, playtrees can have multiple roots, which each form separate playheads a user can switch between.
 
-The playtree server for playtree is written using Go. The playtree client is written with Remix/React, with Tailwind for styling.
+The playtree server is written using Go. The playtree client is written with Remix/React, with Tailwind for styling.
 
 ## Upcoming Features
 Playtree is a work in progress. The following major features are yet to be implemented:
