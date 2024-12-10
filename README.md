@@ -5,7 +5,7 @@ Playtree is an application that plays audio non-linearly. Instead of playing son
 The playtree server for playtree is written using Go. The playtree client is written with Remix/React, with Tailwind for styling.
 
 ## Upcoming Features
-Playtree is a work in progress. The following major features have yet to be implemented:
+Playtree is a work in progress. The following major features are yet to be implemented:
   - [ ] Database to replace server's file storage of playtree data
   - [ ] A graphical playtree editor using React Flow
   - [ ] User authentication using auth0
@@ -25,7 +25,9 @@ To try out playtree locally, clone this repository and perform the following ins
   - `curl -X DELETE https://localhost:8080/playtrees/<id>` <- Removes an existing playtree
   
   `<id>` is the ID of an existing playtree.
-  `<playtree>` should be a JSON string in the playtree format. Check out `playtrees/tones.json` for an example.
+  
+  `<playtree>` should be a JSON string in the playtree format.
+  Check out `playtrees/tones.json` for an example.
 
 ### Client
 1. Navigate to the `client/` directory.
