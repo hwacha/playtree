@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"slices"
+	"strings"
 	"syscall"
 )
 
@@ -312,7 +313,7 @@ func getActions(action chan<- Action) {
 }
 
 func handleGetPlaytrees(w http.ResponseWriter, r *http.Request) {
-	dirPath := "playtrees"
+	dirPath := "playtrees/"
 
 	files, err := os.ReadDir(dirPath)
 	if err != nil {
@@ -322,7 +323,10 @@ func handleGetPlaytrees(w http.ResponseWriter, r *http.Request) {
 
 	summaries := []SummaryInfo{}
 	for _, dirEntry := range files {
-		var file, err = os.Open(dirPath + "/" + dirEntry.Name())
+		if !strings.HasSuffix(dirEntry.Name(), ".json") {
+			continue
+		}
+		var file, err = os.Open(dirPath + dirEntry.Name())
 		if err != nil {
 			log.Println("Error opening file:", err)
 			return
