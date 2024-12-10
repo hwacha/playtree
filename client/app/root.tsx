@@ -1,12 +1,10 @@
 import type { LinksFunction } from "@remix-run/node";
 import {
-  json,
   Links,
   Meta,
   Outlet,
   Scripts,
   useLoaderData} from "@remix-run/react";
-import { useState } from "react";
 
 import Player from "./components/player";
 
@@ -23,7 +21,6 @@ export const loader = async () => {
 
 export default function App() {
   const playtree = useLoaderData<typeof loader>()
-  // const [currentPlaytree, setCurrentPlaytree] = useState<Playtree>(playerData)
 
   return (
     <html lang="en">

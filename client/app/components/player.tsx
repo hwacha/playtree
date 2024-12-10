@@ -204,9 +204,10 @@ export default function Player({playtree}: PlayerProps) {
         return (<div className="bg-green-600 fixed flex w-full left-0 bottom-0"><div className="text-white mx-auto my-6 font-lilitaOne">No playtrees.</div></div>)
     } else {
         return (<div className="bg-green-600 fixed w-full left-0 bottom-0">
-            <div className="text-white fixed left-2/3 font-lilitaOne">
+            <div className="text-white fixed left-2/3 bottom-4 font-lilitaOne">
                 {state.playheads.length > 0 ?
                 <table>
+                    <tr className="p-2"><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
                     <tr className="p-2"><td>Playhead</td><td>|</td><td>{state.playheads[state.playheadIndex].name}</td></tr>
                     <tr className="p-2"><td>Song</td><td>|</td><td>{state.playheads[state.playheadIndex].node.content.path.split("/").pop()?.split(".")[0]}</td></tr>
                 </table> : "No playheads available"}
@@ -215,6 +216,7 @@ export default function Player({playtree}: PlayerProps) {
             <div className="w-fit mx-auto">
                 <button
                     type="button"
+                    title="Next Playhead"
                     className="rounded-sm p-2 text-white"
                     onClick={() => dispatch({type: "incremented_playhead", playtree: playtree})}>
                     {"\u23EB"}
@@ -223,24 +225,28 @@ export default function Player({playtree}: PlayerProps) {
             <div className="w-fit mx-auto">
                 <button
                     type="button"
+                    title="Skip Backward"
                     className="rounded-sm p-2 text-white"
                     onClick={() => dispatch({type: "skipped_backward", playtree: playtree})}>
                     {"\u23EE"}
                 </button>
                 <button
                     type="button"
+                    title={state.isPlaying ? "Pause" : "Play"}
                     className="rounded-sm p-2 text-white fill-white"
                     onClick={() => state.isPlaying ? dispatch({type: 'paused'}) : dispatch({type: 'played'})}>
                     {state.isPlaying ? "\u23F8" : "\u23F5"}
                 </button>
                 <button
                     type="button"
+                    title="Skip Forward"
                     className="rounded-sm p-2 text-white"
                     onClick={() => dispatch({type: "skipped_forward", playtree: playtree, rand: Math.random()})}>{"\u23ED"}</button>
             </div>
             <div className="w-fit mx-auto">
                 <button
                     type="button"
+                    title="Previous Playhead"
                     className="rounded-sm p-2 text-white"
                     onClick={() => dispatch({type: "decremented_playhead", playtree: playtree})}>
                     {"\u23EC"}
