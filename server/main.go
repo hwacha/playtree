@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
-	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -13,83 +13,35 @@ import (
 	"slices"
 	"strings"
 	"syscall"
+
+	"github.com/joho/godotenv"
 )
 
-type PlayNodeProbabilityDistribution map[*PlayNode]float64
-
-func makeUniformProbabilityDistributionFrom(pns []*PlayNode, unconditionedProbability float64) PlayNodeProbabilityDistribution {
-	var oneOverN float64 = unconditionedProbability / float64(len(pns))
-
-	pnpd := make(map[*PlayNode]float64)
-	for _, pn := range pns {
-		pnpd[pn] = oneOverN
-	}
-	return pnpd
-}
-
-func isValidPartialProbabilityDistribution(pnpd PlayNodeProbabilityDistribution) (float64, bool) {
-	var sum float64 = 0
-	for _, probability := range pnpd {
-		sum += probability
-	}
-	return sum, sum < 1.0
-}
-
-func isValidTotalProbabilityDistribution(pnpd PlayNodeProbabilityDistribution) bool {
-	var sum float64 = 0
-	for _, probability := range pnpd {
-		sum += probability
-	}
-	const epsilon = 1e-9
-	return math.Abs(1.0-sum) <= epsilon
-}
-
-func makeProbabilityDistributionFrom(unmarkedProbabilities []*PlayNode, markedProbabilities PlayNodeProbabilityDistribution) (PlayNodeProbabilityDistribution, error) {
-	if len(unmarkedProbabilities) == 0 && len(markedProbabilities) == 0 {
-		return nil, nil
-	}
-
-	if len(markedProbabilities) == 0 {
-		return makeUniformProbabilityDistributionFrom(unmarkedProbabilities, 1.0), nil
-	}
-
-	if len(unmarkedProbabilities) == 0 {
-		if isValidTotalProbabilityDistribution(markedProbabilities) {
-			return markedProbabilities, nil
-		} else {
-			return nil, errors.New("probability distribution: when there are only marked probabilities, they must sum to 1")
-		}
-	}
-
-	sumOfMarkedProbabilities, valid := isValidPartialProbabilityDistribution(markedProbabilities)
-	if !valid {
-		return nil, errors.New("probability distribution: when there are unmarked probabilities present, the sum of marked probabilities must be < 1")
-	}
-
-	unmarkedProbabilityDistribution := makeUniformProbabilityDistributionFrom(unmarkedProbabilities, 1.0-sumOfMarkedProbabilities)
-
-	totalProbabilities := make(PlayNodeProbabilityDistribution)
-	for node, pr := range unmarkedProbabilityDistribution {
-		totalProbabilities[node] = pr
-	}
-	for node, pr := range markedProbabilities {
-		totalProbabilities[node] = pr
-	}
-	return totalProbabilities, nil
-}
-
-func randomlySelectNextPlayNode(pnpd PlayNodeProbabilityDistribution) *PlayNode {
-	if pnpd == nil {
+func randomlySelectNextPlayEdge(pes []*PlayEdge, counters map[*PlayEdge]int) *PlayEdge {
+	if pes == nil {
 		return nil
 	}
 
-	r := rand.Float64()
-	var upperBound float64 = 0
-	for playNode, probability := range pnpd {
-		upperBound += probability
-		if r < upperBound {
-			return playNode
+	elligiblePes := []*PlayEdge{}
+	for _, pe := range pes {
+		if (pe.Repeat < 0 || counters[pe] <= pe.Repeat) && pe.Shares > 0 {
+			elligiblePes = append(elligiblePes, pe)
 		}
+	}
+
+	totalShares := 0
+	for _, pe := range elligiblePes {
+		totalShares += pe.Shares
+	}
+
+	r := rand.Intn(totalShares)
+	upperBound := 0
+	for _, pe := range elligiblePes {
+		upperBound += pe.Shares
+		if r < upperBound {
+			return pe
+		}
+
 	}
 	return nil
 }
@@ -160,18 +112,17 @@ func (song *Song) Skip(skip chan<- bool) {
 	}
 }
 
-type Repeat struct {
-	Times   int // -1 loops forever, 0 passes, 1 or more repeats
-	From    *PlayNode
-	Counter int
+type PlayEdge struct {
+	Node   *PlayNode
+	Shares int
+	Repeat int
 }
 
 type PlayNode struct {
 	id      string
 	Type    string
 	Content Playable
-	Repeat  Repeat
-	Next    PlayNodeProbabilityDistribution
+	Next    []*PlayEdge
 }
 
 type User struct {
@@ -190,6 +141,8 @@ type Playtree struct {
 }
 
 func (pt *Playtree) Play(action <-chan Action) {
+	// initialize repeat counters
+	counters := make(map[*PlayEdge]int)
 	// initialize history - 1st index is playhead index. Second is history stack
 	history := [][]*PlayNode{}
 	for range len(pt.Playheads) {
@@ -208,7 +161,7 @@ StartPlayhead:
 			hadToDefault = true
 		}
 		if hadToDefault {
-			fmt.Println("DEFAULTING TO PLAYHEAD", pt.Playheads[playheadIndex+1].Name)
+			fmt.Println("DEFAULTING TO PLAYHEAD", pt.Playheads[playheadIndex].Name)
 		}
 		// play song at playhead
 		done, play, skip := make(chan bool), make(chan bool), make(chan bool)
@@ -242,13 +195,13 @@ StartPlayhead:
 					if playheadIndex < 0 {
 						playheadIndex += len(pt.Playheads)
 					}
-					fmt.Println("MOVING LEFT TO PLAYHEAD", pt.Playheads[playheadIndex+1].Name)
+					fmt.Println("MOVING LEFT TO PLAYHEAD", pt.Playheads[playheadIndex].Name)
 					goto StartPlayhead
 				case ActionRight:
 					pt.Playheads[playheadIndex].Node.Content.Skip(skip)
 					playheadIndex++
 					playheadIndex %= len(pt.Playheads)
-					fmt.Println("MOVING RIGHT TO PLAYHEAD", pt.Playheads[playheadIndex+1].Name)
+					fmt.Println("MOVING RIGHT TO PLAYHEAD", pt.Playheads[playheadIndex].Name)
 					goto StartPlayhead
 				}
 
@@ -257,23 +210,24 @@ StartPlayhead:
 			}
 		}
 
-		// repeat if should loop forever
-		if pt.Playheads[playheadIndex].Node.Repeat.Times < 0 {
-			pt.Playheads[playheadIndex].Node = pt.Playheads[playheadIndex].Node.Repeat.From
-			continue
-		}
-
-		// increment play counter if should repeat X times
-		if pt.Playheads[playheadIndex].Node.Repeat.Counter < pt.Playheads[playheadIndex].Node.Repeat.Times {
-			pt.Playheads[playheadIndex].Node.Repeat.Counter++
-			if pt.Playheads[playheadIndex].Node != pt.Playheads[playheadIndex].Node.Repeat.From {
-				pt.Playheads[playheadIndex].Node = pt.Playheads[playheadIndex].Node.Repeat.From
-			}
-			continue
-		}
-
 		history[playheadIndex] = append(history[playheadIndex], pt.Playheads[playheadIndex].Node)
-		pt.Playheads[playheadIndex].Node = randomlySelectNextPlayNode(pt.Playheads[playheadIndex].Node.Next)
+		selectedEdge := randomlySelectNextPlayEdge(pt.Playheads[playheadIndex].Node.Next, counters)
+
+		if selectedEdge == nil {
+			pt.Playheads[playheadIndex].Node = nil
+		} else {
+			if selectedEdge.Repeat >= 0 {
+				counter, found := counters[selectedEdge]
+
+				if !found {
+					counters[selectedEdge] = 1
+				} else {
+					fmt.Println(counters[selectedEdge])
+					counters[selectedEdge] = counter + 1
+				}
+			}
+			pt.Playheads[playheadIndex].Node = selectedEdge.Node
+		}
 	}
 	fmt.Println("PLAYHEADS ALL FINISHED")
 }
@@ -494,6 +448,33 @@ func handleSetCurrentlyPlaying(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	runCliPtr := flag.Bool("c", false, "if this flag is set to true, a music player will run on the command line.")
+	flag.Parse()
+
+	if *runCliPtr {
+		godotenv.Load()
+		if flag.NArg() != 1 {
+			panic(errors.New("no filename for playtree file to play"))
+		}
+		file, err := os.Open(flag.Arg(0))
+		if err != nil {
+			panic(err)
+		}
+		pti, ptierr := playtreeInfoFromJSON(file)
+		if ptierr != nil {
+			panic(ptierr)
+		}
+		file.Close()
+		pt, pterr := playtreeFromPlaytreeInfo(*pti)
+		if pterr != nil {
+			panic(pterr)
+		}
+		action := make(chan Action)
+		go getActions(action)
+		pt.Play(action)
+		return
+	}
+
 	// Get all playtrees
 	http.HandleFunc("GET /playtrees", handleGetPlaytrees)
 

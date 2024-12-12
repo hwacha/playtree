@@ -38,10 +38,7 @@
             "content": {
                 "path": "G.wav"
             },
-            "repeat": {
-                "times": 4,
-                "from": "C"
-            }
+            "next": [ { "node": "C", "repeat": 4 } ]
         },
         {
             "id": "GtoA",
@@ -49,13 +46,10 @@
             "content": {
                 "path": "G.wav"
             },
-            "repeat": {
-                "times": 4,
-                "from": "A"
-            }
+            "next": [ { "node": "A", "repeat": 4 } ]
         }
     ],
-    "playheads": [
+    "playroots": [
         {
             "name": "major",
             "nodeID": "C"
