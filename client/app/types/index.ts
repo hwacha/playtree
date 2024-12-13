@@ -16,7 +16,7 @@ type PlaytreeSummary = {
 }
 
 type Song = {
-    path: string;
+    filename: string;
 }
 
 type PlayEdge = {

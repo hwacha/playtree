@@ -64,17 +64,13 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     elligibleEdges.push(curEdge)
                 }
                 const scaledRand = Math.floor(action.rand * totalShares)
-                console.log(scaledRand)
                 let bound : number = 0
                 let selectedEdge : PlayEdge | null = null
                 for (let i in elligibleEdges) {
                     const curEdge = elligibleEdges[i]
                     const curShares = curEdge.shares ? curEdge.shares : 1
                     bound += curShares
-                    console.log("BOUND IS " + bound)
                     if (scaledRand < bound) {
-                        console.log("SELECTED")
-                        console.log(curEdge)
                         selectedEdge = curEdge
                         break
                     }
@@ -189,7 +185,7 @@ export default function Player({playtree}: PlayerProps) {
         }
 
         if (state.playheads.length > 0) {
-            const curSongPath = state.playheads[state.playheadIndex].node.content.path
+            const curSongPath = state.playheads[state.playheadIndex].node.content.filename
 
             if (audio.src.split("/").pop() !== curSongPath) {
                 audio.pause()
@@ -218,7 +214,7 @@ export default function Player({playtree}: PlayerProps) {
                     <tbody>
                         <tr className="p-2"><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
                         <tr className="p-2"><td>Playhead</td><td>|</td><td>{state.playheads[state.playheadIndex].name}</td></tr>
-                        <tr className="p-2"><td>Song</td><td>|</td><td>{state.playheads[state.playheadIndex].node.content.path.split("/").pop()?.split(".")[0]}</td></tr>
+                        <tr className="p-2"><td>Song</td><td>|</td><td>{state.playheads[state.playheadIndex].node.content.filename.split("/").pop()?.split(".")[0]}</td></tr>
                     </tbody>
                 </table> : "No playheads available"}
             </div>

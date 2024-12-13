@@ -10,7 +10,7 @@ import (
 
 type (
 	ContentInfo struct {
-		Path string `json:"path" validate:"required"`
+		Filename string `json:"filename" validate:"required"`
 	}
 
 	PlayEdgeInfo struct {
@@ -126,7 +126,7 @@ func playtreeFromPlaytreeInfo(pti PlaytreeInfo) (*Playtree, error) {
 		var content Playable
 		switch pni.Type {
 		case "song":
-			content = &Song{Path: pni.Content.Path, Command: nil}
+			content = &Song{Filename: pni.Content.Filename, Command: nil}
 		default:
 			return nil, errors.New(`JSON Playtree parse: unexpected type "` + pni.Type + `"`)
 		}

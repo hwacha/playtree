@@ -12,7 +12,7 @@
             "id": "C",
             "type": "song",
             "content": {
-                "path": "C.wav"
+                "filename": "C.wav"
             },
             "next":[ { "nodeID": "F" }, { "nodeID": "GtoA" }, { "nodeID": "GtoC" } ]
         },
@@ -20,7 +20,7 @@
             "id": "A",
             "type": "song",
             "content": {
-                "path": "A.wav"
+                "filename": "A.wav"
             },
             "next":[ { "nodeID": "F" }, { "nodeID": "GtoA" }, { "nodeID":"GtoC" } ]
         },
@@ -28,7 +28,7 @@
             "id": "F",
             "type": "song",
             "content": {
-                "path": "F.wav"
+                "filename": "F.wav"
             },
             "next": [ { "nodeID": "GtoC" }, { "nodeID": "GtoA" } ]
         },
@@ -36,7 +36,7 @@
             "id": "GtoC",
             "type": "song",
             "content": {
-                "path": "G.wav"
+                "filename": "G.wav"
             },
             "next": [ { "node": "C", "repeat": 4 } ]
         },
@@ -44,7 +44,7 @@
             "id": "GtoA",
             "type": "song",
             "content": {
-                "path": "G.wav"
+                "filename": "G.wav"
             },
             "next": [ { "node": "A", "repeat": 4 } ]
         }
