@@ -14,7 +14,7 @@
             "content": {
                 "path": "C.wav"
             },
-            "next":[ { "node": "F" }, { "node": "GtoA" }, { "node": "GtoC" } ]
+            "next":[ { "nodeID": "F" }, { "nodeID": "GtoA" }, { "nodeID": "GtoC" } ]
         },
         {
             "id": "A",
@@ -22,7 +22,7 @@
             "content": {
                 "path": "A.wav"
             },
-            "next":[ { "node": "F" }, { "node": "GtoA" }, { "node":"GtoC" } ]
+            "next":[ { "nodeID": "F" }, { "nodeID": "GtoA" }, { "nodeID":"GtoC" } ]
         },
         {
             "id": "F",
@@ -30,7 +30,7 @@
             "content": {
                 "path": "F.wav"
             },
-            "next": [ { "node": "GtoC" }, { "node": "GtoA" } ]
+            "next": [ { "nodeID": "GtoC" }, { "nodeID": "GtoA" } ]
         },
         {
             "id": "GtoC",

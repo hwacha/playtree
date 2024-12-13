@@ -7,7 +7,7 @@ type PlayerProps = {
 type PlayerState = {
     playheads: Playhead[];
     playheadIndex: number;
-    repeatCounters: Map<string, number>;
+    repeatCounters: Map<string, Map<string, number>>;
     isPlaying: boolean;
 }
 
@@ -44,59 +44,60 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
 
             const curNode = state.playheads[state.playheadIndex].node
             const newPlayheads = structuredClone(state.playheads)
-            if (action.type === 'song_ended' && curNode.repeat) {
-                const counter = state.repeatCounters.get(curNode.id)
-                if (counter === undefined) {
-                    return structuredClone(state)
-                }
-                
-                if (curNode.repeat.times > 0 && counter < curNode.repeat.times) {
-                    const newRepeatCounters = structuredClone(state.repeatCounters)
-                    const oldCount = state.repeatCounters.get(curNode.id)
-                    newRepeatCounters.set(curNode.id, oldCount ? oldCount + 1 : 1)
-                    const newNode = action.playtree.nodes.find(node => node.id === curNode.repeat?.from)
-                    if (newNode) {
-                        newPlayheads[state.playheadIndex].node = newNode
-                    }
-
-                    return {
-                        ...state,
-                        repeatCounters: newRepeatCounters,
-                        playheads: newPlayheads
-                    }
-                }
-            }
 
             if (curNode.next) {
-                let numUnmarked = 0
+                let totalShares = 0
+                const elligibleEdges : PlayEdge[] = []
                 for (let i in curNode.next) {
-                    let curNextNodeEvent = curNode.next[i]
-                    if (!curNextNodeEvent.probability) {
-                        numUnmarked++
+                    let curEdge = curNode.next[i]
+
+                    const counter = state.repeatCounters.get(curNode.id)?.get(curEdge.nodeID)
+                    if (counter !== undefined && curEdge.repeat > 0 && counter >= curEdge.repeat) {
+                        continue
                     }
+
+                    if (!curEdge.shares) {
+                        totalShares += 1
+                    } else {
+                        totalShares += curEdge.shares
+                    }
+                    elligibleEdges.push(curEdge)
                 }
-                let defaultProbability = (1 / numUnmarked) * (numUnmarked / curNode.next.length)
-    
+                const scaledRand = Math.floor(action.rand * totalShares)
+                console.log(scaledRand)
                 let bound : number = 0
-                let nextNodeId : string
-                for (let i in curNode.next) {
-                    let curNextNodeEvent = curNode.next[i]
-                    let p = !curNextNodeEvent.probability ? defaultProbability : curNextNodeEvent.probability
-                    bound += p
-                    if (action.rand < bound) {
-                        nextNodeId = curNode.next[i].node
+                let selectedEdge : PlayEdge | null = null
+                for (let i in elligibleEdges) {
+                    const curEdge = elligibleEdges[i]
+                    const curShares = curEdge.shares ? curEdge.shares : 1
+                    bound += curShares
+                    console.log("BOUND IS " + bound)
+                    if (scaledRand < bound) {
+                        console.log("SELECTED")
+                        console.log(curEdge)
+                        selectedEdge = curEdge
                         break
                     }
                 }
-    
-                let nextNode = action.playtree.nodes.find(node => node.id === nextNodeId)
-                if (nextNode) {
-                    newPlayheads[state.playheadIndex].history.push(newPlayheads[state.playheadIndex].node)
-                    newPlayheads[state.playheadIndex].node = nextNode
+                const newRepeatCounters = structuredClone(state.repeatCounters)
+                if (selectedEdge != null) {
+                    const counter = state.repeatCounters.get(curNode.id)?.get(selectedEdge.nodeID)
+                    if (counter !== undefined) {
+                        newRepeatCounters.get(curNode.id)?.set(selectedEdge.nodeID, counter + 1)
+                    }
+                    let nextNode = action.playtree.nodes.find(node => {
+                        return node.id === selectedEdge.nodeID
+                    })
+                    if (nextNode) {
+                        newPlayheads[state.playheadIndex].history.push(newPlayheads[state.playheadIndex].node)
+                        newPlayheads[state.playheadIndex].node = nextNode
+                    }
                 }
+
                 return {
                     ...state,
-                    playheads: newPlayheads
+                    playheads: newPlayheads,
+                    repeatCounters: newRepeatCounters
                 }
             }
 
@@ -105,7 +106,8 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
 
             return {
                 ...state,
-                playheads: newPlayheads
+                playheadIndex: index,
+                playheads: newPlayheads,
             }
         }
         case 'skipped_backward': {
@@ -139,9 +141,9 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
 export default function Player({playtree}: PlayerProps) {
     const initialPlayheadIndex = 0
     let initialPlayheads : Playhead[] = []
-    let initialRepeatCounters = new Map<string, number>
-    if (playtree != null) {
-        initialPlayheads = playtree.playheads.map(playhead => {
+    let initialRepeatCounters = new Map<string, Map<string, number>>()
+    if (playtree) {
+        initialPlayheads = playtree.playroots.map(playhead => {
             const playNode = playtree.nodes.find(node => node.id === playhead.nodeID)
             if (playNode !== undefined) {
                 return {
@@ -153,9 +155,15 @@ export default function Player({playtree}: PlayerProps) {
                 return undefined
             }
         }).filter(playhead => playhead !== undefined)
-        playtree.nodes.map((node: PlaytreeNode) => {
-            if (node.repeat) {
-                initialRepeatCounters.set(node.id, 0)
+        playtree.nodes.map((node: PlayNode) => {
+            if (node.next) {
+                node.next.map((edge : PlayEdge) => {
+                    if (edge.repeat >= 0) {
+                        const targetNodeToCounter = new Map<string, number>()
+                        targetNodeToCounter.set(edge.nodeID, 0)
+                        initialRepeatCounters.set(node.id, targetNodeToCounter)
+                    }
+                })
             }
         })
     }
@@ -207,9 +215,11 @@ export default function Player({playtree}: PlayerProps) {
             <div className="text-white fixed left-2/3 bottom-4 font-lilitaOne">
                 {state.playheads.length > 0 ?
                 <table>
-                    <tr className="p-2"><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
-                    <tr className="p-2"><td>Playhead</td><td>|</td><td>{state.playheads[state.playheadIndex].name}</td></tr>
-                    <tr className="p-2"><td>Song</td><td>|</td><td>{state.playheads[state.playheadIndex].node.content.path.split("/").pop()?.split(".")[0]}</td></tr>
+                    <tbody>
+                        <tr className="p-2"><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
+                        <tr className="p-2"><td>Playhead</td><td>|</td><td>{state.playheads[state.playheadIndex].name}</td></tr>
+                        <tr className="p-2"><td>Song</td><td>|</td><td>{state.playheads[state.playheadIndex].node.content.path.split("/").pop()?.split(".")[0]}</td></tr>
+                    </tbody>
                 </table> : "No playheads available"}
             </div>
             <audio ref={onAudioChange} src="" />

@@ -14,7 +14,7 @@ type (
 	}
 
 	PlayEdgeInfo struct {
-		Node   string `json:"node" validate:"required"`
+		NodeID string `json:"nodeID" validate:"required"`
 		Shares int    `json:"shares,omitempty" validate:"omitempty,min=0"`
 		Repeat int    `json:"repeat,omitempty"`
 	}
@@ -71,7 +71,7 @@ func (pei *PlayEdgeInfo) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	pei.Node = pei2.Node
+	pei.NodeID = pei2.Node
 	pei.Shares = pei2.Shares
 	pei.Repeat = pei2.Repeat
 	return nil
@@ -151,9 +151,9 @@ func playtreeFromPlaytreeInfo(pti PlaytreeInfo) (*Playtree, error) {
 		if pni.Next != nil {
 			pes := []*PlayEdge{}
 			for _, pei := range pni.Next {
-				nextNode, nextNodeFound := playNodesByID[pei.Node]
+				nextNode, nextNodeFound := playNodesByID[pei.NodeID]
 				if !nextNodeFound {
-					return nil, errors.New(`JSON Playtree graph: undefined node "` + pei.Node + `"`)
+					return nil, errors.New(`JSON Playtree graph: undefined node "` + pei.NodeID + `"`)
 				}
 
 				pes = append(pes, &PlayEdge{Node: nextNode, Shares: pei.Shares, Repeat: pei.Repeat})

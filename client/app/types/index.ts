@@ -19,24 +19,17 @@ type Song = {
     path: string;
 }
 
-type RepeatInfo = {
-    times: number;
-    from: string;
-    counter: number | undefined;
+type PlayEdge = {
+    nodeID: string;
+    shares: number;
+    repeat: number;
 }
 
-type NodeProbability = {
-    node: string;
-    probability: number | null | undefined;
-}
-
-
-type PlaytreeNode = {
+type PlayNode = {
     id: string;
     type: "song";
     content: Song;
-    repeat: RepeatInfo | null;
-    next: NodeProbability[];
+    next: PlayEdge[];
 }
 
 type PlayheadInfo = {
@@ -46,12 +39,12 @@ type PlayheadInfo = {
 
 type Playhead = {
     name: string;
-    node: PlaytreeNode;
-    history: PlaytreeNode[];
+    node: PlayNode;
+    history: PlayNode[];
 }
 
 type Playtree = {
     summary: PlaytreeSummary;
-    nodes: PlaytreeNode[];
-    playheads: PlayheadInfo[];
+    nodes: PlayNode[];
+    playroots: PlayheadInfo[];
 }

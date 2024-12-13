@@ -16,7 +16,7 @@ export const links: LinksFunction = () => [
 
 export const loader = async () => {
   const response = await fetch("http://localhost:8080/me/player")
-  return await response.json()
+  return response.json()
 }
 
 export default function App() {
