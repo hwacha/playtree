@@ -15,8 +15,9 @@ type PlaytreeSummary = {
     SourceInfo: SourceInfo | null;
 }
 
-type Song = {
-    filename: string;
+type Content = {
+    type: "local-audio" | "spotify-track" | "spotify-playlist";
+    uri: string;
 }
 
 type PlayEdge = {
@@ -27,9 +28,14 @@ type PlayEdge = {
 
 type PlayNode = {
     id: string;
-    type: "song";
-    content: Song;
+    type: "sequence"|"selector";
+    content: Content[];
     next: PlayEdge[];
+}
+
+type HistoryNode = {
+    nodeID: string;
+    index: number;
 }
 
 type PlayheadInfo = {
@@ -40,7 +46,8 @@ type PlayheadInfo = {
 type Playhead = {
     name: string;
     node: PlayNode;
-    history: PlayNode[];
+    nodeIndex: number;
+    history: HistoryNode[];
 }
 
 type Playtree = {

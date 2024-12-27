@@ -9,6 +9,45 @@
     },
     "nodes": [
         {
+            "id": "any",
+            "type": "selector",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "C.wav"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "D.wav"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "E.wav"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "F.wav"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "G.wav"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "A.wav"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "B.wav"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "C2.wav"
+                }
+            ],
+            "next":[ { "nodeID": "any" } ]
+        },
+        {
             "id": "C",
             "type": "selector",
             "content": [
@@ -91,6 +130,10 @@
         }
     ],
     "playroots": [
+        {
+            "name": "grabbag",
+            "nodeID": "any"
+        },
         {
             "name": "major",
             "nodeID": "C"
