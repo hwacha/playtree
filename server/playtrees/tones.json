@@ -10,43 +10,84 @@
     "nodes": [
         {
             "id": "C",
-            "type": "song",
-            "content": {
-                "filename": "C.wav"
-            },
-            "next":[ { "nodeID": "F" }, { "nodeID": "GtoA" }, { "nodeID": "GtoC" } ]
+            "type": "selector",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "C.wav"
+                }
+            ],
+            "next":[ { "nodeID": "F" }, { "nodeID": "ErunB", "shares": 100 }, { "nodeID": "GtoA" }, { "nodeID": "GtoC" } ]
         },
         {
             "id": "A",
-            "type": "song",
-            "content": {
-                "filename": "A.wav"
-            },
+            "type": "selector",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "A.wav"
+                }
+            ],
             "next":[ { "nodeID": "F" }, { "nodeID": "GtoA" }, { "nodeID":"GtoC" } ]
         },
         {
             "id": "F",
-            "type": "song",
-            "content": {
-                "filename": "F.wav"
-            },
+            "type": "selector",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "F.wav"
+                }
+            ],
             "next": [ { "nodeID": "GtoC" }, { "nodeID": "GtoA" } ]
         },
         {
             "id": "GtoC",
-            "type": "song",
-            "content": {
-                "filename": "G.wav"
-            },
-            "next": [ { "node": "C", "repeat": 4 } ]
+            "type": "selector",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "G.wav"
+                }
+            ],
+            "next": [ { "nodeID": "C", "repeat": 4 } ]
         },
         {
             "id": "GtoA",
-            "type": "song",
-            "content": {
-                "filename": "G.wav"
-            },
-            "next": [ { "node": "A", "repeat": 4 } ]
+            "type": "selector",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "G.wav"
+                }
+            ],
+            "next": [ { "nodeID": "A", "repeat": 4 } ]
+        },
+        {
+            "id": "ErunB",
+            "type": "sequence",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "E.wav"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "F.wav"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "G.wav"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "A.wav"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "B.wav"
+                }
+            ]
         }
     ],
     "playroots": [

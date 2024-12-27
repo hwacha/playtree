@@ -10,7 +10,8 @@ import (
 
 type (
 	ContentInfo struct {
-		Filename string `json:"filename" validate:"required"`
+		Type string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
+		URI  string `json:"uri" validate:"required"`
 	}
 
 	PlayEdgeInfo struct {
@@ -21,8 +22,8 @@ type (
 
 	PlayNodeInfo struct {
 		ID      string         `json:"id" validate:"required"`
-		Type    string         `json:"type" validate:"required,oneof=song"`
-		Content ContentInfo    `json:"content" validate:"required"`
+		Type    string         `json:"type" validate:"required,oneof=sequence selector"`
+		Content []ContentInfo  `json:"content" validate:"required"`
 		Next    []PlayEdgeInfo `json:"next,omitempty"`
 	}
 
@@ -57,13 +58,13 @@ type (
 
 func (pei *PlayEdgeInfo) UnmarshalJSON(data []byte) error {
 	type PlayEdgeInfo2 struct {
-		Node   string `json:"node" validate:"required"`
+		NodeID string `json:"nodeID" validate:"required"`
 		Shares int    `json:"shares,omitempty" validate:"omitempty,min=0"`
 		Repeat int    `json:"repeat,omitempty"`
 	}
 
 	pei2 := &PlayEdgeInfo2{
-		Node:   "",
+		NodeID: "",
 		Shares: 1,
 		Repeat: -1,
 	}
@@ -71,7 +72,7 @@ func (pei *PlayEdgeInfo) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	pei.NodeID = pei2.Node
+	pei.NodeID = pei2.NodeID
 	pei.Shares = pei2.Shares
 	pei.Repeat = pei2.Repeat
 	return nil
@@ -95,6 +96,11 @@ func playtreeInfoFromJSON(r io.Reader) (*PlaytreeInfo, error) {
 	for _, node := range pti.Nodes {
 		if nodeValidationErr := v.Struct(node); nodeValidationErr != nil {
 			return nil, nodeValidationErr
+		}
+		for _, content := range node.Content {
+			if contentValidationErr := v.Struct(content); contentValidationErr != nil {
+				return nil, contentValidationErr
+			}
 		}
 		for _, edge := range node.Next {
 			if nextValidationErr := v.Struct(edge); nextValidationErr != nil {
@@ -124,9 +130,19 @@ func playtreeFromPlaytreeInfo(pti PlaytreeInfo) (*Playtree, error) {
 
 		// song
 		var content Playable
+		songs := []*Song{}
+		for _, content := range pni.Content {
+			songs = append(songs, &Song{Filename: content.URI, Stopped: false, Command: nil})
+		}
 		switch pni.Type {
-		case "song":
-			content = &Song{Filename: pni.Content.Filename, Command: nil}
+		case "sequence":
+			content = &Sequence{
+				Songs: songs,
+			}
+		case "selector":
+			content = &Selector{
+				Songs: songs,
+			}
 		default:
 			return nil, errors.New(`JSON Playtree parse: unexpected type "` + pni.Type + `"`)
 		}
@@ -182,8 +198,9 @@ func playtreeFromPlaytreeInfo(pti PlaytreeInfo) (*Playtree, error) {
 	// third pass
 	for nodeId, name := range serializedPlayheads {
 		pt.Playheads = append(pt.Playheads, &Playhead{
-			Name: name,
-			Node: playNodesByID[nodeId],
+			Name:      name,
+			Node:      playNodesByID[nodeId],
+			NodeIndex: 0,
 		})
 	}
 
