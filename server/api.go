@@ -93,6 +93,19 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 
 		w.WriteHeader(http.StatusCreated)
 	},
+	"GET /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		idDotJson := "./playtrees/" + id + ".json"
+
+		file, openErr := os.Open(idDotJson)
+		if openErr != nil {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, `Playtree with ID "`+id+`" does not exist`)
+			return
+		}
+
+		file.WriteTo(w)
+	},
 	"PUT /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
 		// check if file already exists. if not, 404 error.
 		id := r.PathValue("id")

@@ -16,7 +16,8 @@ type PlayerAction = {
 } | {
     type: 'song_ended' | 'skipped_forward';
     playtree: Playtree;
-    rand: number;
+    edgeRand: number;
+    selectorRand: number;
 } | {
     type: 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
     playtree: Playtree;
@@ -42,8 +43,20 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 return structuredClone(state)
             }
 
-            const curNode = state.playheads[state.playheadIndex].node
+            const curPlayhead = state.playheads[state.playheadIndex]
+            const curNode = curPlayhead.node
+            const curNodeIndex = curPlayhead.nodeIndex
             const newPlayheads = structuredClone(state.playheads)
+
+            if (curNode.type === "sequence" && curNodeIndex + 1 < curNode.content.length) {
+                newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex })
+                newPlayheads[state.playheadIndex].node = curNode
+                newPlayheads[state.playheadIndex].nodeIndex = curNodeIndex + 1
+                return {
+                    ...state,
+                    playheads: newPlayheads,
+                }
+            }
 
             if (curNode.next) {
                 let totalShares = 0
@@ -63,7 +76,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     }
                     elligibleEdges.push(curEdge)
                 }
-                const scaledRand = Math.floor(action.rand * totalShares)
+                const scaledRand = Math.floor(action.edgeRand * totalShares)
                 let bound : number = 0
                 let selectedEdge : PlayEdge | null = null
                 for (let i in elligibleEdges) {
@@ -85,8 +98,11 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                         return node.id === selectedEdge.nodeID
                     })
                     if (nextNode) {
-                        newPlayheads[state.playheadIndex].history.push(newPlayheads[state.playheadIndex].node)
+                        newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex })
                         newPlayheads[state.playheadIndex].node = nextNode
+                        if (nextNode.type === "selector") {
+                            newPlayheads[state.playheadIndex].nodeIndex = Math.floor(action.selectorRand * nextNode.content.length)
+                        }
                     }
                 }
 
@@ -108,11 +124,18 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
         }
         case 'skipped_backward': {
             const newPlayheads = structuredClone(state.playheads)
-            const prevNode = newPlayheads[state.playheadIndex].history.pop()
-            if (prevNode === undefined) {
+            const prevHistoryNode = newPlayheads[state.playheadIndex].history.pop()
+            if (prevHistoryNode === undefined) {
                 return structuredClone(state)
             } else {
-                newPlayheads[state.playheadIndex].node = prevNode
+                const prevPlayNode = action.playtree.nodes.find(node => {
+                    return node.id === prevHistoryNode.nodeID
+                })
+                if (prevPlayNode === undefined) {
+                    return structuredClone(state)
+                }
+                newPlayheads[state.playheadIndex].node = structuredClone(prevPlayNode)
+                newPlayheads[state.playheadIndex].nodeIndex = prevHistoryNode.index
                 return {
                     ...state,
                     playheads: newPlayheads
@@ -145,6 +168,7 @@ export default function Player({playtree}: PlayerProps) {
                 return {
                     name: playhead.name,
                     node: playNode,
+                    nodeIndex: playNode.type === "selector" ? Math.floor(Math.random() * playNode.content.length) : 0,
                     history: []
                 }
             } else {
@@ -179,18 +203,20 @@ export default function Player({playtree}: PlayerProps) {
         if (!audio.onended) {
             audio.onended = () => {
                 if (playtree !== null) {
-                    dispatch({type: 'song_ended', playtree: playtree, rand: Math.random()})
+                    dispatch({type: 'song_ended', playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random()})
                 }                
             }
         }
 
         if (state.playheads.length > 0) {
-            const curSongPath = state.playheads[state.playheadIndex].node.content.filename
+            const curPlayhead = state.playheads[state.playheadIndex]
 
-            if (audio.src.split("/").pop() !== curSongPath) {
+            const curSongURI = curPlayhead.node.content[curPlayhead.nodeIndex].uri
+
+            if (audio.src.split("/").pop() !== curSongURI) {
                 audio.pause()
                 
-                audio.src = "/audio/" + curSongPath
+                audio.src = "/audio/" + curSongURI
                 if (state.isPlaying) {
                     audio.play()
                 }
@@ -214,7 +240,7 @@ export default function Player({playtree}: PlayerProps) {
                     <tbody>
                         <tr className="p-2"><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
                         <tr className="p-2"><td>Playhead</td><td>|</td><td>{state.playheads[state.playheadIndex].name}</td></tr>
-                        <tr className="p-2"><td>Song</td><td>|</td><td>{state.playheads[state.playheadIndex].node.content.filename.split("/").pop()?.split(".")[0]}</td></tr>
+                        <tr className="p-2"><td>Song</td><td>|</td><td>{state.playheads[state.playheadIndex].node.content[state.playheads[state.playheadIndex].nodeIndex].uri.split("/").pop()?.split(".")[0]}</td></tr>
                     </tbody>
                 </table> : "No playheads available"}
             </div>
@@ -247,7 +273,7 @@ export default function Player({playtree}: PlayerProps) {
                     type="button"
                     title="Skip Forward"
                     className="rounded-sm p-2 text-white"
-                    onClick={() => dispatch({type: "skipped_forward", playtree: playtree, rand: Math.random()})}>{"\u23ED"}</button>
+                    onClick={() => dispatch({type: "skipped_forward", playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random()})}>{"\u23ED"}</button>
             </div>
             <div className="w-fit mx-auto">
                 <button
