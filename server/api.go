@@ -195,9 +195,11 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 				w.WriteHeader(http.StatusInternalServerError)
 			}
 			fmt.Fprint(w, readErr.Error())
+			log.Println(readErr.Error())
+			return
 		}
 		currentlyPlaying = &id
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusNoContent)
 	},
 }
 

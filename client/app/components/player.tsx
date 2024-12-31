@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from "react"
+import { useCallback, useEffect, useReducer } from "react"
 
 type PlayerProps = {
     playtree: Playtree | null
@@ -19,12 +19,45 @@ type PlayerAction = {
     edgeRand: number;
     selectorRand: number;
 } | {
-    type: 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
+    type:'playtree_loaded' | 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
     playtree: Playtree;
 }
 
 const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
     switch (action.type) {
+        case 'playtree_loaded': {
+            const newRepeatCounters = new Map<string, Map<string, number>>()
+            const newPlayheads = action.playtree.playroots.map(playhead => {
+                const playNode = action.playtree.nodes.find(node => node.id === playhead.nodeID)
+                if (playNode !== undefined) {
+                    return {
+                        name: playhead.name,
+                        node: playNode,
+                        nodeIndex: playNode.type === "selector" ? Math.floor(Math.random() * playNode.content.length) : 0,
+                        history: []
+                    }
+                } else {
+                    return undefined
+                }
+            }).filter(playhead => playhead !== undefined)
+            action.playtree.nodes.map((node: PlayNode) => {
+                if (node.next) {
+                    node.next.map((edge : PlayEdge) => {
+                        if (edge.repeat >= 0) {
+                            const targetNodeToCounter = new Map<string, number>()
+                            targetNodeToCounter.set(edge.nodeID, 0)
+                            newRepeatCounters.set(node.id, targetNodeToCounter)
+                        }
+                    })
+                }
+            })
+            return {
+                ...state,
+                playheadIndex: 0,
+                playheads: newPlayheads,
+                repeatCounters: newRepeatCounters,
+            }
+        }
         case 'played': {
             return {
                 ...state,
@@ -157,36 +190,13 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
     }
 }
 
+
+
 export default function Player({playtree}: PlayerProps) {
     const initialPlayheadIndex = 0
     let initialPlayheads : Playhead[] = []
     let initialRepeatCounters = new Map<string, Map<string, number>>()
-    if (playtree) {
-        initialPlayheads = playtree.playroots.map(playhead => {
-            const playNode = playtree.nodes.find(node => node.id === playhead.nodeID)
-            if (playNode !== undefined) {
-                return {
-                    name: playhead.name,
-                    node: playNode,
-                    nodeIndex: playNode.type === "selector" ? Math.floor(Math.random() * playNode.content.length) : 0,
-                    history: []
-                }
-            } else {
-                return undefined
-            }
-        }).filter(playhead => playhead !== undefined)
-        playtree.nodes.map((node: PlayNode) => {
-            if (node.next) {
-                node.next.map((edge : PlayEdge) => {
-                    if (edge.repeat >= 0) {
-                        const targetNodeToCounter = new Map<string, number>()
-                        targetNodeToCounter.set(edge.nodeID, 0)
-                        initialRepeatCounters.set(node.id, targetNodeToCounter)
-                    }
-                })
-            }
-        })
-    }
+
 
     const [state, dispatch] = useReducer<typeof reducer>(reducer, {
         playheads: initialPlayheads,
@@ -194,6 +204,12 @@ export default function Player({playtree}: PlayerProps) {
         repeatCounters: initialRepeatCounters,
         isPlaying: false
     })
+
+    useEffect(() => {
+        if (playtree) {
+            dispatch({type: "playtree_loaded", playtree: playtree})
+        }
+    }, [playtree])
 
     const onAudioChange = useCallback((audio: HTMLAudioElement) => {
         if (audio == null) {
@@ -233,6 +249,11 @@ export default function Player({playtree}: PlayerProps) {
     if (playtree == null) {
         return (<div className="bg-green-600 fixed flex w-full left-0 bottom-0"><div className="text-white mx-auto my-6 font-lilitaOne">No playtrees.</div></div>)
     } else {
+        let currentSong = null
+        if (state && state.playheads && state.playheads[state.playheadIndex]) {
+            currentSong = state.playheads[state.playheadIndex].node.content[state.playheads[state.playheadIndex].nodeIndex].uri.split("/").pop()?.split(".")[0]
+        }
+        
         return (<div className="bg-green-600 fixed w-full left-0 bottom-0">
             <div className="text-white fixed left-2/3 bottom-4 font-lilitaOne">
                 {state.playheads.length > 0 ?
@@ -240,7 +261,7 @@ export default function Player({playtree}: PlayerProps) {
                     <tbody>
                         <tr className="p-2"><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
                         <tr className="p-2"><td>Playhead</td><td>|</td><td>{state.playheads[state.playheadIndex].name}</td></tr>
-                        <tr className="p-2"><td>Song</td><td>|</td><td>{state.playheads[state.playheadIndex].node.content[state.playheads[state.playheadIndex].nodeIndex].uri.split("/").pop()?.split(".")[0]}</td></tr>
+                        <tr className="p-2"><td>Song</td><td>|</td><td>{currentSong}</td></tr>
                     </tbody>
                 </table> : "No playheads available"}
             </div>

@@ -15,13 +15,13 @@ export const links: LinksFunction = () => [
 ];
 
 export const loader = async () => {
+  console.log("calling root loader")
   const response = await fetch("http://localhost:8080/me/player")
   return response.json()
 }
 
 export default function App() {
   const playtree = useLoaderData<typeof loader>()
-
   return (
     <html lang="en">
       <head>
