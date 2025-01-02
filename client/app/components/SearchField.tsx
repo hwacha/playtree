@@ -24,6 +24,7 @@ export default function SearchField(props: SearchFieldProps) {
             }
         }
         event.preventDefault()
+        return false
     }
 
     useEffect(() => {
