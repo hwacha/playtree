@@ -6,7 +6,7 @@ import {
   Scripts,
   useLoaderData} from "@remix-run/react";
 
-import Player from "./components/player";
+import Player from "./components/Player";
 
 import styles from "./tailwind.css?url";
 

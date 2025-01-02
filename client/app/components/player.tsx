@@ -1,3 +1,4 @@
+import { s } from "node_modules/vite/dist/node/types.d-aGj9QkWt";
 import { useCallback, useEffect, useReducer } from "react"
 
 type PlayerProps = {
@@ -223,17 +224,30 @@ export default function Player({playtree}: PlayerProps) {
 
         if (state.playheads.length > 0) {
             const curPlayhead = state.playheads[state.playheadIndex]
-
             const curSongURI = curPlayhead.node.content[curPlayhead.nodeIndex].uri
+            fetch("http://localhost:8081/songs/" + curSongURI).then(response => {
+                return response.body
+            }).then(stream => {
+                if (stream) {
+                    (async () => {
+                        const reader = stream.getReader();
+                        const chunks = [];
+        
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            chunks.push(value);
+                        }
 
-            if (audio.src.split("/").pop() !== curSongURI) {
-                audio.pause()
-                
-                audio.src = "/audio/" + curSongURI
-                if (state.isPlaying) {
-                    audio.play()
+                        const blob = new Blob(chunks)
+                        const url = window.URL.createObjectURL(blob);
+                        audio.src = url;
+                        if (state.isPlaying) {
+                            audio.play()
+                        }
+                    })()
                 }
-            }
+            })
 
             if (state.isPlaying && audio.paused) {
                 audio.play()
