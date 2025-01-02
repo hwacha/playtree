@@ -18,12 +18,6 @@ export const action = async ({request}: ActionFunctionArgs) => {
         method: "PUT"
     })
     return null
-    // if (response.status == 204) {
-    //     return await response.json()
-    // } else {
-    //     return null
-    // }
-    
 }
 
 const SummaryCard = ({summary} : SummaryCardProps) => {

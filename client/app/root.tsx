@@ -15,7 +15,6 @@ export const links: LinksFunction = () => [
 ];
 
 export const loader = async () => {
-  console.log("calling root loader")
   const response = await fetch("http://localhost:8080/me/player")
   return response.json()
 }
@@ -30,7 +29,7 @@ export default function App() {
         <Meta />
         <Links />
       </head>
-      <body className="bg-amber-100">
+      <body className="bg-amber-100 h-full">
       <Scripts />
       <h1 className='font-lilitaOne text-green-600 text-8xl text-center underline mt-12'>Playtree</h1>
       <Outlet />

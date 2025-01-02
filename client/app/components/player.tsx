@@ -190,13 +190,10 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
     }
 }
 
-
-
 export default function Player({playtree}: PlayerProps) {
     const initialPlayheadIndex = 0
     let initialPlayheads : Playhead[] = []
     let initialRepeatCounters = new Map<string, Map<string, number>>()
-
 
     const [state, dispatch] = useReducer<typeof reducer>(reducer, {
         playheads: initialPlayheads,
