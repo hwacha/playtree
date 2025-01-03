@@ -2,14 +2,13 @@
     "summary": {
         "id": "tones",
         "name": "Random Tones",
-        "createdBy": {
-            "id":"0",
-            "name":"billmarcy"
-        }
+        "createdBy":"billmarcy",
+        "access": "public"
     },
     "nodes": [
         {
-            "id": "any",
+            "id": "0",
+            "name": "any",
             "type": "selector",
             "content": [
                 {
@@ -45,10 +44,11 @@
                     "uri": "C2"
                 }
             ],
-            "next":[ { "nodeID": "any" } ]
+            "next":[ { "nodeID": "0" } ]
         },
         {
-            "id": "C",
+            "id": "1",
+            "name": "C",
             "type": "selector",
             "content": [
                 {
@@ -56,10 +56,11 @@
                     "uri": "C"
                 }
             ],
-            "next":[ { "nodeID": "F" }, { "nodeID": "ErunB", "shares": 100 }, { "nodeID": "GtoA" }, { "nodeID": "GtoC" } ]
+            "next":[ { "nodeID": "3" }, { "nodeID": "6", "shares": 100 }, { "nodeID": "5" }, { "nodeID": "4" } ]
         },
         {
-            "id": "A",
+            "id": "2",
+            "name": "A",
             "type": "selector",
             "content": [
                 {
@@ -67,10 +68,11 @@
                     "uri": "A"
                 }
             ],
-            "next":[ { "nodeID": "F" }, { "nodeID": "GtoA" }, { "nodeID":"GtoC" } ]
+            "next":[ { "nodeID": "3" }, { "nodeID": "5" }, { "nodeID":"4" } ]
         },
         {
-            "id": "F",
+            "id": "3",
+            "name": "F",
             "type": "selector",
             "content": [
                 {
@@ -78,10 +80,11 @@
                     "uri": "F"
                 }
             ],
-            "next": [ { "nodeID": "GtoC" }, { "nodeID": "GtoA" } ]
+            "next": [ { "nodeID": "4" }, { "nodeID": "5" } ]
         },
         {
-            "id": "GtoC",
+            "id": "4",
+            "name": "GtoC",
             "type": "selector",
             "content": [
                 {
@@ -89,10 +92,11 @@
                     "uri": "G"
                 }
             ],
-            "next": [ { "nodeID": "C", "repeat": 4 } ]
+            "next": [ { "nodeID": "1", "repeat": 4 } ]
         },
         {
-            "id": "GtoA",
+            "id": "5",
+            "name": "GtoA",
             "type": "selector",
             "content": [
                 {
@@ -100,10 +104,11 @@
                     "uri": "G"
                 }
             ],
-            "next": [ { "nodeID": "A", "repeat": 4 } ]
+            "next": [ { "nodeID": "2", "repeat": 4 } ]
         },
         {
-            "id": "ErunB",
+            "id": "6",
+            "name": "ErunB",
             "type": "sequence",
             "content": [
                 {
@@ -132,15 +137,15 @@
     "playroots": [
         {
             "name": "grabbag",
-            "nodeID": "any"
+            "nodeID": "0"
         },
         {
             "name": "major",
-            "nodeID": "C"
+            "nodeID": "1"
         },
         {
             "name": "minor",
-            "nodeID": "A"
+            "nodeID": "2"
         }
     ]
 }

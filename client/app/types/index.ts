@@ -1,8 +1,3 @@
-type UserInfo = {
-    id: string;
-    name: string;
-}
-
 type SourceInfo = {
     type: "graft" | "starter"
     id: string
@@ -11,7 +6,7 @@ type SourceInfo = {
 type PlaytreeSummary = {
     id: string;
     name: string;
-    createdBy: UserInfo;
+    createdBy: string;
     SourceInfo: SourceInfo | null;
 }
 
@@ -28,6 +23,7 @@ type PlayEdge = {
 
 type PlayNode = {
     id: string;
+    name: string;
     type: "sequence"|"selector";
     content: Content[];
     next: PlayEdge[];

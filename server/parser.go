@@ -22,6 +22,7 @@ type (
 
 	PlayNodeInfo struct {
 		ID      string         `json:"id" validate:"required"`
+		Name    string         `json:"name" validate:"required"`
 		Type    string         `json:"type" validate:"required,oneof=sequence selector"`
 		Content []ContentInfo  `json:"content" validate:"required"`
 		Next    []PlayEdgeInfo `json:"next,omitempty"`
@@ -32,16 +33,18 @@ type (
 		ID   string `json:"id" validate:"required"`
 	}
 
-	UserInfo struct {
-		ID   string `json:"id" validate:"required"`
-		Name string `json:"name" validate:"required"`
-	}
-
 	SummaryInfo struct {
 		ID        string      `json:"id" validate:"required"`
 		Name      string      `json:"name" validate:"required"`
-		CreatedBy UserInfo    `json:"createdBy" validate:"required"`
+		CreatedBy string      `json:"createdBy" validate:"required"`
+		Access    string      `json:"access" validate:"required,oneof=private public"`
 		Source    *SourceInfo `json:"source,omitempty"`
+	}
+
+	PartialSummaryInfo struct {
+		Name      string `json:"name" validate:"required"`
+		CreatedBy string `json:"createdBy" validate:"required"`
+		Access    string `json:"access" validate:"required,oneof=private public"`
 	}
 
 	PlayheadInfo struct {
@@ -76,6 +79,24 @@ func (pei *PlayEdgeInfo) UnmarshalJSON(data []byte) error {
 	pei.Shares = pei2.Shares
 	pei.Repeat = pei2.Repeat
 	return nil
+}
+
+func partialSummaryInfoFromJSON(r io.Reader) (*PartialSummaryInfo, error) {
+	decoder := json.NewDecoder(r)
+	decoder.DisallowUnknownFields()
+	var psi PartialSummaryInfo
+	err := decoder.Decode(&psi)
+	if err != nil {
+		return nil, err
+	}
+
+	v := validator.New()
+
+	if validationErr := v.Struct(psi); validationErr != nil {
+		return nil, validationErr
+	}
+
+	return &psi, nil
 }
 
 func playtreeInfoFromJSON(r io.Reader) (*PlaytreeInfo, error) {
@@ -179,10 +200,7 @@ func playtreeFromPlaytreeInfo(pti PlaytreeInfo) (*Playtree, error) {
 	}
 
 	pt := &Playtree{
-		CreatedBy: User{
-			id:   pti.Summary.CreatedBy.ID,
-			Name: pti.Summary.CreatedBy.Name,
-		},
+		CreatedBy: pti.Summary.CreatedBy,
 		Playheads: []*Playhead{},
 	}
 

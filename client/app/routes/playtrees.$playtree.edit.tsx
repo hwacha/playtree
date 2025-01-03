@@ -1,6 +1,6 @@
-import { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
-import { Background, Controls, Handle, MarkerType, Position, ReactFlow, Node, NodeProps, EdgeProps, getBezierPath, Edge, BaseEdge } from "@xyflow/react";
+import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { useFetcher, useLoaderData } from "@remix-run/react";
+import { Background, Controls, Handle, MarkerType, Position, ReactFlow, Node, NodeProps, EdgeProps, getBezierPath, Edge, BaseEdge, useEdgesState, useNodesState } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import invariant from "tiny-invariant";
@@ -12,17 +12,51 @@ export const loader = async ({params} : LoaderFunctionArgs) => {
     return await response.json()
 }
 
+type PlayheadProps = {
+    name: string;
+}
+
+function Playhead(props : PlayheadProps) {
+    const [name, setName] = useState(props.name)
+    const onNameChange = useCallback((evt : React.ChangeEvent<HTMLInputElement>) => {
+        setName(evt.target.value)
+    }, [name])
+
+    const drag = (event : any) => {
+        if (event && event.target) {
+            event.dataTransfer.setData("text", event.target.id)
+        }
+        
+    }
+
+    return (
+        <div id={name} draggable={true} onDragStart={drag} className="flex m-1">
+            <div className="mr-2 bg-amber-300 px-2 py-1 rounded-md">💽</div><input value={name} onChange={onNameChange}/>
+        </div>
+    )
+}
+
 export type PlayNodeFlow = Node<{
     playnode: PlayNode;
-    reportChangeOccurrence: () => void;
+    reportChangeOccurrence: (playnode: PlayNode) => void;
 }, 'play'>;
 
 function PlayNode(props : NodeProps<PlayNodeFlow>) {
     const [playnodeType, setPlaynodeType] = useState<"sequence"|"selector">(props.data.playnode.type)
-    const [playnodeName, setPlaynodeName] = useState<string>(props.id)
+    const [playnodeName, setPlaynodeName] = useState<string>(props.data.playnode.name)
     const [expanded, setExpanded] = useState<boolean>(false)
     const [contentList, setContentList] = useState<Content[]>(props.data.playnode.content)
     const [adding, setAdding] = useState<boolean>(false)
+
+    const getPlaynode = useCallback(() => {
+        return {
+            id: props.data.playnode.id,
+            type: playnodeType,
+            name: playnodeName,
+            content: contentList,
+            next: props.data.playnode.next,
+        }
+    }, [playnodeType, playnodeName, contentList])
 
     const isFirstRender = useRef(true);
     const isSecondRender = useRef(true);
@@ -35,7 +69,7 @@ function PlayNode(props : NodeProps<PlayNodeFlow>) {
             isSecondRender.current = false
             return
         }
-        props.data.reportChangeOccurrence()
+        props.data.reportChangeOccurrence(getPlaynode())
     }, [playnodeType, playnodeName, contentList])
     
     const onChange = useCallback((evt : any) => {
@@ -95,12 +129,21 @@ function PlayNode(props : NodeProps<PlayNodeFlow>) {
     const isSequence = playnodeType === "sequence"
     const color = isSequence ? "green" : "red"
 
+    const drop = (event : any) => {
+        event.preventDefault();
+        var data = event.dataTransfer.getData("text");
+
+        const playheadToAttach = document.getElementById(data);
+        event.target.appendChild(document.getElementById(data));
+        playheadToAttach?.classList.add("absolute", "-mt-24")
+    }
+
     return (
         <>
             <Handle type="target" position={Position.Top} />
             {
                 expanded ?
-                <div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-48 p-4 nodrag`}>
+                <div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-48 p-4 nodrag text-${color}-600`} onDrop={drop} onDragOver={e => e.preventDefault()}>
                     <button className="absolute -mx-3 -my-4" onClick={onExpandOrCollapse} title="Collapse">↖️</button>
                     {
                         <button className={`bg-${color}-300 rounded-lg absolute -my-4 px-2 py-1`}
@@ -133,7 +176,7 @@ function PlayNode(props : NodeProps<PlayNodeFlow>) {
                         <div className="flex"><button title="Add Content" className={`border-${color}-600 bg-${color}-400 border-2 rounded-full px-2 py-1 m-auto`} onClick={onAddBegin}>➕</button></div>
                     }
                 </div> :
-                <div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-48 h-16 py-4 text-center`} onClick={onExpandOrCollapse}>{playnodeName}</div>
+                <div className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-48 h-16 py-4 text-center`} onClick={onExpandOrCollapse} onDrop={drop} onDragOver={e => e.preventDefault()}>{playnodeName}</div>
             }
             <Handle type="source" position={Position.Bottom} id="a" />
             <Handle
@@ -161,15 +204,21 @@ export default function PlaytreeEditor() {
     
     const playtree : Playtree = useLoaderData()
     const [unsavedChangesExist, setUnsavedChangesExist] = useState<boolean>(false)
+    const [playnodes, setPlaynodes] = useState<Map<string, PlayNode>>(new Map<string, PlayNode>())
+    const [playheads, setPlayheads] = useState<PlayheadInfo[]>([])
 
-    const onChangeReported = useCallback(() => {
+    const onChangeReported = useCallback((playnode : PlayNode) => {
+        const newPlaynodes = structuredClone(playnodes)
+        newPlaynodes.set(playnode.id, playnode)
+        setPlaynodes(newPlaynodes)
+
         setUnsavedChangesExist(true)
-    }, [])
+    }, [playnodes])
     
-    let flownodes : any[] = []
-    let flowedges : any[] = []
+    let initialFlownodes : Node[] = []
+    let initialFlowedges : Edge[] = []
     if (playtree) {
-        flownodes = playtree.nodes.map((playnode, index) => {
+        initialFlownodes = playtree.nodes.map((playnode, index) => {
             return {
                 type: "play",
                 id: playnode.id,
@@ -187,7 +236,7 @@ export default function PlaytreeEditor() {
             playtree.nodes.forEach(playnode => {
                 if (playnode.next) {
                     playnode.next.forEach(playedge => {
-                        flowedges.push({
+                        initialFlowedges.push({
                             id: playnode.id + "-" + playedge.nodeID,
                             source: playnode.id,
                             target: playedge.nodeID,
@@ -208,17 +257,91 @@ export default function PlaytreeEditor() {
                 }
             })
         }
+    }
 
+    const [flownodes, setFlowNodes] = useState(initialFlownodes)
+    const [flowedges, setFlowEdges] = useState(initialFlowedges)
+
+    const onAddFlownode = useCallback(() => {
+        const newPlaynode : PlayNode = {
+            id: flownodes.length.toString(),
+            name: "New Playnode",
+            type: "sequence",
+            content: [],
+            next: []
+        }
+
+        const newFlownode = {
+            type: "play",
+            id: newPlaynode.id,
+            position: { x: 100 + 300 * (flownodes.length % 3), y: 50 + Math.floor(flownodes.length / 3) * 300 },
+            zIndex: 100 - flownodes.length,
+            data: {
+                label: newPlaynode.name,
+                playnode: newPlaynode,
+                reportChangeOccurrence: onChangeReported,
+            }
+        }
+
+        const newFlownodes = JSON.parse(JSON.stringify(flownodes))
+        newFlownodes.push(newFlownode)
+
+        setFlowNodes(newFlownodes)
+        onChangeReported(newPlaynode)
+    }, [flownodes])
+
+    const handleSave = useCallback(() => {
+        const newPlaytree : Playtree = {
+            summary: playtree.summary,
+            nodes: Array.from(playnodes, ([_, pn]) => pn),
+            playroots: playtree.playroots
+        };
+
+        (async () => {
+            const response = await fetch(`http://localhost:8080/playtrees/${playtree.summary.id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(newPlaytree)
+            })
+        })()
+
+        setUnsavedChangesExist(false)
+    }, [playnodes])
+
+    const handleSpawnPlayhead = () => {
+        const newPlayheads = structuredClone(playheads)
+        newPlayheads.push({
+            name: "Playhead " + (playheads.length + 1).toString(),
+            nodeID: "",
+        })
+
+        setPlayheads(newPlayheads)
     }
 
     return (
-        <div className="flex mt-8" style={{height: 500}}>
-            <div className="w-5/6 h-full m-auto border-4 border-green-600 bg-neutral-100">
-                {unsavedChangesExist ? <button title="Save Changes" className="absolute z-10 rounded-lg bg-neutral-400 px-2 py-1">💾</button> : null}
-                <ReactFlow nodeTypes={customFlowNodeTypes} nodes={flownodes} edges={flowedges} elevateNodesOnSelect>
-                    <Background />
-                    <Controls />
-                </ReactFlow>
+        <div className="mt-8 flex font-lilitaOne h-[500px]">
+            <div className="h-full w-5/6 m-auto">
+                <h2 className="text-3xl text-green-600">{playtree.summary.name}</h2>
+                <div className="h-full border-4 border-green-600 bg-neutral-100">
+                    {
+                        playheads.map((playhead, index) => {
+                            return <Playhead key={index} name={playhead.name}/>
+                        })
+                    }
+                    <button title="Add Playnode" className="absolute z-10 rounded-lg bg-green-400 mx-1 my-1 px-2 py-1" onClick={onAddFlownode}>➕</button>
+                    <button title="Add Playhead" className="absolute z-10 rounded-lg bg-amber-300 mx-1 my-10 px-2 py-1" onClick={handleSpawnPlayhead}>💽</button>
+                    {
+                        unsavedChangesExist ?
+                            <button type="button" title="Save Changes" className="absolute z-10 rounded-lg bg-neutral-400 mx-1 my-[4.75rem] px-2 py-1" onClick={handleSave}>💾</button> :
+                        null
+                    }
+                    <ReactFlow nodeTypes={customFlowNodeTypes} nodes={flownodes} edges={initialFlowedges} elevateNodesOnSelect>
+                        <Background />
+                        <Controls />
+                    </ReactFlow>
+                </div>
             </div>
         </div>
     )

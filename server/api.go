@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 var currentlyPlaying *string = nil
@@ -52,32 +54,33 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 	},
 	"POST /playtrees": func(w http.ResponseWriter, r *http.Request) {
 		// validate playtree JSON given in body
-		pti, invalidPlaytreeJsonErr := playtreeInfoFromJSON(r.Body)
+		psi, invalidPartialSummaryJsonErr := partialSummaryInfoFromJSON(r.Body)
 
-		if invalidPlaytreeJsonErr != nil {
+		if invalidPartialSummaryJsonErr != nil {
+			log.Fatal(invalidPartialSummaryJsonErr)
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, invalidPlaytreeJsonErr)
+			fmt.Fprint(w, invalidPartialSummaryJsonErr.Error())
 			return
 		}
 
-		_, playtreeErr := playtreeFromPlaytreeInfo(*pti)
-		if playtreeErr != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, playtreeErr)
-			return
+		// generate ID
+		newPlaytreeId := uuid.New().String()
+
+		pti := PlaytreeInfo{
+			Summary: SummaryInfo{
+				ID:        newPlaytreeId,
+				Name:      psi.Name,
+				CreatedBy: psi.CreatedBy,
+				Access:    psi.Access,
+				Source:    nil,
+			},
+			Nodes:     []PlayNodeInfo{},
+			Playroots: []PlayheadInfo{},
 		}
 
-		// check if there's a JSON file named <id>.json. Respond with "already exists" error if so
-		// TODO: use database instead
-		idDotJson := "./playtrees/" + pti.Summary.ID + ".json"
-		if _, err := os.Stat(idDotJson); !errors.Is(err, os.ErrNotExist) {
-			w.WriteHeader(http.StatusConflict)
-			fmt.Fprint(w, `Playtree with ID "`+pti.Summary.ID+`" already exists`)
-			return
-		}
-
-		// otherwise, create JSON file <id>.json with body contents, return Created
-		file, fileCreateErr := os.Create(idDotJson)
+		// create JSON file <id>.json with body contents, return Created
+		pathToNewPlaytreeFile := "playtrees/" + newPlaytreeId + ".json"
+		file, fileCreateErr := os.Create(pathToNewPlaytreeFile)
 		if fileCreateErr != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, "Could not create playtree file")
@@ -92,6 +95,7 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		}
 
 		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(newPlaytreeId))
 	},
 	"GET /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
@@ -107,6 +111,7 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		file.WriteTo(w)
 	},
 	"PUT /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
 		// check if file already exists. if not, 404 error.
 		id := r.PathValue("id")
 		idDotJson := "./playtrees/" + id + ".json"
@@ -147,6 +152,7 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		w.WriteHeader(http.StatusNoContent)
 	},
 	"DELETE /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
 		id := r.PathValue("id")
 		err := os.Remove("./playtrees/" + id + ".json")
 		if err != nil {
@@ -162,6 +168,13 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	},
+	"OPTIONS /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
+		// _ := r.PathValue("id")
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusOK)
 	},
 	"GET /me/player": func(w http.ResponseWriter, r *http.Request) {
 		if currentlyPlaying == nil {
