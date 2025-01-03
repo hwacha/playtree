@@ -14,42 +14,71 @@ import (
 
 var currentlyPlaying *string = nil
 
+func getAllPlaytreeSummaries() ([]SummaryInfo, error) {
+	dirPath := "playtrees/"
+
+	files, err := os.ReadDir(dirPath)
+	if err != nil {
+		return nil, err
+	}
+
+	summaries := []SummaryInfo{}
+	for _, dirEntry := range files {
+		if !strings.HasSuffix(dirEntry.Name(), ".json") {
+			continue
+		}
+		var file, err = os.Open(dirPath + dirEntry.Name())
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+
+		var pti PlaytreeInfo
+		decoder := json.NewDecoder(file)
+		err = decoder.Decode(&pti)
+		if err != nil {
+			return nil, err
+		}
+		summaries = append(summaries, pti.Summary)
+	}
+
+	return summaries, nil
+}
+
 var handlers = map[string]func(http.ResponseWriter, *http.Request){
 	"GET /playtrees": func(w http.ResponseWriter, r *http.Request) {
-		dirPath := "playtrees/"
-
-		files, err := os.ReadDir(dirPath)
+		summaries, err := getAllPlaytreeSummaries()
 		if err != nil {
-			log.Println("Error reading directory:", err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
-		}
-
-		summaries := []SummaryInfo{}
-		for _, dirEntry := range files {
-			if !strings.HasSuffix(dirEntry.Name(), ".json") {
-				continue
-			}
-			var file, err = os.Open(dirPath + dirEntry.Name())
-			if err != nil {
-				log.Println("Error opening file:", err)
-				return
-			}
-			defer file.Close()
-
-			var pti PlaytreeInfo
-			decoder := json.NewDecoder(file)
-			err = decoder.Decode(&pti)
-			if err != nil {
-				log.Println("Error decoding JSON:", err)
-			}
-
-			summaries = append(summaries, pti.Summary)
 		}
 
 		encoder := json.NewEncoder(w)
 		err = encoder.Encode(summaries)
 		if err != nil {
-			log.Println("Error encoding JSON", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	},
+	"GET /playtrees/me": func(w http.ResponseWriter, r *http.Request) {
+		summaries, err := getAllPlaytreeSummaries()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		summariesByUser := []SummaryInfo{}
+		for _, summary := range summaries {
+			if summary.CreatedBy == "billmarcy" { // TODO auth
+				summariesByUser = append(summariesByUser, summary)
+			}
+		}
+
+		encoder := json.NewEncoder(w)
+		err = encoder.Encode(summariesByUser)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	},
 	"POST /playtrees": func(w http.ResponseWriter, r *http.Request) {

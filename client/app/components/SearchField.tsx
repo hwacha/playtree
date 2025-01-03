@@ -41,7 +41,7 @@ export default function SearchField(props: SearchFieldProps) {
 
     return (
         <form onSubmit={handleSubmit}>
-            <input className="w-40" list="spotify-search-suggestions" id="search-field" name="search-field" value={query} placeholder="Search for a song" onChange={onSearchQueryChange}/>
+            <input autoComplete="off" className="w-40" list="spotify-search-suggestions" id="search-field" name="search-field" value={query} placeholder="Search for a song" onChange={onSearchQueryChange}/>
             <datalist id="spotify-search-suggestions">
                 {
                     searchResults.map((searchResult, index) => {

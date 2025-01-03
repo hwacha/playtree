@@ -30,7 +30,7 @@ function Playhead(props : PlayheadProps) {
     }
 
     return (
-        <div id={name} draggable={true} onDragStart={drag} className="flex m-1">
+        <div id={name} draggable={true} onDragStart={drag} className="flex m-1 absolute">
             <div className="mr-2 bg-amber-300 px-2 py-1 rounded-md">💽</div><input value={name} onChange={onNameChange}/>
         </div>
     )
@@ -38,7 +38,9 @@ function Playhead(props : PlayheadProps) {
 
 export type PlayNodeFlow = Node<{
     playnode: PlayNode;
+    playheads: PlayheadInfo[];
     reportChangeOccurrence: (playnode: PlayNode) => void;
+    onPlayheadDrop: () => void;
 }, 'play'>;
 
 function PlayNode(props : NodeProps<PlayNodeFlow>) {
@@ -47,6 +49,7 @@ function PlayNode(props : NodeProps<PlayNodeFlow>) {
     const [expanded, setExpanded] = useState<boolean>(false)
     const [contentList, setContentList] = useState<Content[]>(props.data.playnode.content)
     const [adding, setAdding] = useState<boolean>(false)
+    const [playheads, setPlayheads] = useState<PlayheadInfo[]>(props.data.playheads)
 
     const getPlaynode = useCallback(() => {
         return {
@@ -72,15 +75,15 @@ function PlayNode(props : NodeProps<PlayNodeFlow>) {
         props.data.reportChangeOccurrence(getPlaynode())
     }, [playnodeType, playnodeName, contentList])
     
-    const onChange = useCallback((evt : any) => {
+    const handleChange = useCallback((evt : any) => {
         setPlaynodeName(evt.target.value)
     }, []);
 
-    const onExpandOrCollapse = useCallback(() => {
+    const handleExpandOrCollapse = useCallback(() => {
         setExpanded(!expanded)
     }, [expanded])
 
-    const onTogglePlaynodeType = useCallback(() => {
+    const handleTogglePlaynodeType = useCallback(() => {
         if (playnodeType === "sequence") {
             setPlaynodeType("selector")
         } else {
@@ -133,29 +136,39 @@ function PlayNode(props : NodeProps<PlayNodeFlow>) {
         event.preventDefault();
         var data = event.dataTransfer.getData("text");
 
-        const playheadToAttach = document.getElementById(data);
-        event.target.appendChild(document.getElementById(data));
-        playheadToAttach?.classList.add("absolute", "-mt-24")
+        const newPlayheads = structuredClone(playheads)
+        newPlayheads.push({
+            name: data,
+            nodeID: props.data.playnode.id
+        })
+        setPlayheads(newPlayheads)
     }
 
     return (
         <>
+            <div>
+                {
+                    playheads.map((playhead, index) => {
+                        return <Playhead key={index} name={playhead.name}/>
+                    })
+                }
+            </div>
             <Handle type="target" position={Position.Top} />
             {
                 expanded ?
                 <div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-48 p-4 nodrag text-${color}-600`} onDrop={drop} onDragOver={e => e.preventDefault()}>
-                    <button className="absolute -mx-3 -my-4" onClick={onExpandOrCollapse} title="Collapse">↖️</button>
+                    <button className="absolute -mx-3 -my-4" onClick={handleExpandOrCollapse} title="Collapse">↖️</button>
                     {
                         <button className={`bg-${color}-300 rounded-lg absolute -my-4 px-2 py-1`}
                                 style={{marginLeft: 136}}
-                                onClick={onTogglePlaynodeType}
+                                onClick={handleTogglePlaynodeType}
                                 title={playnodeType}
                         >
                             {isSequence ? <>🔢</> : <>🎲</> }
                         </button>
                     }
                     
-                    <input id="text" name="text" value={playnodeName} onChange={onChange} className={`nodrag w-full bg-${color}-100 text-center`} />
+                    <input id="text" name="text" value={playnodeName} onChange={handleChange} className={`nodrag w-full bg-${color}-100 text-center`} />
                     <ul className="my-3">
                         {
                             contentList.map((content: Content, index : number) => {
@@ -176,7 +189,7 @@ function PlayNode(props : NodeProps<PlayNodeFlow>) {
                         <div className="flex"><button title="Add Content" className={`border-${color}-600 bg-${color}-400 border-2 rounded-full px-2 py-1 m-auto`} onClick={onAddBegin}>➕</button></div>
                     }
                 </div> :
-                <div className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-48 h-16 py-4 text-center`} onClick={onExpandOrCollapse} onDrop={drop} onDragOver={e => e.preventDefault()}>{playnodeName}</div>
+                <div className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-48 h-16 py-4 text-center`} onClick={handleExpandOrCollapse} onDrop={drop} onDragOver={e => e.preventDefault()}>{playnodeName}</div>
             }
             <Handle type="source" position={Position.Bottom} id="a" />
             <Handle
@@ -207,7 +220,7 @@ export default function PlaytreeEditor() {
     const [playnodes, setPlaynodes] = useState<Map<string, PlayNode>>(new Map<string, PlayNode>())
     const [playheads, setPlayheads] = useState<PlayheadInfo[]>([])
 
-    const onChangeReported = useCallback((playnode : PlayNode) => {
+    const handleChangeReported = useCallback((playnode : PlayNode) => {
         const newPlaynodes = structuredClone(playnodes)
         newPlaynodes.set(playnode.id, playnode)
         setPlaynodes(newPlaynodes)
@@ -227,7 +240,8 @@ export default function PlaytreeEditor() {
                 data: {
                     label: playnode.id,
                     playnode: playnode,
-                    reportChangeOccurrence: onChangeReported,
+                    playheads: playtree.playroots.filter((playhead => playhead.nodeID === playnode.id)),
+                    reportChangeOccurrence: handleChangeReported,
                 }
             }
         })
@@ -262,7 +276,7 @@ export default function PlaytreeEditor() {
     const [flownodes, setFlowNodes] = useState(initialFlownodes)
     const [flowedges, setFlowEdges] = useState(initialFlowedges)
 
-    const onAddFlownode = useCallback(() => {
+    const handleAddFlownode = useCallback(() => {
         const newPlaynode : PlayNode = {
             id: flownodes.length.toString(),
             name: "New Playnode",
@@ -279,7 +293,8 @@ export default function PlaytreeEditor() {
             data: {
                 label: newPlaynode.name,
                 playnode: newPlaynode,
-                reportChangeOccurrence: onChangeReported,
+                playheads: playtree.playroots.filter((playhead => playhead.nodeID === newPlaynode.id)),
+                reportChangeOccurrence: handleChangeReported,
             }
         }
 
@@ -287,7 +302,7 @@ export default function PlaytreeEditor() {
         newFlownodes.push(newFlownode)
 
         setFlowNodes(newFlownodes)
-        onChangeReported(newPlaynode)
+        handleChangeReported(newPlaynode)
     }, [flownodes])
 
     const handleSave = useCallback(() => {
@@ -326,12 +341,12 @@ export default function PlaytreeEditor() {
                 <h2 className="text-3xl text-green-600">{playtree.summary.name}</h2>
                 <div className="h-full border-4 border-green-600 bg-neutral-100">
                     {
-                        playheads.map((playhead, index) => {
+                        playheads.filter(playhead => playhead.nodeID === "").map((playhead, index) => {
                             return <Playhead key={index} name={playhead.name}/>
                         })
                     }
-                    <button title="Add Playnode" className="absolute z-10 rounded-lg bg-green-400 mx-1 my-1 px-2 py-1" onClick={onAddFlownode}>➕</button>
-                    <button title="Add Playhead" className="absolute z-10 rounded-lg bg-amber-300 mx-1 my-10 px-2 py-1" onClick={handleSpawnPlayhead}>💽</button>
+                    <button title="Add Playnode" className="absolute z-10 rounded-lg bg-green-400 mx-1 my-1 px-2 py-1" onClick={handleAddFlownode}>➕</button>
+                    <button id="playhead-spawner" title="Add Playhead" className="absolute z-10 rounded-lg bg-amber-300 mx-1 my-10 px-2 py-1" onClick={handleSpawnPlayhead}>💽</button>
                     {
                         unsavedChangesExist ?
                             <button type="button" title="Save Changes" className="absolute z-10 rounded-lg bg-neutral-400 mx-1 my-[4.75rem] px-2 py-1" onClick={handleSave}>💾</button> :
