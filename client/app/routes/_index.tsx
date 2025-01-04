@@ -23,7 +23,7 @@ const ActionCard = (props : LinkCardProps) => {
 
 export default function Index() {
     return (
-        <div className="flex w-full h-full my-40 content-evenly">
+        <div className="flex w-full h-full content-evenly">
             <div className="m-auto flex">
                 <ActionCard title="Arboretum" description="A compendium of all public playtrees." action="Check it Out" path="/playtrees" />
                 <ActionCard title="Seed" description="A new playtree." action="Create" path="/playtrees/create" />

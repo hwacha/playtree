@@ -1,4 +1,4 @@
-import type { LinksFunction } from "@remix-run/node";
+import type { ActionFunctionArgs, LinksFunction } from "@remix-run/node";
 import {
   Links,
   Meta,
@@ -10,6 +10,7 @@ import Player from "./components/Player";
 
 import styles from "./tailwind.css?url";
 import UserSidebar from "./components/UserSidebar";
+import Banner from "./components/Banner";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: styles },
@@ -24,6 +25,15 @@ export const loader = async () => {
   }
 }
 
+export const action = async ({request}: ActionFunctionArgs) => {
+    const formData = await request.formData()
+    const id = formData.get("playtreeID");
+    const response = await fetch(`http://localhost:8080/me/player?playtree=${id}`, {
+        method: "PUT"
+    })
+    return null
+}
+
 export default function App() {
   const data = useLoaderData<typeof loader>()
   const playerPlaytree = data.playerPlaytree
@@ -36,13 +46,15 @@ export default function App() {
         <Meta />
         <Links />
       </head>
-      <body className="bg-amber-100 h-full">
+      <body className="bg-amber-100">
       <Scripts />
       
       <UserSidebar userPlaytreeSummaries={userPlaytreeSummaries}/>
-      <div className="ml-48">
-      <h1 className='font-lilitaOne text-green-600 text-8xl text-center underline mt-12'>Playtree</h1>
-        <Outlet />
+      <div className="absolute left-48 w-[calc(100vw-12rem)] h-full">
+        <Banner />
+        <div className="absolute w-[calc(100vw-12rem)] h-[calc(100vh-11.5rem)] top-16 -bottom-64">
+          <Outlet />
+        </div>
         <Player playtree={playerPlaytree} />
       </div>
       </body>

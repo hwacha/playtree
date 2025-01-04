@@ -27,7 +27,7 @@ export default function Create() {
                     <input type="hidden" name="createdBy" value={import.meta.env.VITE_USERNAME}></input>
                     <div className="w-full mb-2">
                         <label htmlFor="name" className="mr-4">Playtree Name</label>
-                        <input type="text" autoComplete={"off"} id="name" name="name" placeholder="New Playtree" className="text-black font-mono" />
+                        <input type="text" autoComplete="off" id="name" name="name" placeholder="New Playtree" className="text-black font-markazi" />
                     </div>
                     <div className="w-full">
                     <label htmlFor="access-checkbox" className="mr-3">Playtree Public</label>
