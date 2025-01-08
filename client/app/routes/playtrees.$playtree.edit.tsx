@@ -42,7 +42,7 @@ function PlayheadComponent(props : PlayheadProps) {
 
     return (
         <div id={name} draggable={true} onDragStart={handleDragStart} className="flex absolute -top-9 left-40">
-            <div className="mr-2 bg-amber-300 px-2 py-1 rounded-md">💽</div>
+            <div className="mr-2 bg-purple-300 px-2 py-1 rounded-md">💽</div>
             <input value={name} onChange={onNameChange} className="bg-transparent w-20"/>
         </div>
     )
@@ -52,6 +52,7 @@ export type PlayNodeFlow = Node<{
     playnode: PlayNode;
     playhead: PlayheadInfo|null;
     dispatch: (action: PlaytreeEditorAction) => PlaytreeEditorState;
+    handleDeletePlaynode: (id: string) => void;
 }, 'play'>;
 
 function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
@@ -72,14 +73,14 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
         setAdding(true)
     }, [])
 
-    const handleContentSelect = (newContent: string) : boolean => {
+    const handleContentSelect = useCallback((newContent: string) : boolean => {
         const newContentList = structuredClone(contentList)
         newContentList.push({type: "spotify-track", uri: newContent})
         setContentList(newContentList)
         props.data.dispatch({type: "updated_playnode", playnode: {...props.data.playnode, name: playnodeName, type: playnodeType, content: newContentList}})
         setAdding(false)
         return false
-    }
+    }, [adding, contentList])
 
     const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         setPlaynodeName(event.target.value)
@@ -114,15 +115,19 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
         props.data.dispatch({type: "updated_playnode", playnode: {...props.data.playnode, name: playnodeName, type: playnodeType, content: newContentList}})
     }, [contentList])
 
-    const handleDelete = useCallback((index : number) => (_ : any) => {
+    const handleDeleteContent = useCallback((index : number) => (_ : any) => {
         const newContentList = structuredClone(contentList)
         newContentList.splice(index, 1)
         setContentList(newContentList)
         props.data.dispatch({type: "updated_playnode", playnode: {...props.data.playnode, name: playnodeName, type: playnodeType, content: newContentList}})
     }, [contentList])
 
+    const handleDeleteSelf = useCallback(() => {
+        props.data.handleDeletePlaynode(props.data.playnode.id)
+    }, [])
+
     const isSequence = playnodeType === "sequence"
-    const color = isSequence ? "green" : "red"
+    const color = isSequence ? "green" : "amber"
 
     const handleDrop = (event : any) => {
         event.preventDefault();
@@ -139,17 +144,11 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
             {
                 expanded ?
                 <div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-48 p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
-                    <button className="absolute -mx-3 -my-4" onClick={handleExpandOrCollapse} title="Collapse">↖️</button>
-                    {
-                        <button className={`bg-${color}-300 rounded-lg absolute -my-4 px-2 py-1`}
-                                style={{marginLeft: 136}}
-                                onClick={handleTogglePlaynodeType}
-                                title={playnodeType}
-                        >
-                            {isSequence ? <>🔢</> : <>🎲</> }
-                        </button>
-                    }
-                    
+                    <div className="mb-5">
+                        <button className={`bg-blue-300 rounded-lg px-2 py-1 absolute top-1 left-1`} onClick={handleExpandOrCollapse} title="Collapse">↖️</button>
+                        <button className={`bg-${color}-300 rounded-lg px-2 py-1 absolute top-1 left-10`} onClick={handleTogglePlaynodeType} title={playnodeType}>{isSequence ? <>🔢</> : <>🎲</> }</button>
+                        <button className={`bg-red-300 rounded-lg px-2 py-1 absolute top-1 right-1`} onClick={handleDeleteSelf} title="Delete Playnode">🗑️</button>
+                    </div>
                     <input id="text" name="text" value={playnodeName} onChange={handleChange} className={`w-full bg-${color}-100 text-center`} />
                     <ul className="my-3">
                         {
@@ -159,7 +158,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
                                         {index > 0 ? <button className="w-fit ml-1" title="Move Content Up In List" onClick={handleMoveUp(index)}>⬆️</button> : <div className="ml-5"/>}
                                         {index + 1 < contentList.length ? <button className="w-fit ml-1" title="Move Content Down In List" onClick={handleMoveDown(index)}>⬇️</button> : <div className="ml-5"/>}
                                         <span className="w-full ml-3">{content.uri}</span>
-                                        <button className="w-fit mr-1" title="Delete Content" onClick={handleDelete(index)}>❌</button>
+                                        <button className="w-fit mr-1" title="Delete Content" onClick={handleDeleteContent(index)}>❌</button>
                                     </li>
                                 )
                             })
@@ -204,8 +203,11 @@ type PlaytreeEditorAction = {
 } | {
     type: "added_playnode"|"saved_playtree",
 } | {
-    type: "updated_playnode"|"deleted_playnode",
+    type: "updated_playnode",
     playnode: PlayNode
+} | {
+    type: "deleted_playnode",
+    nodeID: string
 } | {
     type: "updated_playhead"|"deleted_playhead",
     index: number,
@@ -268,7 +270,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
         }
         case "deleted_playnode": {
             const newNodes = structuredClone(state.playtree.nodes)
-            newNodes.delete(action.playnode.id)
+            newNodes.delete(action.nodeID)
             return {
                 playtree: {
                     ...state.playtree,
@@ -332,6 +334,21 @@ export default function PlaytreeEditor() {
         unsavedChangesExist: false
     })
 
+    const handleDeletePlaynode = (nodeID: string) => {
+        setFlownodes(prevFlownodes => {
+            console.log(prevFlownodes)
+            const flownodeIndex = prevFlownodes.findIndex(flownode => (flownode as PlayNodeFlow).data.playnode.id === nodeID)
+            if (flownodeIndex !== -1) {
+                const newFlownodes = structuredClone(JSON.parse(JSON.stringify(prevFlownodes)))
+                newFlownodes.splice(flownodeIndex, 1)
+                return newFlownodes
+            }
+            return prevFlownodes
+        })
+
+        dispatch({type: "deleted_playnode", nodeID})
+    }
+
     const initialFlownodes = Array.from(initialPlaytree.nodes.values()).map((playnode, index) => {
         const playhead = initialPlaytree.playroots.find(playhead => playhead.nodeID === playnode.id)
         return {
@@ -344,7 +361,8 @@ export default function PlaytreeEditor() {
                 label: playnode.id,
                 playnode: playnode,
                 playhead: playhead ? playhead : null,
-                dispatch: (x : PlaytreeEditorAction) => dispatch(x)
+                dispatch: (x : PlaytreeEditorAction) => dispatch(x),
+                handleDeletePlaynode: handleDeletePlaynode
             }
         }
     })
@@ -373,7 +391,6 @@ export default function PlaytreeEditor() {
             })
         }
     })
-
 
     const [flownodes, setFlownodes] = useState<Node[]>(initialFlownodes)
     const [flowedges, setFlowedges] = useState<Edge[]>(initialFlowedges)
@@ -405,7 +422,8 @@ export default function PlaytreeEditor() {
                     content: [],
                     next: []
                 },
-                dispatch: (x : PlaytreeEditorAction) => dispatch(x)
+                dispatch: (x : PlaytreeEditorAction) => dispatch(x),
+                handleDeletePlaynode: handleDeletePlaynode
             }
         })
         setFlownodes(newFlownodes)
@@ -414,8 +432,6 @@ export default function PlaytreeEditor() {
     }, [flownodes])
 
     const handleSave = useCallback(() => {
-        console.log(state.playtree)
-        debugger
         (async () => {
             await fetch(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
                 method: "PUT",
@@ -438,7 +454,7 @@ export default function PlaytreeEditor() {
                 <h2 className="text-3xl text-green-600">{state.playtree.summary.name}</h2>
                 <div className="h-full border-4 border-green-600 bg-neutral-100">
                     <button title="Add Playnode" className="absolute z-10 rounded-lg bg-green-400 mx-1 my-1 px-2 py-1" onClick={handleAddPlaynode}>➕</button>
-                    <button id="playhead-spawner" title="Add Playhead" className="absolute z-10 rounded-lg bg-amber-300 mx-1 my-10 px-2 py-1" draggable={true} onDragStart={handleDragStart}>💽</button>
+                    <button id="playhead-spawner" title="Add Playhead" className="absolute z-10 rounded-lg bg-purple-300 mx-1 my-10 px-2 py-1" draggable={true} onDragStart={handleDragStart}>💽</button>
                     {
                         state.unsavedChangesExist ?
                             <button type="button" title="Save Changes" className="absolute z-10 rounded-lg bg-neutral-400 mx-1 my-[4.75rem] px-2 py-1" onClick={handleSave}>💾</button> :
