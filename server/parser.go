@@ -53,9 +53,9 @@ type (
 	}
 
 	PlaytreeInfo struct {
-		Summary   SummaryInfo    `json:"summary" validate:"required"`
-		Nodes     []PlayNodeInfo `json:"nodes" validate:"required"`
-		Playroots []PlayheadInfo `json:"playroots" validate:"required"`
+		Summary   SummaryInfo             `json:"summary" validate:"required"`
+		Nodes     map[string]PlayNodeInfo `json:"nodes" validate:"required"`
+		Playroots []PlayheadInfo          `json:"playroots" validate:"required"`
 	}
 )
 

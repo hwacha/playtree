@@ -5,8 +5,8 @@
         "createdBy":"billmarcy",
         "access": "public"
     },
-    "nodes": [
-        {
+    "nodes": {
+        "0": {
             "id": "0",
             "name": "any",
             "type": "selector",
@@ -46,7 +46,7 @@
             ],
             "next":[ { "nodeID": "0" } ]
         },
-        {
+        "1": {
             "id": "1",
             "name": "C",
             "type": "selector",
@@ -58,7 +58,7 @@
             ],
             "next":[ { "nodeID": "3" }, { "nodeID": "6", "shares": 100 }, { "nodeID": "5" }, { "nodeID": "4" } ]
         },
-        {
+        "2": {
             "id": "2",
             "name": "A",
             "type": "selector",
@@ -70,7 +70,7 @@
             ],
             "next":[ { "nodeID": "3" }, { "nodeID": "5" }, { "nodeID":"4" } ]
         },
-        {
+        "3": {
             "id": "3",
             "name": "F",
             "type": "selector",
@@ -82,7 +82,7 @@
             ],
             "next": [ { "nodeID": "4" }, { "nodeID": "5" } ]
         },
-        {
+        "4": {
             "id": "4",
             "name": "GtoC",
             "type": "selector",
@@ -94,7 +94,7 @@
             ],
             "next": [ { "nodeID": "1", "repeat": 4 } ]
         },
-        {
+        "5": {
             "id": "5",
             "name": "GtoA",
             "type": "selector",
@@ -106,7 +106,7 @@
             ],
             "next": [ { "nodeID": "2", "repeat": 4 } ]
         },
-        {
+        "6": {
             "id": "6",
             "name": "ErunB",
             "type": "sequence",
@@ -133,7 +133,7 @@
                 }
             ]
         }
-    ],
+    },
     "playroots": [
         {
             "name": "grabbag",

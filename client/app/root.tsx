@@ -11,6 +11,7 @@ import Player from "./components/Player";
 import styles from "./tailwind.css?url";
 import UserSidebar from "./components/UserSidebar";
 import Banner from "./components/Banner";
+import { playtreeFromJson } from "./types";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: styles },
@@ -19,6 +20,7 @@ export const links: LinksFunction = () => [
 export const loader = async () => {
   const playerPlaytreeJson = await fetch("http://localhost:8080/me/player").then(response => response.json())
   const userPlaytreeSummariesJson = await fetch("http://localhost:8080/playtrees/me").then(response => response.json())
+  
   return {
     playerPlaytree: playerPlaytreeJson,
     userPlaytreeSummaries: userPlaytreeSummariesJson
@@ -36,7 +38,7 @@ export const action = async ({request}: ActionFunctionArgs) => {
 
 export default function App() {
   const data = useLoaderData<typeof loader>()
-  const playerPlaytree = data.playerPlaytree
+  const playerPlaytree = playtreeFromJson(data.playerPlaytree)
   const userPlaytreeSummaries = data.userPlaytreeSummaries
   return (
     <html lang="en">

@@ -1,4 +1,5 @@
 import { Link, useFetcher } from "@remix-run/react";
+import { PlaytreeSummary } from "../types";
 
 type UserSidebarProps = {
     userPlaytreeSummaries: PlaytreeSummary[];

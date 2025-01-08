@@ -103,7 +103,7 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 				Access:    psi.Access,
 				Source:    nil,
 			},
-			Nodes:     []PlayNodeInfo{},
+			Nodes:     make(map[string]PlayNodeInfo),
 			Playroots: []PlayheadInfo{},
 		}
 
@@ -145,14 +145,6 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		id := r.PathValue("id")
 		idDotJson := "./playtrees/" + id + ".json"
 
-		file, openErr := os.OpenFile(idDotJson, os.O_WRONLY|os.O_TRUNC, 0644)
-		if openErr != nil {
-			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprint(w, `Playtree with ID "`+id+`" does not exist`)
-			return
-		}
-		defer file.Close()
-
 		// validate playtree JSON given in body
 		pti, invalidPlaytreeJsonErr := playtreeInfoFromJSON(r.Body)
 
@@ -168,6 +160,14 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 			fmt.Fprint(w, playtreeErr)
 			return
 		}
+
+		file, openErr := os.OpenFile(idDotJson, os.O_WRONLY|os.O_TRUNC, 0644)
+		if openErr != nil {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, `Playtree with ID "`+id+`" does not exist`)
+			return
+		}
+		defer file.Close()
 
 		// write updated playtree to file
 		writeToFileErr := json.NewEncoder(file).Encode(pti)

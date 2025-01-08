@@ -1,5 +1,5 @@
-import { s } from "node_modules/vite/dist/node/types.d-aGj9QkWt";
 import { useCallback, useEffect, useReducer } from "react"
+import { PlayEdge, Playhead, PlayNode, Playtree } from "../types";
 
 type PlayerProps = {
     playtree: Playtree | null
@@ -29,7 +29,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
         case 'playtree_loaded': {
             const newRepeatCounters = new Map<string, Map<string, number>>()
             const newPlayheads = action.playtree.playroots.map(playhead => {
-                const playNode = action.playtree.nodes.find(node => node.id === playhead.nodeID)
+                const playNode = action.playtree.nodes.get(playhead.nodeID)
                 if (playNode !== undefined) {
                     return {
                         name: playhead.name,
@@ -41,7 +41,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     return undefined
                 }
             }).filter(playhead => playhead !== undefined)
-            action.playtree.nodes.map((node: PlayNode) => {
+            Array.from(action.playtree.nodes.values()).map((node: PlayNode) => {
                 if (node.next) {
                     node.next.map((edge : PlayEdge) => {
                         if (edge.repeat >= 0) {
@@ -128,9 +128,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     if (counter !== undefined) {
                         newRepeatCounters.get(curNode.id)?.set(selectedEdge.nodeID, counter + 1)
                     }
-                    let nextNode = action.playtree.nodes.find(node => {
-                        return node.id === selectedEdge.nodeID
-                    })
+                    let nextNode = action.playtree.nodes.get(selectedEdge.nodeID)
                     if (nextNode) {
                         newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex })
                         newPlayheads[state.playheadIndex].node = nextNode
@@ -162,9 +160,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
             if (prevHistoryNode === undefined) {
                 return structuredClone(state)
             } else {
-                const prevPlayNode = action.playtree.nodes.find(node => {
-                    return node.id === prevHistoryNode.nodeID
-                })
+                const prevPlayNode = action.playtree.nodes.get(prevHistoryNode.nodeID)
                 if (prevPlayNode === undefined) {
                     return structuredClone(state)
                 }
