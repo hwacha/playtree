@@ -138,8 +138,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
 
     return (
         <>
-            <div>{ playhead ? <PlayheadComponent index={0} name={playhead.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)}/> : null }
-            </div>
+            <div>{ playhead ? <PlayheadComponent index={0} name={playhead.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)}/> : null }</div>
             <Handle type="target" position={Position.Top} />
             {
                 expanded ?
@@ -209,12 +208,15 @@ type PlaytreeEditorAction = {
     type: "deleted_playnode",
     nodeID: string
 } | {
-    type: "updated_playhead"|"deleted_playhead",
+    type: "added_playhead",
+    nodeID: string
+} | {
+    type: "updated_playhead",
     index: number,
     playhead: PlayheadInfo
 } | {
-    type: "added_playhead",
-    nodeID: string
+    type: "deleted_playhead",
+    index: number,
 }
 
 const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAction) : PlaytreeEditorState => {
@@ -336,7 +338,6 @@ export default function PlaytreeEditor() {
 
     const handleDeletePlaynode = (nodeID: string) => {
         setFlownodes(prevFlownodes => {
-            console.log(prevFlownodes)
             const flownodeIndex = prevFlownodes.findIndex(flownode => (flownode as PlayNodeFlow).data.playnode.id === nodeID)
             if (flownodeIndex !== -1) {
                 const newFlownodes = structuredClone(JSON.parse(JSON.stringify(prevFlownodes)))
@@ -347,6 +348,10 @@ export default function PlaytreeEditor() {
         })
 
         dispatch({type: "deleted_playnode", nodeID})
+        const playheadIndexToDelete = state.playtree.playroots.findIndex(playhead => playhead.nodeID === nodeID)
+        if (playheadIndexToDelete) {
+            dispatch({type: "deleted_playhead", index: playheadIndexToDelete})
+        }
     }
 
     const initialFlownodes = Array.from(initialPlaytree.nodes.values()).map((playnode, index) => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer } from "react"
-import { PlayEdge, Playhead, PlayNode, Playtree } from "../types";
+import { Content, PlayEdge, Playhead, PlayNode, Playtree } from "../types";
 
 type PlayerProps = {
     playtree: Playtree | null
@@ -206,44 +206,47 @@ export default function Player({playtree}: PlayerProps) {
     }, [playtree])
 
     const onAudioChange = useCallback((audio: HTMLAudioElement) => {
-        if (audio == null) {
+        if (!audio) {
             return
         }
 
-        if (!audio.onended) {
-            audio.onended = () => {
-                if (playtree !== null) {
-                    dispatch({type: 'song_ended', playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random()})
-                }                
+        // if (!audio.onended) {
+        //     audio.onended = () => {
+        //         if (playtree) {
+        //             dispatch({type: 'song_ended', playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random()})
+        //         }
+        //     }
+        // }
+
+        const currentPlayhead = state.playheads[state.playheadIndex]
+
+        if (currentPlayhead) {
+            if (currentPlayhead.node && currentPlayhead.node.content && currentPlayhead.node.content[currentPlayhead.nodeIndex]) {
+                const curSongURI = currentPlayhead.node.content[currentPlayhead.nodeIndex].uri
+                fetch("http://localhost:8081/songs/" + curSongURI).then(response => {
+                    return response.body
+                }).then(stream => {
+                    if (stream) {
+                        (async () => {
+                            const reader = stream.getReader();
+                            const chunks = [];
+            
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+                                chunks.push(value);
+                            }
+    
+                            const blob = new Blob(chunks)
+                            const url = window.URL.createObjectURL(blob);
+                            audio.src = url;
+                            if (state.isPlaying) {
+                                audio.play()
+                            }
+                        })()
+                    }
+                })
             }
-        }
-
-        if (state.playheads.length > 0) {
-            const curPlayhead = state.playheads[state.playheadIndex]
-            const curSongURI = curPlayhead.node.content[curPlayhead.nodeIndex].uri
-            fetch("http://localhost:8081/songs/" + curSongURI).then(response => {
-                return response.body
-            }).then(stream => {
-                if (stream) {
-                    (async () => {
-                        const reader = stream.getReader();
-                        const chunks = [];
-        
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-                            chunks.push(value);
-                        }
-
-                        const blob = new Blob(chunks)
-                        const url = window.URL.createObjectURL(blob);
-                        audio.src = url;
-                        if (state.isPlaying) {
-                            audio.play()
-                        }
-                    })()
-                }
-            })
 
             if (state.isPlaying && audio.paused) {
                 audio.play()
@@ -256,22 +259,25 @@ export default function Player({playtree}: PlayerProps) {
     if (playtree == null) {
         return (<div className="bg-green-600 fixed flex w-full left-48 bottom-0"><div className="text-white mx-auto my-6 font-lilitaOne">No playtrees.</div></div>)
     } else {
-        let currentSong = null
-        if (state && state.playheads && state.playheads[state.playheadIndex]) {
-            currentSong = state.playheads[state.playheadIndex].node.content[state.playheads[state.playheadIndex].nodeIndex].uri.split("/").pop()?.split(".")[0]
+        let currentPlayhead : Playhead | null | undefined = null
+        let currentContent : Content | null | undefined = null
+        if (state && state.playheads) {
+            currentPlayhead = state.playheads[state.playheadIndex]
+            if (currentPlayhead && currentPlayhead.node && currentPlayhead.node.content) {
+                currentContent = currentPlayhead.node.content[currentPlayhead.nodeIndex]
+            }
         }
         
         return (
             <div className="bg-green-600 fixed w-full left-48 bottom-0">
                 <div className="text-white fixed left-2/3 bottom-4 font-lilitaOne">
-                    {state.playheads.length > 0 ?
                     <table>
                         <tbody>
                             <tr className="p-2"><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
-                            <tr className="p-2"><td>Playhead</td><td>|</td><td>{state.playheads[state.playheadIndex].name}</td></tr>
-                            <tr className="p-2"><td>Song</td><td>|</td><td>{currentSong}</td></tr>
+                            <tr className="p-2"><td>Playhead</td><td>|</td><td>{currentPlayhead ? currentPlayhead.name : "Playhead not available"}</td></tr>
+                            <tr className="p-2"><td>Song</td><td>|</td><td>{currentContent ? currentContent.uri.split("/").pop()?.split(".")[0] : "Song not available"}</td></tr>
                         </tbody>
-                    </table> : "No playheads available"}
+                    </table>
                 </div>
                 <audio ref={onAudioChange} src="" />
                 <div className="w-fit mx-auto">
