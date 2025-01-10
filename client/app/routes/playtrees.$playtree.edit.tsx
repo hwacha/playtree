@@ -349,7 +349,7 @@ export default function PlaytreeEditor() {
 
         dispatch({type: "deleted_playnode", nodeID})
         const playheadIndexToDelete = state.playtree.playroots.findIndex(playhead => playhead.nodeID === nodeID)
-        if (playheadIndexToDelete) {
+        if (playheadIndexToDelete !== -1) {
             dispatch({type: "deleted_playhead", index: playheadIndexToDelete})
         }
     }
