@@ -1,6 +1,6 @@
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { Background, Controls, Handle, MarkerType, Position, ReactFlow, Node, NodeProps, EdgeProps, getBezierPath, Edge, BaseEdge } from "@xyflow/react";
+import { Background, Controls, Handle, MarkerType, Position, ReactFlow, Node, NodeProps, EdgeProps, getBezierPath, Edge, BaseEdge, BezierEdge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange, addEdge, OnConnect, useNodesState, useEdgesState, ConnectionLineComponent, useConnection, EdgeLabelRenderer } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import invariant from "tiny-invariant";
@@ -17,7 +17,7 @@ type PlayheadProps = {
     index: number;
     name: string;
     nodeID: string;
-    dispatch: (action: PlaytreeEditorAction) => PlaytreeEditorState;
+    dispatch: (action: PlaytreeEditorAction) => void;
 }
 
 function PlayheadComponent(props : PlayheadProps) {
@@ -51,7 +51,7 @@ function PlayheadComponent(props : PlayheadProps) {
 export type PlayNodeFlow = Node<{
     playnode: PlayNode;
     playhead: PlayheadInfo|null;
-    dispatch: (action: PlaytreeEditorAction) => PlaytreeEditorState;
+    dispatch: (action: PlaytreeEditorAction) => void;
     handleDeletePlaynode: (id: string) => void;
 }, 'play'>;
 
@@ -77,20 +77,20 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
         const newContentList = structuredClone(contentList)
         newContentList.push({type: "spotify-track", uri: newContent})
         setContentList(newContentList)
-        props.data.dispatch({type: "updated_playnode", playnode: {...props.data.playnode, name: playnodeName, type: playnodeType, content: newContentList}})
+        props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {content: newContentList}})
         setAdding(false)
         return false
     }, [adding, contentList])
 
     const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         setPlaynodeName(event.target.value)
-        props.data.dispatch({type: "updated_playnode", playnode: {...props.data.playnode, name: event.target.value, type: playnodeType, content: contentList}})
+        props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {name: event.target.value}})
     }, [playnodeName]);
 
     const handleTogglePlaynodeType = useCallback(() => {
         const otherType : PlayNode["type"] = playnodeType === "sequence" ? "selector" : "sequence"
         setPlaynodeType(otherType)
-        props.data.dispatch({type: "updated_playnode", playnode: {...props.data.playnode, name: playnodeName, type: otherType, content: contentList}})
+        props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {type: otherType}})
     }, [playnodeType])
 
     const handleMoveUp = useCallback((index : number) => (_ : any) => {
@@ -101,7 +101,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
         newContentList[index - 1] = contentList[index]
         newContentList[index] = contentList[index - 1]
         setContentList(newContentList)
-        props.data.dispatch({type: "updated_playnode", playnode: {...props.data.playnode, name: playnodeName, type: playnodeType, content: newContentList}})
+        props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {content: newContentList}})
     }, [contentList])
 
     const handleMoveDown = useCallback((index : number) => (_ : any) => {
@@ -112,14 +112,14 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
         newContentList[index + 1] = contentList[index]
         newContentList[index] = contentList[index + 1]
         setContentList(newContentList)
-        props.data.dispatch({type: "updated_playnode", playnode: {...props.data.playnode, name: playnodeName, type: playnodeType, content: newContentList}})
+        props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: { content: newContentList}})
     }, [contentList])
 
     const handleDeleteContent = useCallback((index : number) => (_ : any) => {
         const newContentList = structuredClone(contentList)
         newContentList.splice(index, 1)
         setContentList(newContentList)
-        props.data.dispatch({type: "updated_playnode", playnode: {...props.data.playnode, name: playnodeName, type: playnodeType, content: newContentList}})
+        props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {content: newContentList}})
     }, [contentList])
 
     const handleDeleteSelf = useCallback(() => {
@@ -183,12 +183,79 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
 
 type PlayEdgeFlow = Edge<{
     playedge: PlayEdge;
-},
-'play'>;
+    dispatch: (action: PlaytreeEditorAction) => void;
+}, 'play'>;
 
 function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
-    const [edgePath] = getBezierPath({sourceX: props.sourceX, sourceY: props.sourceY, targetX: props.targetX, targetY: props.targetY});
-    return <BaseEdge id={props.id} path={edgePath} />;
+    if (!props.data) {
+        return null
+    }
+
+    const [shares, setShares] = useState<string>(props.data.playedge.shares.toString())
+    const [repeat, setRepeat] = useState<string>(props.data.playedge.repeat.toString())
+
+    const handleSharesChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const inputAsNumber = Number(event.target.value)
+        if (event.target.value == "" || (Number.isInteger(inputAsNumber) && inputAsNumber >= 0)) {
+            setShares(event.target.value)
+            if (props.data) {
+                props.data.dispatch({type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {
+                    shares: event.target.value === "" ? 1 : inputAsNumber
+                }})
+            }
+        }
+    }, [shares])
+
+    const handleRepeatChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        let inputAsNumber = Number(event.target.value)
+        if (event.target.value === "" || event.target.value === "-" || (Number.isInteger(inputAsNumber) && inputAsNumber >= -1)) {
+            setRepeat(event.target.value)
+            if (event.target.value === "") {
+                inputAsNumber = 1
+            }
+            if (event.target.value === "-") {
+                inputAsNumber = -1
+            }
+            if (props.data) {
+                props.data.dispatch({type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {
+                    repeat: inputAsNumber
+                }})
+            }
+        }
+    }, [repeat])
+
+    const { sourceX, sourceY, targetX, targetY, id, markerEnd } = props;
+    let [edgePath, labelX, labelY] = getBezierPath(props)
+    if (Math.abs(sourceX - targetX) < 0.001 && sourceY > targetY) {
+        const distance = sourceY - targetY
+        const logDistance = Math.log(distance)
+        edgePath = `M ${sourceX} ${sourceY} C ${sourceX - (40 * logDistance)} ${sourceY + (40 * logDistance)} ${targetX - (40 * logDistance)} ${targetY - (40 * logDistance)} ${targetX} ${targetY}`
+    }
+
+    return (
+        <>
+            <BaseEdge path={edgePath} style={props.style} markerEnd={markerEnd} />
+            <EdgeLabelRenderer>
+                <div style={{
+                    position: 'absolute',
+                    transform: `translate(-50%, -50%) translate(${labelX}px,${labelY - 32}px)`,
+                    pointerEvents: 'all'
+                }} className="w-24 flex">Shares:<input value={shares} className="w-full" onChange={handleSharesChange} /></div>
+                <div style={{
+                    position: 'absolute',
+                    transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+                    pointerEvents: 'all'
+                }} className="w-24 flex">Repeat:<input value={repeat} className="w-full" onChange={handleRepeatChange} /></div>
+                <button className="bg-red-300 rounded-lg px-2 py-1" style={{
+                    position: 'absolute',
+                    transform: `translate(-50%, -50%) translate(${labelX}px,${labelY + 32}px)`,
+                    pointerEvents: 'all'
+                }}>
+                    Delete
+                </button>
+            </EdgeLabelRenderer>
+        </>
+    )
 }
 
 type PlaytreeEditorState = {
@@ -203,10 +270,20 @@ type PlaytreeEditorAction = {
     type: "added_playnode"|"saved_playtree",
 } | {
     type: "updated_playnode",
-    playnode: PlayNode
+    nodeID: string,
+    patch: Partial<Omit<PlayNode, 'id' | 'next'>>
 } | {
     type: "deleted_playnode",
     nodeID: string
+} | {
+    type: "added_playedge" | "deleted_playedge",
+    sourceID: string,
+    targetID: string
+} | {
+    type: "updated_playedge",
+    sourceID: string,
+    targetID: string,
+    patch: Partial<Omit<PlayEdge, 'nodeID'>>
 } | {
     type: "added_playhead",
     nodeID: string
@@ -261,7 +338,11 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
         }
         case "updated_playnode": {
             const newNodes = structuredClone(state.playtree.nodes)
-            newNodes.set(action.playnode.id, action.playnode)
+            let newPlaynode = newNodes.get(action.nodeID)
+            if (newPlaynode) {
+                newPlaynode = Object.assign(newPlaynode, action.patch)
+                newNodes.set(action.nodeID, newPlaynode)
+            }
             return {
                 playtree: {
                     ...state.playtree,
@@ -280,6 +361,67 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
                 },
                 unsavedChangesExist: unsavedChangeOccurred
             }
+        }
+        case "added_playedge": {
+            const newNodes = structuredClone(state.playtree.nodes)
+            const sourceNode = newNodes.get(action.sourceID)
+
+            if (sourceNode) {
+                sourceNode.next.push({
+                    nodeID: action.targetID,
+                    shares: 1,
+                    repeat: -1,
+                })
+                return {
+                    playtree: {
+                        ...state.playtree,
+                        nodes: newNodes
+                    },
+                    unsavedChangesExist: unsavedChangeOccurred,
+                }
+            }
+
+            return state
+        }
+        case "updated_playedge": {
+            const newNodes = structuredClone(state.playtree.nodes)
+            const sourceNode = newNodes.get(action.sourceID)
+
+            if (sourceNode) {
+                const playedgeIndex = sourceNode.next.findIndex(playedge => playedge.nodeID === action.targetID)
+                const playedge = sourceNode.next[playedgeIndex]
+                if (playedgeIndex !== -1) {
+                    sourceNode.next.splice(playedgeIndex, 1, Object.assign(playedge, action.patch))
+                    return {
+                        playtree: {
+                            ...state.playtree,
+                            nodes: newNodes
+                        },
+                        unsavedChangesExist: unsavedChangeOccurred
+                    }
+                }
+            }
+            return state
+        }
+        case "deleted_playedge": {
+            const newNodes = structuredClone(state.playtree.nodes)
+            const sourceNode = newNodes.get(action.sourceID)
+
+            if (sourceNode) {
+                const playedgeIndex = sourceNode.next.findIndex(playedge => playedge.nodeID === action.targetID)
+                const playedge = sourceNode.next[playedgeIndex]
+                if (playedgeIndex !== -1) {
+                    sourceNode.next.splice(playedgeIndex, 1)
+                    return {
+                        playtree: {
+                            ...state.playtree,
+                            nodes: newNodes
+                        },
+                        unsavedChangesExist: unsavedChangeOccurred
+                    }
+                }
+            }
+            return state
         }
         case "added_playhead": {
             const newPlayroots = structuredClone(state.playtree.playroots)
@@ -321,11 +463,26 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
     }
 }
 
+const PlayConnectionLine : ConnectionLineComponent = ({ fromX, fromY, toX, toY }) => {
+    const [path] = getBezierPath({ sourceX: fromX, sourceY: fromY, targetX: toX, targetY: toY })
+    return (
+        <g>
+            <path
+                fill="none"
+                stroke="brown"
+                strokeWidth={2}
+                className="animated"
+                d={path}
+            >
+            </path>
+        </g>
+    )
+}
+
 export default function PlaytreeEditor() {
     const customFlowNodeTypes = useMemo(() => ({ play: PlayNodeFlow }), []);
     const customFlowEdgeTypes = useMemo(() => ({ play: PlayEdgeFlow }), []);
 
-    
     const initialPlaytree : Playtree | null = playtreeFromJson(useLoaderData())
     if (initialPlaytree === null) {
         return null
@@ -338,13 +495,11 @@ export default function PlaytreeEditor() {
 
     const handleDeletePlaynode = (nodeID: string) => {
         setFlownodes(prevFlownodes => {
-            const flownodeIndex = prevFlownodes.findIndex(flownode => (flownode as PlayNodeFlow).data.playnode.id === nodeID)
-            if (flownodeIndex !== -1) {
-                const newFlownodes = structuredClone(JSON.parse(JSON.stringify(prevFlownodes)))
-                newFlownodes.splice(flownodeIndex, 1)
-                return newFlownodes
-            }
-            return prevFlownodes
+            return prevFlownodes.filter(flownode => flownode.data.playnode.id !== nodeID)
+        })
+
+        setFlowedges(prevFlowedges => {
+            return prevFlowedges.filter(flowedge => flowedge.source !== nodeID && flowedge.target !== nodeID)
         })
 
         dispatch({type: "deleted_playnode", nodeID})
@@ -354,7 +509,7 @@ export default function PlaytreeEditor() {
         }
     }
 
-    const initialFlownodes = Array.from(initialPlaytree.nodes.values()).map((playnode, index) => {
+    const initialFlownodes : PlayNodeFlow[] = Array.from(initialPlaytree.nodes.values()).map((playnode, index) => {
         const playhead = initialPlaytree.playroots.find(playhead => playhead.nodeID === playnode.id)
         return {
             key: playnode.id,
@@ -372,33 +527,49 @@ export default function PlaytreeEditor() {
         }
     })
 
-    let initialFlowedges : Edge[] = []
+    let initialFlowedges : PlayEdgeFlow[] = []
+
+    const makePlayEdgeFlow = (playnode : PlayNode, playedge : PlayEdge) : PlayEdgeFlow => {
+        return {
+            id: playnode.id + "-" + playedge.nodeID,
+            type: "play",
+            source: playnode.id,
+            target: playedge.nodeID,
+            label: playedge.shares,
+            markerEnd: {
+                type: MarkerType.Arrow,
+                color: "brown",
+            },
+            style: {
+                stroke: "brown",
+                strokeWidth: 2,
+            },
+            data: {
+                playedge: playedge,
+                dispatch: dispatch
+            }
+        }
+    }
+
     initialPlaytree.nodes.forEach(playnode => {
         if (playnode.next) {
             playnode.next.forEach(playedge => {
-                initialFlowedges.push({
-                    id: playnode.id + "-" + playedge.nodeID,
-                    source: playnode.id,
-                    target: playedge.nodeID,
-                    label: playedge.shares,
-                    markerEnd: {
-                        type: MarkerType.Arrow,
-                        color: "brown",
-                    },
-                    style: {
-                        stroke: "brown",
-                        strokeWidth: 2,
-                    },
-                    data: {
-                        playedge: playedge
-                    }
-                })
+                initialFlowedges.push(makePlayEdgeFlow(playnode, playedge))
             })
         }
     })
 
-    const [flownodes, setFlownodes] = useState<Node[]>(initialFlownodes)
-    const [flowedges, setFlowedges] = useState<Edge[]>(initialFlowedges)
+    const [flownodes, setFlownodes, onFlownodesChange] = useNodesState<PlayNodeFlow>(initialFlownodes)
+    const [flowedges, setFlowedges, onFlowedgesChange] = useEdgesState<PlayEdgeFlow>(initialFlowedges)
+
+    const onConnect : OnConnect = useCallback(connection => {
+        const sourcePlaynode = state.playtree.nodes.get(connection.source)
+        if (sourcePlaynode) {
+            const playedge = { nodeID: connection.target, shares: 1, repeat: -1 }
+            setFlowedges((eds) => addEdge(makePlayEdgeFlow(sourcePlaynode, playedge), eds))
+            dispatch({type: "added_playedge", sourceID: connection.source, targetID: connection.target})
+        }
+    }, [state.playtree.nodes]);
 
     const handleAddPlaynode = useCallback(() => {
         let maxValue = -1
@@ -411,15 +582,14 @@ export default function PlaytreeEditor() {
 
         const newID = (maxValue + 1).toString()
 
-        const newFlownodes = structuredClone(JSON.parse(JSON.stringify(flownodes)))
+        const newFlownodes = [...flownodes]
         
         newFlownodes.push({
             id: newID,
             type: "play",
-            position: { x: 100 + 300 * ((maxValue + 1) % 3), y: 50 + Math.floor((maxValue + 1) / 3) * 300 },
+            position: { x: 0, y: 0},
             zIndex: 100 - maxValue,
             data: {
-                label: newID,
                 playnode: {
                     id: newID,
                     name: "New Playnode",
@@ -427,14 +597,17 @@ export default function PlaytreeEditor() {
                     content: [],
                     next: []
                 },
+                playhead: null,
                 dispatch: (x : PlaytreeEditorAction) => dispatch(x),
                 handleDeletePlaynode: handleDeletePlaynode
             }
         })
         setFlownodes(newFlownodes)
-
         dispatch({type: "added_playnode"})
     }, [flownodes])
+
+    useEffect(() => {
+    }, [state.playtree.nodes])
 
     const handleSave = useCallback(() => {
         (async () => {
@@ -465,7 +638,16 @@ export default function PlaytreeEditor() {
                             <button type="button" title="Save Changes" className="absolute z-10 rounded-lg bg-neutral-400 mx-1 my-[4.75rem] px-2 py-1" onClick={handleSave}>💾</button> :
                         null
                     }
-                    <ReactFlow nodeTypes={customFlowNodeTypes} edgeTypes={customFlowEdgeTypes} nodes={flownodes} edges={flowedges} elevateNodesOnSelect>
+                    <ReactFlow
+                        nodeTypes={customFlowNodeTypes}
+                        nodes={flownodes}
+                        onNodesChange={onFlownodesChange}
+                        edgeTypes={customFlowEdgeTypes}
+                        edges={flowedges}
+                        onEdgesChange={onFlowedgesChange}
+                        connectionLineComponent={PlayConnectionLine}
+                        onConnect={onConnect}
+                        elevateNodesOnSelect>
                         <Background />
                         <Controls />
                     </ReactFlow>
