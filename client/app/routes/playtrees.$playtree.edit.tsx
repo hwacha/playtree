@@ -1,6 +1,6 @@
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { Background, Controls, Handle, MarkerType, Position, ReactFlow, Node, NodeProps, EdgeProps, getBezierPath, Edge, BaseEdge, BezierEdge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange, addEdge, OnConnect, useNodesState, useEdgesState, ConnectionLineComponent, useConnection, EdgeLabelRenderer } from "@xyflow/react";
+import { Background, Controls, Handle, MarkerType, Position, ReactFlow, Node, NodeProps, EdgeProps, getBezierPath, Edge, BaseEdge, BezierEdge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange, addEdge, OnConnect, useNodesState, useEdgesState, ConnectionLineComponent, useConnection, EdgeLabelRenderer, OnSelectionChangeFunc } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import invariant from "tiny-invariant";
@@ -62,7 +62,6 @@ export type PlayNodeFlow = Node<{
 }, 'play'>;
 
 function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
-    const [expanded, setExpanded] = useState<boolean>(false)
     const [adding, setAdding] = useState<boolean>(false)
 
     const [playnodeName, setPlaynodeName] = useState<string>(props.data.playnode.name)
@@ -70,10 +69,6 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
     const [contentList, setContentList] = useState<Content[]>(props.data.playnode.content)
 
     const [playhead, setPlayhead] = useState<PlayheadInfo | null>(props.data.playhead)
-
-    const handleExpandOrCollapse = useCallback(() => {
-        setExpanded(!expanded)
-    }, [expanded])
 
     const handleAddBegin = useCallback((_ : any) => {
         setAdding(true)
@@ -87,6 +82,10 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
         setAdding(false)
         return false
     }, [adding, contentList])
+
+    const handleSearchFocusOut = useCallback((event: FocusEvent) => {
+        setAdding(false)
+    }, [])
 
     const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         setPlaynodeName(event.target.value)
@@ -149,13 +148,12 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
     return (
         <React.Fragment key={props.id}>
             <div>{ playhead ? <PlayheadComponent index={playhead.index} name={playhead.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)} onDeletePlayhead={handleDeletePlayhead}/> : null }</div>
-            <Handle type="target" position={Position.Top} style={{width: 12, height: 12}} />
+            <Handle type="target" isConnectableStart={false} position={Position.Top} style={{width: 12, height: 12}} />
             {
-                expanded ?
+                props.selected ?
                 <div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-48 p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
                     <div className="mb-5">
-                        <button className={`bg-blue-300 rounded-lg px-2 py-1 absolute top-1 left-1`} onClick={handleExpandOrCollapse} title="Collapse">↖️</button>
-                        <button className={`bg-${color}-300 rounded-lg px-2 py-1 absolute top-1 left-10`} onClick={handleTogglePlaynodeType} title={playnodeType}>{isSequence ? <>🔢</> : <>🎲</> }</button>
+                        <button className={`bg-${color}-300 rounded-lg px-2 py-1 absolute top-1 left-1`} onClick={handleTogglePlaynodeType} title={playnodeType}>{isSequence ? <>🔢</> : <>🎲</> }</button>
                         <button className={`bg-red-300 rounded-lg px-2 py-1 absolute top-1 right-1`} onClick={handleDeleteSelf} title="Delete Playnode">🗑️</button>
                     </div>
                     <input id="text" name="text" value={playnodeName} onChange={handleChange} className={`w-full bg-${color}-100 text-center`} />
@@ -173,13 +171,13 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
                             })
                         }
                     </ul>
-                    {
-                        adding ?
-                        <SearchField onContentSelect={handleContentSelect} /> :
-                        <div className="flex"><button title="Add Content" className={`border-${color}-600 bg-${color}-400 border-2 rounded-full px-2 py-1 m-auto`} onClick={handleAddBegin}>➕</button></div>
-                    }
+                        {
+                            adding ?
+                            <SearchField onContentSelect={handleContentSelect} onFocusOut={handleSearchFocusOut} /> :
+                            <div className="flex"><button title="Add Content" className={`border-${color}-600 bg-${color}-400 border-2 rounded-full px-2 py-1 m-auto`} onClick={handleAddBegin}>➕</button></div>
+                        }
                 </div> :
-                <div className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-48 h-16 py-4 text-center`} onClick={handleExpandOrCollapse} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>{playnodeName}</div>
+                <div className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-48 h-16 py-4 text-center`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>{playnodeName}</div>
             }
             <Handle type="source" position={Position.Bottom} id="a" style={{width: 12, height: 12}}/>
         </React.Fragment>
@@ -255,19 +253,20 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
 
         if (underAndLeft || underAndRight) {
             const p0 = {x: sourceX, y: sourceY}
-            const p1 = {x: underAndLeft ? sourceX - scaledLogDistance : sourceX + scaledLogDistance, y: sourceY + scaledLogDistance}
-            const p2 = {x: underAndLeft ? targetX - scaledLogDistance : targetX + scaledLogDistance, y: targetY - scaledLogDistance}
+            const p1 = {x: underAndRight ? sourceX - scaledLogDistance : sourceX + scaledLogDistance, y: sourceY + scaledLogDistance}
+            const p2 = {x: underAndRight ? targetX - scaledLogDistance : targetX + scaledLogDistance, y: targetY - scaledLogDistance}
             const p3 = {x: targetX, y: targetY}
 
             edgePath = `M ${p0.x} ${p0.y} C ${p1.x} ${p1.y} ${p2.x} ${p2.y} ${p3.x} ${p3.y}`
             
-            const t = 0.5
+            const t = (0.25)
             const oneMinusT = 1 - t
             const p0coeff = oneMinusT * oneMinusT * oneMinusT
             const p1coeff = 3 * oneMinusT * oneMinusT * t
             const p2coeff = 3 * oneMinusT * t * t
             const p3coeff = t * t * t
             labelX = p0coeff * p0.x + p1coeff * p1.x + p2coeff * p2.x + p3coeff * p3.x
+            labelY = p0coeff * p0.y + p1coeff * p1.y + p2coeff * p2.y + p3coeff * p3.y
         }
     }
 
@@ -293,7 +292,8 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
                     <div className="group bg-neutral-200 rounded-xl p-2 font-markazi" style={{
                             position: 'absolute',
                             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-                            pointerEvents: 'all'
+                            pointerEvents: 'all',
+                            zIndex: 101
                         }}>
                         <div className="w-full h-fit flex content-evenly">
                             {/* <div className="w-full">{`${props.source}=>${props.target}`}</div> */}
@@ -635,13 +635,13 @@ export default function PlaytreeEditor() {
 
     useEffect(() => {
         const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-        g.setGraph({ rankdir: "TB", acyclicer: "greedy", ranker: "network-simplex"})
+        g.setGraph({ rankdir: "TB", align: undefined, acyclicer: "greedy", ranker: "network-simplex"})
         flowedges.filter(edge => !state.playtree.playroots.has(edge.target)).forEach((edge) => g.setEdge(edge.source, edge.target));
         flownodes.forEach((node) =>
             g.setNode(node.id, {
               ...node,
-              width: node.measured?.width ?? 200,
-              height: node.measured?.height ?? 100,
+              width: node.measured?.width ?? 250,
+              height: node.measured?.height ?? 175,
             }),
         );
     
@@ -730,11 +730,11 @@ export default function PlaytreeEditor() {
             <div className="h-full w-5/6 m-auto">
                 <h2 className="text-3xl text-green-600">{state.playtree.summary.name}</h2>
                 <div className="h-full border-4 border-green-600 bg-neutral-100">
-                    <button title="Add Playnode" className="absolute z-10 rounded-lg bg-green-400 mx-1 my-1 px-2 py-1" onClick={handleAddPlaynode}>➕</button>
-                    <button id="playhead-spawner" title="Add Playhead" className="absolute z-10 rounded-lg bg-purple-300 mx-1 my-10 px-2 py-1" draggable={true} onDragStart={handleDragStart}>💽</button>
+                    <button title="Add Playnode" className="z-10 absolute rounded-lg bg-green-400 mx-1 my-1 px-2 py-1" onClick={handleAddPlaynode}>➕</button>
+                    <button id="playhead-spawner" title="Add Playhead" className="z-10 absolute rounded-lg bg-purple-300 mx-1 my-10 px-2 py-1" draggable={true} onDragStart={handleDragStart}>💽</button>
                     {
                         state.unsavedChangesExist ?
-                            <button type="button" title="Save Changes" className="absolute z-10 rounded-lg bg-neutral-400 mx-1 my-[4.75rem] px-2 py-1" onClick={handleSave}>💾</button> :
+                            <button type="button" title="Save Changes" className="z-10 absolute rounded-lg bg-neutral-400 mx-1 my-[4.75rem] px-2 py-1" onClick={handleSave}>💾</button> :
                         null
                     }
                     <ReactFlow
@@ -746,7 +746,7 @@ export default function PlaytreeEditor() {
                         onEdgesChange={onFlowedgesChange}
                         connectionLineComponent={PlayConnectionLine}
                         onConnect={onConnect}
-                        elevateNodesOnSelect>
+                        >
                         <Background />
                         <Controls />
                     </ReactFlow>
