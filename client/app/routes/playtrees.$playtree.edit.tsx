@@ -7,6 +7,7 @@ import invariant from "tiny-invariant";
 import SearchField from "~/components/SearchField";
 import { Content, jsonFromPlaytree, PlayEdge, PlayheadInfo, PlayNode, Playtree, playtreeFromJson } from "../types";
 import React from "react";
+import Dagre from '@dagrejs/dagre';
 
 export const loader = async ({params} : LoaderFunctionArgs) => {
     invariant(params.playtree)
@@ -252,20 +253,21 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
         const underAndLeft  = dx <= 0 && dx > -nodeWidth
         const underAndRight = dx  > 0 && dx <  nodeWidth
 
-        if (underAndLeft) {
-            edgePath = `M ${sourceX} ${sourceY} C 
-            ${sourceX - scaledLogDistance} 
-            ${sourceY + scaledLogDistance} 
-            ${targetX - scaledLogDistance} 
-            ${targetY - scaledLogDistance} 
-            ${targetX} ${targetY}`
-        } else if (underAndRight) {
-            edgePath = `M ${sourceX} ${sourceY} C 
-            ${sourceX + scaledLogDistance} 
-            ${sourceY + scaledLogDistance} 
-            ${targetX + scaledLogDistance} 
-            ${targetY - scaledLogDistance} 
-            ${targetX} ${targetY}`
+        if (underAndLeft || underAndRight) {
+            const p0 = {x: sourceX, y: sourceY}
+            const p1 = {x: underAndLeft ? sourceX - scaledLogDistance : sourceX + scaledLogDistance, y: sourceY + scaledLogDistance}
+            const p2 = {x: underAndLeft ? targetX - scaledLogDistance : targetX + scaledLogDistance, y: targetY - scaledLogDistance}
+            const p3 = {x: targetX, y: targetY}
+
+            edgePath = `M ${p0.x} ${p0.y} C ${p1.x} ${p1.y} ${p2.x} ${p2.y} ${p3.x} ${p3.y}`
+            
+            const t = 0.5
+            const oneMinusT = 1 - t
+            const p0coeff = oneMinusT * oneMinusT * oneMinusT
+            const p1coeff = 3 * oneMinusT * oneMinusT * t
+            const p2coeff = 3 * oneMinusT * t * t
+            const p3coeff = t * t * t
+            labelX = p0coeff * p0.x + p1coeff * p1.x + p2coeff * p2.x + p3coeff * p3.x
         }
     }
 
@@ -288,14 +290,14 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
             <BaseEdge path={edgePath} className={props.selected ? "animate" : ""} style={props.style} markerEnd={markerEnd} />
             <EdgeLabelRenderer> {
                 props.selected ?
-                    <div className="bg-neutral-200 rounded-xl p-2 font-markazi" style={{
+                    <div className="group bg-neutral-200 rounded-xl p-2 font-markazi" style={{
                             position: 'absolute',
                             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
                             pointerEvents: 'all'
                         }}>
                         <div className="w-full h-fit flex content-evenly">
-                            <div className="w-full">{`${props.source}=>${props.target}`}</div>
-                            <div className="w-full"><button className="bg-red-300 rounded-lg px-2 pt-1 float-right" onClick={handleDeleteSelf}>🗑️</button></div>
+                            {/* <div className="w-full">{`${props.source}=>${props.target}`}</div> */}
+                            <div className="w-full"><button className="absolute -left-1 -top-1 hidden bg-red-300 text-xs rounded-full px-1 pt-1 group-hover:block" onClick={handleDeleteSelf}>🗑️</button></div>
                         </div>
                         <hr></hr>
                         <div className="w-24 flex">
@@ -582,6 +584,7 @@ export default function PlaytreeEditor() {
             key: playnode.id,
             type: "play",
             id: playnode.id,
+            label: playnode.name,
             position: { x: 100 + 300 * (index % 3), y: 50 + Math.floor(index / 3) * 300 },
             zIndex: 100 - index,
             data: {
@@ -600,6 +603,7 @@ export default function PlaytreeEditor() {
         return {
             id: playnode.id + "-" + playedge.nodeID,
             type: "play",
+            label: playnode.id + "-" + playedge.nodeID,
             source: playnode.id,
             target: playedge.nodeID,
             markerEnd: {
@@ -628,6 +632,32 @@ export default function PlaytreeEditor() {
 
     const [flownodes, setFlownodes, onFlownodesChange] = useNodesState<PlayNodeFlow>(initialFlownodes)
     const [flowedges, setFlowedges, onFlowedgesChange] = useEdgesState<PlayEdgeFlow>(initialFlowedges)
+
+    useEffect(() => {
+        const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+        g.setGraph({ rankdir: "TB", acyclicer: "greedy", ranker: "network-simplex"})
+        flowedges.filter(edge => !state.playtree.playroots.has(edge.target)).forEach((edge) => g.setEdge(edge.source, edge.target));
+        flownodes.forEach((node) =>
+            g.setNode(node.id, {
+              ...node,
+              width: node.measured?.width ?? 200,
+              height: node.measured?.height ?? 100,
+            }),
+        );
+    
+        Dagre.layout(g);
+        setFlownodes(flownodes.map((node) => {
+            const position = g.node(node.id);
+            // We are shifting the dagre node position (anchor=center center) to the top left
+            // so it matches the React Flow node anchor point (top left).
+            const x = position.x - (node.measured?.width ?? 0) / 2;
+            const y = position.y - (node.measured?.height ?? 0) / 2;
+       
+            return { ...node, position: { x, y } };
+          })
+        )
+        setFlowedges([...flowedges])
+    }, [])
 
     const onConnect : OnConnect = useCallback(connection => {
         const sourcePlaynode = state.playtree.nodes.get(connection.source)
