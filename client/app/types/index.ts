@@ -35,8 +35,8 @@ export type HistoryNode = {
 }
 
 export type PlayheadInfo = {
+    index: number;
     name: string;
-    nodeID: string;
 }
 
 export type Playhead = {
@@ -49,23 +49,25 @@ export type Playhead = {
 export type Playtree = {
     summary: PlaytreeSummary;
     nodes: Map<string, PlayNode>;
-    playroots: PlayheadInfo[];
+    playroots: Map<string, PlayheadInfo>;
 }
 
-export const playtreeFromJson = (playtreeWithNodesAsJSObject : {summary: PlaytreeSummary, nodes: {[key:string]: PlayNode}, playroots: PlayheadInfo[]}) : Playtree | null => {
+export const playtreeFromJson = (playtreeWithNodesAsJSObject : {summary: PlaytreeSummary, nodes: {[key:string]: PlayNode}, playroots: {[key:string]: PlayheadInfo}}) : Playtree | null => {
     if (playtreeWithNodesAsJSObject) {
         return {
             ...playtreeWithNodesAsJSObject,
-            nodes: new Map(Object.entries(playtreeWithNodesAsJSObject.nodes))
+            nodes: new Map(Object.entries(playtreeWithNodesAsJSObject.nodes)),
+            playroots: new Map(Object.entries(playtreeWithNodesAsJSObject.playroots))
         }
     }
 
     return null
 }
 
-export const jsonFromPlaytree = (playtree : Playtree) : {summary: PlaytreeSummary, nodes: {[key:string]: PlayNode}, playroots: PlayheadInfo[]} => {
+export const jsonFromPlaytree = (playtree : Playtree) : {summary: PlaytreeSummary, nodes: {[key:string]: PlayNode}, playroots: {[key:string]: PlayheadInfo}} => {
     return {
         ...playtree,
-        nodes: Object.fromEntries(playtree.nodes.entries())
+        nodes: Object.fromEntries(playtree.nodes.entries()),
+        playroots: Object.fromEntries(playtree.playroots.entries())
     }
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer } from "react"
-import { Content, PlayEdge, Playhead, PlayNode, Playtree } from "../types";
+import { Content, PlayEdge, Playhead, PlayheadInfo, PlayNode, Playtree } from "../types";
 
 type PlayerProps = {
     playtree: Playtree | null
@@ -15,32 +15,36 @@ type PlayerState = {
 type PlayerAction = {
     type: 'played' | 'paused';
 } | {
-    type: 'song_ended' | 'skipped_forward';
+    type: 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
     playtree: Playtree;
-    edgeRand: number;
+} | {
+    type: 'playtree_loaded';
+    playtree: Playtree;
     selectorRand: number;
 } | {
-    type:'playtree_loaded' | 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
+    type: 'song_ended' | 'skipped_forward';
     playtree: Playtree;
+    selectorRand: number;
+    edgeRand: number;
 }
 
 const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
     switch (action.type) {
         case 'playtree_loaded': {
             const newRepeatCounters = new Map<string, Map<string, number>>()
-            const newPlayheads = action.playtree.playroots.map(playhead => {
-                const playNode = action.playtree.nodes.get(playhead.nodeID)
+            const newPlayheads : Playhead[] = []
+            action.playtree.playroots.forEach((playroot: PlayheadInfo, nodeID: string) => {
+                const playNode = action.playtree.nodes.get(nodeID)
                 if (playNode !== undefined) {
-                    return {
-                        name: playhead.name,
+                    newPlayheads[playroot.index] = {
+                        name: playroot.name,
                         node: playNode,
-                        nodeIndex: playNode.type === "selector" ? Math.floor(Math.random() * playNode.content.length) : 0,
+                        nodeIndex: playNode.type === "selector" ? Math.floor(action.selectorRand * playNode.content.length) : 0,
                         history: []
                     }
-                } else {
-                    return undefined
                 }
-            }).filter(playhead => playhead !== undefined)
+            })
+
             Array.from(action.playtree.nodes.values()).map((node: PlayNode) => {
                 if (node.next) {
                     node.next.map((edge : PlayEdge) => {
@@ -52,6 +56,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     })
                 }
             })
+
             return {
                 ...state,
                 playheadIndex: 0,
@@ -59,6 +64,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 repeatCounters: newRepeatCounters,
             }
         }
+
         case 'played': {
             return {
                 ...state,
@@ -201,7 +207,7 @@ export default function Player({playtree}: PlayerProps) {
 
     useEffect(() => {
         if (playtree) {
-            dispatch({type: "playtree_loaded", playtree: playtree})
+            dispatch({type: "playtree_loaded", playtree: playtree, selectorRand: Math.random()})
         }
     }, [playtree])
 

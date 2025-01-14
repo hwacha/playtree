@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import invariant from "tiny-invariant";
 import SearchField from "~/components/SearchField";
 import { Content, jsonFromPlaytree, PlayEdge, PlayheadInfo, PlayNode, Playtree, playtreeFromJson } from "../types";
+import React from "react";
 
 export const loader = async ({params} : LoaderFunctionArgs) => {
     invariant(params.playtree)
@@ -18,6 +19,7 @@ type PlayheadProps = {
     name: string;
     nodeID: string;
     dispatch: (action: PlaytreeEditorAction) => void;
+    onDeletePlayhead: () => void
 }
 
 function PlayheadComponent(props : PlayheadProps) {
@@ -26,24 +28,27 @@ function PlayheadComponent(props : PlayheadProps) {
         setName(evt.target.value)
         props.dispatch({
             type: "updated_playhead",
-            index: props.index,
+            nodeID: props.nodeID,
             playhead: {
+                index: props.index,
                 name: evt.target.value,
-                nodeID: props.nodeID,
             }
         })
     }, [name])
 
-    const handleDragStart = (event : any) => {
-        if (event && event.target) {
-            event.dataTransfer.setData("text", event.target.id)
-        }
+    const handleDeleteSelf = () => {
+        props.dispatch({
+            type: "deleted_playhead",
+            nodeID: props.nodeID
+        })
+        props.onDeletePlayhead()
     }
 
     return (
-        <div id={name} draggable={true} onDragStart={handleDragStart} className="flex absolute -top-9 left-40">
+        <div id={name} className="group flex absolute -top-9 left-40 w-32">
+            <button onClick={handleDeleteSelf} className="bg-red-200 px-1 py-[2px] rounded-full text-xs absolute -top-3 -left-2 hidden group-hover:block">🗑️</button>
             <div className="mr-2 bg-purple-300 px-2 py-1 rounded-md">💽</div>
-            <input value={name} onChange={onNameChange} className="bg-transparent w-20"/>
+            <input value={name} onChange={onNameChange} className="bg-transparent w-full"/>
         </div>
     )
 }
@@ -122,6 +127,10 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
         props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {content: newContentList}})
     }, [contentList])
 
+    const handleDeletePlayhead = useCallback(() => {
+        setPlayhead(null)
+    }, [playhead])
+
     const handleDeleteSelf = useCallback(() => {
         props.data.handleDeletePlaynode(props.data.playnode.id)
     }, [])
@@ -131,15 +140,15 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
 
     const handleDrop = (event : any) => {
         event.preventDefault();
-        var data = event.dataTransfer.getData("text");
-        setPlayhead({name: "Playhead", nodeID: props.data.playnode.id})
+        var index : number = Number.parseInt(event.dataTransfer.getData("index"));
+        setPlayhead({name: "Playhead", index: index})
         props.data.dispatch({type:"added_playhead", nodeID: props.data.playnode.id})
     }
 
     return (
-        <>
-            <div>{ playhead ? <PlayheadComponent index={0} name={playhead.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)}/> : null }</div>
-            <Handle type="target" position={Position.Top} />
+        <React.Fragment key={props.id}>
+            <div>{ playhead ? <PlayheadComponent index={playhead.index} name={playhead.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)} onDeletePlayhead={handleDeletePlayhead}/> : null }</div>
+            <Handle type="target" position={Position.Top} style={{width: 12, height: 12}} />
             {
                 expanded ?
                 <div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-48 p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
@@ -171,19 +180,15 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
                 </div> :
                 <div className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-48 h-16 py-4 text-center`} onClick={handleExpandOrCollapse} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>{playnodeName}</div>
             }
-            <Handle type="source" position={Position.Bottom} id="a" />
-            <Handle
-            type="source"
-            position={Position.Bottom}
-            id="b"
-            />
-        </>
+            <Handle type="source" position={Position.Bottom} id="a" style={{width: 12, height: 12}}/>
+        </React.Fragment>
     )
 }
 
 type PlayEdgeFlow = Edge<{
     playedge: PlayEdge;
     dispatch: (action: PlaytreeEditorAction) => void;
+    onDeletePlayedge: (id: string, sourceID: string, targetID: string) => void;
 }, 'play'>;
 
 function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
@@ -191,25 +196,28 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
         return null
     }
 
-    const [shares, setShares] = useState<string>(props.data.playedge.shares.toString())
-    const [repeat, setRepeat] = useState<string>(props.data.playedge.repeat.toString())
+    const initialShares = props.data.playedge.shares ? props.data.playedge.shares : 1
+    const initialRepeat = props.data.playedge.repeat ? props.data.playedge.repeat : -1 
+
+    const [sharesInputText, setSharesInputText] = useState<string>(initialShares.toString())
+    const [repeatInputText, setRepeatInputText] = useState<string>(initialRepeat.toString())
 
     const handleSharesChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const inputAsNumber = Number(event.target.value)
         if (event.target.value == "" || (Number.isInteger(inputAsNumber) && inputAsNumber >= 0)) {
-            setShares(event.target.value)
+            setSharesInputText(event.target.value)
             if (props.data) {
                 props.data.dispatch({type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {
                     shares: event.target.value === "" ? 1 : inputAsNumber
                 }})
             }
         }
-    }, [shares])
+    }, [sharesInputText])
 
     const handleRepeatChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         let inputAsNumber = Number(event.target.value)
         if (event.target.value === "" || event.target.value === "-" || (Number.isInteger(inputAsNumber) && inputAsNumber >= -1)) {
-            setRepeat(event.target.value)
+            setRepeatInputText(event.target.value)
             if (event.target.value === "") {
                 inputAsNumber = 1
             }
@@ -222,39 +230,93 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
                 }})
             }
         }
-    }, [repeat])
+    }, [repeatInputText])
 
-    const { sourceX, sourceY, targetX, targetY, id, markerEnd } = props;
+    const handleDeleteSelf = useCallback(() => {
+        if (props.data) {
+            props.data.onDeletePlayedge(props.id, props.source, props.target)
+        }
+    }, [])
+
+    const { sourceX, sourceY, targetX, targetY, markerEnd } = props;
     let [edgePath, labelX, labelY] = getBezierPath(props)
-    if (Math.abs(sourceX - targetX) < 0.001 && sourceY > targetY) {
+    
+
+    if (sourceY > targetY) {
         const distance = sourceY - targetY
         const logDistance = Math.log(distance)
-        edgePath = `M ${sourceX} ${sourceY} C ${sourceX - (40 * logDistance)} ${sourceY + (40 * logDistance)} ${targetX - (40 * logDistance)} ${targetY - (40 * logDistance)} ${targetX} ${targetY}`
+        const scaledLogDistance = 40 * logDistance
+        
+        const dx = sourceX - targetX
+        const nodeWidth = 500
+        const underAndLeft  = dx <= 0 && dx > -nodeWidth
+        const underAndRight = dx  > 0 && dx <  nodeWidth
+
+        if (underAndLeft) {
+            edgePath = `M ${sourceX} ${sourceY} C 
+            ${sourceX - scaledLogDistance} 
+            ${sourceY + scaledLogDistance} 
+            ${targetX - scaledLogDistance} 
+            ${targetY - scaledLogDistance} 
+            ${targetX} ${targetY}`
+        } else if (underAndRight) {
+            edgePath = `M ${sourceX} ${sourceY} C 
+            ${sourceX + scaledLogDistance} 
+            ${sourceY + scaledLogDistance} 
+            ${targetX + scaledLogDistance} 
+            ${targetY - scaledLogDistance} 
+            ${targetX} ${targetY}`
+        }
     }
 
     return (
-        <>
-            <BaseEdge path={edgePath} style={props.style} markerEnd={markerEnd} />
-            <EdgeLabelRenderer>
-                <div style={{
-                    position: 'absolute',
-                    transform: `translate(-50%, -50%) translate(${labelX}px,${labelY - 32}px)`,
-                    pointerEvents: 'all'
-                }} className="w-24 flex">Shares:<input value={shares} className="w-full" onChange={handleSharesChange} /></div>
-                <div style={{
-                    position: 'absolute',
-                    transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-                    pointerEvents: 'all'
-                }} className="w-24 flex">Repeat:<input value={repeat} className="w-full" onChange={handleRepeatChange} /></div>
-                <button className="bg-red-300 rounded-lg px-2 py-1" style={{
-                    position: 'absolute',
-                    transform: `translate(-50%, -50%) translate(${labelX}px,${labelY + 32}px)`,
-                    pointerEvents: 'all'
-                }}>
-                    Delete
-                </button>
+        <React.Fragment key={props.id}>
+            <style>{
+                `.animate {
+                    stroke-dasharray: 10;
+                    animation: dash 0.5s linear;
+                    animation-iteration-count: infinite;
+                }
+
+                @keyframes dash {
+                    to {
+                        stroke-dashoffset: -20;
+                    }
+                }`
+            }
+            </style>
+            <BaseEdge path={edgePath} className={props.selected ? "animate" : ""} style={props.style} markerEnd={markerEnd} />
+            <EdgeLabelRenderer> {
+                props.selected ?
+                    <div className="bg-neutral-200 rounded-xl p-2 font-markazi" style={{
+                            position: 'absolute',
+                            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+                            pointerEvents: 'all'
+                        }}>
+                        <div className="w-full h-fit flex content-evenly">
+                            <div className="w-full">{`${props.source}=>${props.target}`}</div>
+                            <div className="w-full"><button className="bg-red-300 rounded-lg px-2 pt-1 float-right" onClick={handleDeleteSelf}>🗑️</button></div>
+                        </div>
+                        <hr></hr>
+                        <div className="w-24 flex">
+                            <div className="w-full h-fit">Shares</div>
+                            <div className="w-fit">|</div>
+                            <input value={sharesInputText} className="bg-neutral-200 w-full text-right" onChange={handleSharesChange} />
+                        </div>
+                        <div className="w-24 flex">
+                            <div className="w-full h-fit">Repeat</div>
+                            <div className="w-fit">|</div>
+                            <input value={repeatInputText} className="bg-neutral-200 w-full text-right" onChange={handleRepeatChange} />
+                        </div>
+                    </div> :
+                    <div className="bg-neutral-200 rounded-md px-1 font-markazi" style={{
+                        position: 'absolute',
+                        transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+                        pointerEvents: 'all'
+                    }}>S={sharesInputText}, R={repeatInputText}</div>
+            }
             </EdgeLabelRenderer>
-        </>
+        </React.Fragment>
     )
 }
 
@@ -289,11 +351,11 @@ type PlaytreeEditorAction = {
     nodeID: string
 } | {
     type: "updated_playhead",
-    index: number,
+    nodeID: string,
     playhead: PlayheadInfo
 } | {
     type: "deleted_playhead",
-    index: number,
+    nodeID: string,
 }
 
 const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAction) : PlaytreeEditorState => {
@@ -367,6 +429,9 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
             const sourceNode = newNodes.get(action.sourceID)
 
             if (sourceNode) {
+                if (!sourceNode.next) {
+                    sourceNode.next = []
+                }
                 sourceNode.next.push({
                     nodeID: action.targetID,
                     shares: 1,
@@ -387,7 +452,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
             const newNodes = structuredClone(state.playtree.nodes)
             const sourceNode = newNodes.get(action.sourceID)
 
-            if (sourceNode) {
+            if (sourceNode && sourceNode.next) {
                 const playedgeIndex = sourceNode.next.findIndex(playedge => playedge.nodeID === action.targetID)
                 const playedge = sourceNode.next[playedgeIndex]
                 if (playedgeIndex !== -1) {
@@ -407,9 +472,8 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
             const newNodes = structuredClone(state.playtree.nodes)
             const sourceNode = newNodes.get(action.sourceID)
 
-            if (sourceNode) {
+            if (sourceNode && sourceNode.next) {
                 const playedgeIndex = sourceNode.next.findIndex(playedge => playedge.nodeID === action.targetID)
-                const playedge = sourceNode.next[playedgeIndex]
                 if (playedgeIndex !== -1) {
                     sourceNode.next.splice(playedgeIndex, 1)
                     return {
@@ -426,10 +490,10 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
         case "added_playhead": {
             const newPlayroots = structuredClone(state.playtree.playroots)
             const newPlayhead : PlayheadInfo = {
+                index: state.playtree.playroots.size,
                 name: "Playhead",
-                nodeID: action.nodeID
             }
-            newPlayroots.push(newPlayhead)
+            newPlayroots.set(action.nodeID, newPlayhead)
             return {
                 playtree: {
                     ...state.playtree,
@@ -440,7 +504,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
         }
         case "updated_playhead": {
             const newPlayroots = structuredClone(state.playtree.playroots)
-            newPlayroots[action.index] = action.playhead
+            newPlayroots.set(action.nodeID, action.playhead)
             return {
                 playtree: {
                     ...state.playtree,
@@ -451,7 +515,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
         }
         case "deleted_playhead": {
             const newPlayroots = structuredClone(state.playtree.playroots)
-            newPlayroots.splice(action.index, 1)
+            newPlayroots.delete(action.nodeID)
             return {
                 playtree: {
                     ...state.playtree,
@@ -502,15 +566,18 @@ export default function PlaytreeEditor() {
             return prevFlowedges.filter(flowedge => flowedge.source !== nodeID && flowedge.target !== nodeID)
         })
 
-        dispatch({type: "deleted_playnode", nodeID})
-        const playheadIndexToDelete = state.playtree.playroots.findIndex(playhead => playhead.nodeID === nodeID)
-        if (playheadIndexToDelete !== -1) {
-            dispatch({type: "deleted_playhead", index: playheadIndexToDelete})
-        }
+        dispatch({type: "deleted_playnode", nodeID: nodeID})
+        dispatch({type: "deleted_playhead", nodeID: nodeID})
+    }
+
+    const handleDeletePlayedge = (edgeID: string, sourceID: string, targetID: string) => {
+        setFlowedges(prevFlowedges => {
+            return prevFlowedges.filter(flowedge => flowedge.id !== edgeID)
+        })
+        dispatch({type: "deleted_playedge", sourceID: sourceID, targetID: targetID})
     }
 
     const initialFlownodes : PlayNodeFlow[] = Array.from(initialPlaytree.nodes.values()).map((playnode, index) => {
-        const playhead = initialPlaytree.playroots.find(playhead => playhead.nodeID === playnode.id)
         return {
             key: playnode.id,
             type: "play",
@@ -520,7 +587,7 @@ export default function PlaytreeEditor() {
             data: {
                 label: playnode.id,
                 playnode: playnode,
-                playhead: playhead ? playhead : null,
+                playhead: initialPlaytree.playroots.get(playnode.id) ?? null,
                 dispatch: (x : PlaytreeEditorAction) => dispatch(x),
                 handleDeletePlaynode: handleDeletePlaynode
             }
@@ -529,13 +596,12 @@ export default function PlaytreeEditor() {
 
     let initialFlowedges : PlayEdgeFlow[] = []
 
-    const makePlayEdgeFlow = (playnode : PlayNode, playedge : PlayEdge) : PlayEdgeFlow => {
+    const makePlayedgeFlow = (playnode : PlayNode, playedge : PlayEdge) : PlayEdgeFlow => {
         return {
             id: playnode.id + "-" + playedge.nodeID,
             type: "play",
             source: playnode.id,
             target: playedge.nodeID,
-            label: playedge.shares,
             markerEnd: {
                 type: MarkerType.Arrow,
                 color: "brown",
@@ -546,7 +612,8 @@ export default function PlaytreeEditor() {
             },
             data: {
                 playedge: playedge,
-                dispatch: dispatch
+                dispatch: dispatch,
+                onDeletePlayedge: handleDeletePlayedge
             }
         }
     }
@@ -554,7 +621,7 @@ export default function PlaytreeEditor() {
     initialPlaytree.nodes.forEach(playnode => {
         if (playnode.next) {
             playnode.next.forEach(playedge => {
-                initialFlowedges.push(makePlayEdgeFlow(playnode, playedge))
+                initialFlowedges.push(makePlayedgeFlow(playnode, playedge))
             })
         }
     })
@@ -566,7 +633,7 @@ export default function PlaytreeEditor() {
         const sourcePlaynode = state.playtree.nodes.get(connection.source)
         if (sourcePlaynode) {
             const playedge = { nodeID: connection.target, shares: 1, repeat: -1 }
-            setFlowedges((eds) => addEdge(makePlayEdgeFlow(sourcePlaynode, playedge), eds))
+            setFlowedges((eds) => addEdge(makePlayedgeFlow(sourcePlaynode, playedge), eds))
             dispatch({type: "added_playedge", sourceID: connection.source, targetID: connection.target})
         }
     }, [state.playtree.nodes]);
@@ -606,23 +673,25 @@ export default function PlaytreeEditor() {
         dispatch({type: "added_playnode"})
     }, [flownodes])
 
-    useEffect(() => {
-    }, [state.playtree.nodes])
-
     const handleSave = useCallback(() => {
         (async () => {
-            await fetch(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
+            const response = await fetch(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
                 method: "PUT",
                 body: JSON.stringify(jsonFromPlaytree(state.playtree))
             })
+            if (response.ok) {
+                dispatch({type: "saved_playtree"})
+            } else {
+                // TODO add error messages for user
+            }
         })()
 
-        dispatch({type: "saved_playtree"})
+        
     }, [state.playtree])
 
     const handleDragStart = useCallback((event : any) => {
         if (event && event.target) {
-            event.dataTransfer.setData("text", event.target.id)
+            event.dataTransfer.setData("index", state.playtree.playroots.size)
         }
     }, [])
 

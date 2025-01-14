@@ -104,7 +104,7 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 				Source:    nil,
 			},
 			Nodes:     make(map[string]PlayNodeInfo),
-			Playroots: []PlayheadInfo{},
+			Playroots: make(map[string]PlayheadInfo),
 		}
 
 		// create JSON file <id>.json with body contents, return Created

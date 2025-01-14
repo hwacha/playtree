@@ -134,18 +134,18 @@
             ]
         }
     },
-    "playroots": [
-        {
-            "name": "grabbag",
-            "nodeID": "0"
+    "playroots": {
+        "0": {
+            "index": 0,
+            "name": "grabbag"
         },
-        {
-            "name": "major",
-            "nodeID": "1"
+        "1": {
+            "index": 1,
+            "name": "major"
         },
-        {
-            "name": "minor",
-            "nodeID": "2"
+        "2": {
+            "index": 2,
+            "name": "minor"
         }
-    ]
+    }
 }

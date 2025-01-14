@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strconv"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -48,14 +49,14 @@ type (
 	}
 
 	PlayheadInfo struct {
-		Name   string `json:"name" validate:"required"`
-		NodeID string `json:"nodeID" validate:"required"`
+		Index int    `json:"index"`
+		Name  string `json:"name" validate:"required"`
 	}
 
 	PlaytreeInfo struct {
 		Summary   SummaryInfo             `json:"summary" validate:"required"`
 		Nodes     map[string]PlayNodeInfo `json:"nodes" validate:"required"`
-		Playroots []PlayheadInfo          `json:"playroots" validate:"required"`
+		Playroots map[string]PlayheadInfo `json:"playroots" validate:"required"`
 	}
 )
 
@@ -129,11 +130,13 @@ func playtreeInfoFromJSON(r io.Reader) (*PlaytreeInfo, error) {
 			}
 		}
 	}
+
 	for _, playhead := range pti.Playroots {
 		if playheadValidationErr := v.Struct(playhead); playheadValidationErr != nil {
 			return nil, playheadValidationErr
 		}
 	}
+
 	return &pti, nil
 }
 
@@ -201,25 +204,20 @@ func playtreeFromPlaytreeInfo(pti PlaytreeInfo) (*Playtree, error) {
 
 	pt := &Playtree{
 		CreatedBy: pti.Summary.CreatedBy,
-		Playheads: []*Playhead{},
-	}
-
-	serializedPlayheads := make(map[string]string)
-	for _, playhead := range pti.Playroots {
-		_, found := serializedPlayheads[playhead.NodeID]
-		if found {
-			return nil, errors.New(`JSON Playtree graph: multiple playheads assigned to the same play node`)
-		}
-		serializedPlayheads[playhead.NodeID] = playhead.Name
+		Playheads: make([]*Playhead, len(pti.Playroots)),
 	}
 
 	// third pass
-	for nodeId, name := range serializedPlayheads {
-		pt.Playheads = append(pt.Playheads, &Playhead{
-			Name:      name,
-			Node:      playNodesByID[nodeId],
+	for nodeID, playheadInfo := range pti.Playroots {
+		if otherPlayhead := pt.Playheads[playheadInfo.Index]; otherPlayhead != nil {
+			return nil, errors.New(`JSON Playtree graph: duplicate playroot index "` + strconv.Itoa(playheadInfo.Index) + `" (unspecified indices default to 0)`)
+		}
+
+		pt.Playheads[playheadInfo.Index] = &Playhead{
+			Name:      playheadInfo.Name,
+			Node:      playNodesByID[nodeID],
 			NodeIndex: 0,
-		})
+		}
 	}
 
 	return pt, nil
