@@ -54,7 +54,7 @@ export default function App() {
       <UserSidebar userPlaytreeSummaries={userPlaytreeSummaries}/>
       <div className="absolute left-48 w-[calc(100vw-12rem)] h-full">
         <Banner />
-        <div className="absolute w-[calc(100vw-12rem)] h-[calc(100vh-11.5rem)] top-16 -bottom-64">
+        <div className="absolute w-full h-[calc(100%-13rem)] top-16 -bottom-64">
           <Outlet />
         </div>
         <Player playtree={playerPlaytree} />

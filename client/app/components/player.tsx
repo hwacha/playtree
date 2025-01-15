@@ -266,18 +266,22 @@ export default function Player({playtree}: PlayerProps) {
         return (<div className="bg-green-600 fixed flex w-full left-48 bottom-0"><div className="text-white mx-auto my-6 font-lilitaOne">No playtrees.</div></div>)
     } else {
         let currentPlayhead : Playhead | null | undefined = null
+        let currentPlaynode : PlayNode | null | undefined = null
         let currentContent : Content | null | undefined = null
         if (state && state.playheads) {
             currentPlayhead = state.playheads[state.playheadIndex]
-            if (currentPlayhead && currentPlayhead.node && currentPlayhead.node.content) {
-                currentContent = currentPlayhead.node.content[currentPlayhead.nodeIndex]
+            if (currentPlayhead && currentPlayhead.node) {
+                currentPlaynode = currentPlayhead.node
+                if (currentPlaynode.content) {
+                    currentContent = currentPlaynode.content[currentPlayhead.nodeIndex]
+                }
             }
         }
         
         return (
-            <div className="bg-green-600 fixed flex w-[calc(100vw-12rem)] left-48 bottom-0">
+            <div className="bg-green-600 fixed flex w-[calc(100vw-12rem)] h-36 left-48 bottom-0">
                 <audio ref={onAudioChange} src="" />
-                <div className="w-full">
+                <div className="w-full my-auto">
                     <div className="w-fit float-right mr-8">
                         <div className="w-fit mx-auto">
                             <button
@@ -325,6 +329,7 @@ export default function Player({playtree}: PlayerProps) {
                         <tbody>
                             <tr><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
                             <tr><td>Playhead</td><td>|</td><td>{currentPlayhead ? currentPlayhead.name : "Playhead not available"}</td></tr>
+                            <tr><td>Playnode</td><td>|</td><td>{currentPlaynode ? currentPlaynode.name : "Playnode not available"}</td></tr>
                             <tr><td>Song</td><td>|</td><td>{currentContent ? currentContent.uri.split("/").pop()?.split(".")[0] : "Song not available"}</td></tr>
                         </tbody>
                     </table>

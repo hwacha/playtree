@@ -322,9 +322,15 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
     )
 }
 
+type LogMessage = {
+    type: "error"|"warning"|"success";
+    message: string;
+}
+
 type PlaytreeEditorState = {
     playtree: Playtree,
-    unsavedChangesExist: boolean
+    unsavedChangesExist: boolean,
+    messageLog: LogMessage[],
 }
 
 type PlaytreeEditorAction = {
@@ -358,6 +364,9 @@ type PlaytreeEditorAction = {
 } | {
     type: "deleted_playhead",
     nodeID: string,
+} | {
+    type: "logged_message",
+    message: LogMessage,
 }
 
 const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAction) : PlaytreeEditorState => {
@@ -365,6 +374,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
     switch (action.type) {
         case "loaded_playtree": {
             return {
+                ...state,
                 playtree: action.playtree,
                 unsavedChangesExist: unsavedChangeOccurred
             }
@@ -393,6 +403,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
             const newPlaynodes = structuredClone(state.playtree.nodes)
             newPlaynodes.set(newPlaynode.id, newPlaynode)
             return {
+                ...state,
                 playtree: {
                     ...state.playtree,
                     nodes: newPlaynodes
@@ -408,6 +419,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
                 newNodes.set(action.nodeID, newPlaynode)
             }
             return {
+                ...state,
                 playtree: {
                     ...state.playtree,
                     nodes: newNodes
@@ -419,6 +431,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
             const newNodes = structuredClone(state.playtree.nodes)
             newNodes.delete(action.nodeID)
             return {
+                ...state,
                 playtree: {
                     ...state.playtree,
                     nodes: newNodes
@@ -440,6 +453,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
                     repeat: -1,
                 })
                 return {
+                    ...state,
                     playtree: {
                         ...state.playtree,
                         nodes: newNodes
@@ -460,6 +474,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
                 if (playedgeIndex !== -1) {
                     sourceNode.next.splice(playedgeIndex, 1, Object.assign(playedge, action.patch))
                     return {
+                        ...state,
                         playtree: {
                             ...state.playtree,
                             nodes: newNodes
@@ -479,6 +494,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
                 if (playedgeIndex !== -1) {
                     sourceNode.next.splice(playedgeIndex, 1)
                     return {
+                        ...state,
                         playtree: {
                             ...state.playtree,
                             nodes: newNodes
@@ -497,6 +513,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
             }
             newPlayroots.set(action.nodeID, newPlayhead)
             return {
+                ...state,
                 playtree: {
                     ...state.playtree,
                     playroots: newPlayroots
@@ -508,6 +525,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
             const newPlayroots = structuredClone(state.playtree.playroots)
             newPlayroots.set(action.nodeID, action.playhead)
             return {
+                ...state,
                 playtree: {
                     ...state.playtree,
                     playroots: newPlayroots
@@ -519,11 +537,20 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
             const newPlayroots = structuredClone(state.playtree.playroots)
             newPlayroots.delete(action.nodeID)
             return {
+                ...state,
                 playtree: {
                     ...state.playtree,
                     playroots: newPlayroots
                 },
                 unsavedChangesExist: unsavedChangeOccurred
+            }
+        }
+        case "logged_message": {
+            const newMessageLog = [...state.messageLog]
+            newMessageLog.push(action.message)
+            return {
+                ...state,
+                messageLog: newMessageLog
             }
         }
     }
@@ -556,7 +583,8 @@ export default function PlaytreeEditor() {
 
     const [state, dispatch] = useReducer<typeof playtreeReducer>(playtreeReducer, {
         playtree: initialPlaytree,
-        unsavedChangesExist: false
+        unsavedChangesExist: false,
+        messageLog: []
     })
 
     const handleDeletePlaynode = (nodeID: string) => {
@@ -703,7 +731,16 @@ export default function PlaytreeEditor() {
         dispatch({type: "added_playnode"})
     }, [flownodes])
 
+    const generateWarnings = useCallback(() => {
+        if (state.playtree.playroots.size == 0) {
+            dispatch({type: "logged_message", message: {type: "warning", message: "Saved playtree has no playroots. You won't be able to play any music until you attach a playhead."}})
+            return true
+        }
+        return false
+    }, [state.playtree.playroots])
+
     const handleSave = useCallback(() => {
+        const warningsGenerated = generateWarnings();
         (async () => {
             const response = await fetch(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
                 method: "PUT",
@@ -711,8 +748,10 @@ export default function PlaytreeEditor() {
             })
             if (response.ok) {
                 dispatch({type: "saved_playtree"})
+                dispatch({type: "logged_message", message: {type: "success", message: "Playtree saved successfully."}})
             } else {
-                // TODO add error messages for user
+                const errorMessage = await response.text()
+                dispatch({type: "logged_message", message: {type: "error", message: errorMessage }})
             }
         })()
 
@@ -726,10 +765,10 @@ export default function PlaytreeEditor() {
     }, [])
 
     return (
-        <div className="mt-8 flex font-lilitaOne h-[500px]">
-            <div className="h-full w-5/6 m-auto">
-                <h2 className="text-3xl text-green-600">{state.playtree.summary.name}</h2>
-                <div className="h-full border-4 border-green-600 bg-neutral-100">
+        <div className="font-lilitaOne w-5/6 m-auto h-[calc(100vh-15.25rem)]">
+            <h2 className="w-full text-3xl text-green-600 mt-12">{state.playtree.summary.name}</h2>
+            <div className="h-[calc(100%-8rem)] flex">
+                <div className="h-full w-full flex-[4] border-4 border-green-600 bg-neutral-100">
                     <button title="Add Playnode" className="z-10 absolute rounded-lg bg-green-400 mx-1 my-1 px-2 py-1" onClick={handleAddPlaynode}>➕</button>
                     <button id="playhead-spawner" title="Add Playhead" className="z-10 absolute rounded-lg bg-purple-300 mx-1 my-10 px-2 py-1" draggable={true} onDragStart={handleDragStart}>💽</button>
                     {
@@ -750,6 +789,17 @@ export default function PlaytreeEditor() {
                         <Background />
                         <Controls />
                     </ReactFlow>
+                </div>
+                <div className="border-green-600 bg-neutral-50 border-r-4 border-t-4 border-b-4 w-full flex-[1] h-full overflow-y-auto flex flex-col-reverse">
+                    <ul className="font-markazi">
+                        {
+                            state.messageLog.map((message, index) => {
+                                const color = message.type === "error" ? "red" : message.type === "warning" ? "amber" : "green";
+                                const emoji = message.type === "error" ? <>🛑</> : message.type === "warning" ? <>⚠️</> : <>✅</>;
+                                return <li key={index} className={`bg-${color}-200 text-${color}-500 pl-2 pt-1`}>{emoji} {` `} {message.message}</li>
+                            })
+                        }
+                    </ul>
                 </div>
             </div>
         </div>
