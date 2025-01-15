@@ -2,67 +2,150 @@
     "summary": {
         "id": "tones",
         "name": "Random Tones",
-        "createdBy": {
-            "id":"0",
-            "name":"billmarcy"
+        "createdBy":"billmarcy",
+        "access": "public"
+    },
+    "nodes": {
+        "0": {
+            "id": "0",
+            "name": "any",
+            "type": "selector",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "C"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "D"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "E"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "F"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "G"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "A"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "B"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "C2"
+                }
+            ],
+            "next":[ { "nodeID": "0" } ]
+        },
+        "1": {
+            "id": "1",
+            "name": "C",
+            "type": "selector",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "C"
+                }
+            ],
+            "next":[ { "nodeID": "3" }, { "nodeID": "6", "shares": 100 }, { "nodeID": "5" }, { "nodeID": "4" } ]
+        },
+        "2": {
+            "id": "2",
+            "name": "A",
+            "type": "selector",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "A"
+                }
+            ],
+            "next":[ { "nodeID": "3" }, { "nodeID": "5" }, { "nodeID":"4" } ]
+        },
+        "3": {
+            "id": "3",
+            "name": "F",
+            "type": "selector",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "F"
+                }
+            ],
+            "next": [ { "nodeID": "4" }, { "nodeID": "5" } ]
+        },
+        "4": {
+            "id": "4",
+            "name": "GtoC",
+            "type": "selector",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "G"
+                }
+            ],
+            "next": [ { "nodeID": "1", "repeat": 4 } ]
+        },
+        "5": {
+            "id": "5",
+            "name": "GtoA",
+            "type": "selector",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "G"
+                }
+            ],
+            "next": [ { "nodeID": "2", "repeat": 4 } ]
+        },
+        "6": {
+            "id": "6",
+            "name": "ErunB",
+            "type": "sequence",
+            "content": [
+                {
+                    "type": "local-audio",
+                    "uri": "E"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "F"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "G"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "A"
+                },
+                {
+                    "type": "local-audio",
+                    "uri": "B"
+                }
+            ]
         }
     },
-    "nodes": [
-        {
-            "id": "C",
-            "type": "song",
-            "content": {
-                "path": "C.wav"
-            },
-            "next":[ { "node": "F" }, { "node": "GtoA" }, { "node": "GtoC" } ]
+    "playroots": {
+        "0": {
+            "index": 0,
+            "name": "grabbag"
         },
-        {
-            "id": "A",
-            "type": "song",
-            "content": {
-                "path": "A.wav"
-            },
-            "next":[ { "node": "F" }, { "node": "GtoA" }, { "node":"GtoC" } ]
+        "1": {
+            "index": 1,
+            "name": "major"
         },
-        {
-            "id": "F",
-            "type": "song",
-            "content": {
-                "path": "F.wav"
-            },
-            "next": [ { "node": "GtoC" }, { "node": "GtoA" } ]
-        },
-        {
-            "id": "GtoC",
-            "type": "song",
-            "content": {
-                "path": "G.wav"
-            },
-            "repeat": {
-                "times": 4,
-                "from": "C"
-            }
-        },
-        {
-            "id": "GtoA",
-            "type": "song",
-            "content": {
-                "path": "G.wav"
-            },
-            "repeat": {
-                "times": 4,
-                "from": "A"
-            }
+        "2": {
+            "index": 2,
+            "name": "minor"
         }
-    ],
-    "playheads": [
-        {
-            "name": "major",
-            "nodeID": "C"
-        },
-        {
-            "name": "minor",
-            "nodeID": "A"
-        }
-    ]
+    }
 }

@@ -1,57 +1,73 @@
-type UserInfo = {
-    id: string;
-    name: string;
-}
-
-type SourceInfo = {
+export type SourceInfo = {
     type: "graft" | "starter"
     id: string
 }
 
-type PlaytreeSummary = {
+export type PlaytreeSummary = {
     id: string;
     name: string;
-    createdBy: UserInfo;
+    createdBy: string;
     SourceInfo: SourceInfo | null;
 }
 
-type Song = {
-    path: string;
+export type Content = {
+    type: "local-audio" | "spotify-track" | "spotify-playlist";
+    uri: string;
 }
 
-type RepeatInfo = {
-    times: number;
-    from: string;
-    counter: number | undefined;
-}
-
-type NodeProbability = {
-    node: string;
-    probability: number | null | undefined;
-}
-
-
-type PlaytreeNode = {
-    id: string;
-    type: "song";
-    content: Song;
-    repeat: RepeatInfo | null;
-    next: NodeProbability[];
-}
-
-type PlayheadInfo = {
-    name: string;
+export type PlayEdge = {
     nodeID: string;
+    shares: number;
+    repeat: number;
 }
 
-type Playhead = {
+export type PlayNode = {
+    id: string;
     name: string;
-    node: PlaytreeNode;
-    history: PlaytreeNode[];
+    type: "sequence"|"selector";
+    content: Content[];
+    next: PlayEdge[];
 }
 
-type Playtree = {
+export type HistoryNode = {
+    nodeID: string;
+    index: number;
+}
+
+export type PlayheadInfo = {
+    index: number;
+    name: string;
+}
+
+export type Playhead = {
+    name: string;
+    node: PlayNode;
+    nodeIndex: number;
+    history: HistoryNode[];
+}
+
+export type Playtree = {
     summary: PlaytreeSummary;
-    nodes: PlaytreeNode[];
-    playheads: PlayheadInfo[];
+    nodes: Map<string, PlayNode>;
+    playroots: Map<string, PlayheadInfo>;
+}
+
+export const playtreeFromJson = (playtreeWithNodesAsJSObject : {summary: PlaytreeSummary, nodes: {[key:string]: PlayNode}, playroots: {[key:string]: PlayheadInfo}}) : Playtree | null => {
+    if (playtreeWithNodesAsJSObject) {
+        return {
+            ...playtreeWithNodesAsJSObject,
+            nodes: new Map(Object.entries(playtreeWithNodesAsJSObject.nodes)),
+            playroots: new Map(Object.entries(playtreeWithNodesAsJSObject.playroots))
+        }
+    }
+
+    return null
+}
+
+export const jsonFromPlaytree = (playtree : Playtree) : {summary: PlaytreeSummary, nodes: {[key:string]: PlayNode}, playroots: {[key:string]: PlayheadInfo}} => {
+    return {
+        ...playtree,
+        nodes: Object.fromEntries(playtree.nodes.entries()),
+        playroots: Object.fromEntries(playtree.playroots.entries())
+    }
 }
