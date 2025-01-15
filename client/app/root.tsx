@@ -4,6 +4,7 @@ import {
   Meta,
   Outlet,
   Scripts,
+  useFetcher,
   useLoaderData} from "@remix-run/react";
 
 import Player from "./components/Player";
@@ -33,11 +34,12 @@ export const action = async ({request}: ActionFunctionArgs) => {
     await fetch(`http://localhost:8080/me/player?playtree=${id}`, {
         method: "PUT"
     })
-    return null
+    return { autoplay: true }
 }
 
 export default function App() {
   const data = useLoaderData<typeof loader>()
+  const playerActionData = useFetcher<typeof action>({key: "player"})
   const playerPlaytree = playtreeFromJson(data.playerPlaytree)
   const userPlaytreeSummaries = data.userPlaytreeSummaries
   return (
@@ -57,7 +59,7 @@ export default function App() {
         <div className="absolute w-full h-[calc(100%-13rem)] top-16 -bottom-64">
           <Outlet />
         </div>
-        <Player playtree={playerPlaytree} />
+        <Player playtree={playerPlaytree} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined}/>
       </div>
       </body>
     </html>

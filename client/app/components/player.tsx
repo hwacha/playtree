@@ -3,6 +3,7 @@ import { Content, PlayEdge, Playhead, PlayheadInfo, PlayNode, Playtree } from ".
 
 type PlayerProps = {
     playtree: Playtree | null
+    autoplay: boolean | undefined
 }
 
 type PlayerState = {
@@ -21,6 +22,7 @@ type PlayerAction = {
     type: 'playtree_loaded';
     playtree: Playtree;
     selectorRand: number;
+    autoplay?: boolean;
 } | {
     type: 'song_ended' | 'skipped_forward';
     playtree: Playtree;
@@ -62,6 +64,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 playheadIndex: 0,
                 playheads: newPlayheads,
                 repeatCounters: newRepeatCounters,
+                isPlaying: action.autoplay ?? state.isPlaying
             }
         }
 
@@ -193,7 +196,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
     }
 }
 
-export default function Player({playtree}: PlayerProps) {
+export default function Player({playtree, autoplay}: PlayerProps) {
     const initialPlayheadIndex = 0
     let initialPlayheads : Playhead[] = []
     let initialRepeatCounters = new Map<string, Map<string, number>>()
@@ -207,7 +210,7 @@ export default function Player({playtree}: PlayerProps) {
 
     useEffect(() => {
         if (playtree) {
-            dispatch({type: "playtree_loaded", playtree: playtree, selectorRand: Math.random()})
+            dispatch({type: "playtree_loaded", playtree: playtree, selectorRand: Math.random(), autoplay: autoplay})
         }
     }, [playtree])
 
@@ -245,6 +248,7 @@ export default function Player({playtree}: PlayerProps) {
     
                             const blob = new Blob(chunks)
                             const url = window.URL.createObjectURL(blob);
+                            audio.pause()
                             audio.src = url;
                             if (state.isPlaying) {
                                 audio.play()
