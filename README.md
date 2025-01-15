@@ -7,7 +7,7 @@ The playtree server is written using Go. The playtree client is written with Rem
 ## Upcoming Features
 Playtree is a work in progress. The following major features are yet to be implemented:
   - [ ] Database to replace server's file storage of playtree data
-  - [ ] A graphical playtree editor using React Flow
+  - [X] A graphical playtree editor using React Flow
   - [ ] User authentication using auth0
   - [ ] Replacement of local audio files with calls to Spotify API
   - [ ] Material UI components to replace placeholder UI
