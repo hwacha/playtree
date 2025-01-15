@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strconv"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -22,6 +23,7 @@ type (
 
 	PlayNodeInfo struct {
 		ID      string         `json:"id" validate:"required"`
+		Name    string         `json:"name" validate:"required"`
 		Type    string         `json:"type" validate:"required,oneof=sequence selector"`
 		Content []ContentInfo  `json:"content" validate:"required"`
 		Next    []PlayEdgeInfo `json:"next,omitempty"`
@@ -32,27 +34,29 @@ type (
 		ID   string `json:"id" validate:"required"`
 	}
 
-	UserInfo struct {
-		ID   string `json:"id" validate:"required"`
-		Name string `json:"name" validate:"required"`
-	}
-
 	SummaryInfo struct {
 		ID        string      `json:"id" validate:"required"`
 		Name      string      `json:"name" validate:"required"`
-		CreatedBy UserInfo    `json:"createdBy" validate:"required"`
+		CreatedBy string      `json:"createdBy" validate:"required"`
+		Access    string      `json:"access" validate:"required,oneof=private public"`
 		Source    *SourceInfo `json:"source,omitempty"`
 	}
 
+	PartialSummaryInfo struct {
+		Name      string `json:"name" validate:"required"`
+		CreatedBy string `json:"createdBy" validate:"required"`
+		Access    string `json:"access" validate:"required,oneof=private public"`
+	}
+
 	PlayheadInfo struct {
-		Name   string `json:"name" validate:"required"`
-		NodeID string `json:"nodeID" validate:"required"`
+		Index int    `json:"index"`
+		Name  string `json:"name" validate:"required"`
 	}
 
 	PlaytreeInfo struct {
-		Summary   SummaryInfo    `json:"summary" validate:"required"`
-		Nodes     []PlayNodeInfo `json:"nodes" validate:"required"`
-		Playroots []PlayheadInfo `json:"playroots" validate:"required"`
+		Summary   SummaryInfo             `json:"summary" validate:"required"`
+		Nodes     map[string]PlayNodeInfo `json:"nodes" validate:"required"`
+		Playroots map[string]PlayheadInfo `json:"playroots" validate:"required"`
 	}
 )
 
@@ -76,6 +80,24 @@ func (pei *PlayEdgeInfo) UnmarshalJSON(data []byte) error {
 	pei.Shares = pei2.Shares
 	pei.Repeat = pei2.Repeat
 	return nil
+}
+
+func partialSummaryInfoFromJSON(r io.Reader) (*PartialSummaryInfo, error) {
+	decoder := json.NewDecoder(r)
+	decoder.DisallowUnknownFields()
+	var psi PartialSummaryInfo
+	err := decoder.Decode(&psi)
+	if err != nil {
+		return nil, err
+	}
+
+	v := validator.New()
+
+	if validationErr := v.Struct(psi); validationErr != nil {
+		return nil, validationErr
+	}
+
+	return &psi, nil
 }
 
 func playtreeInfoFromJSON(r io.Reader) (*PlaytreeInfo, error) {
@@ -108,11 +130,13 @@ func playtreeInfoFromJSON(r io.Reader) (*PlaytreeInfo, error) {
 			}
 		}
 	}
+
 	for _, playhead := range pti.Playroots {
 		if playheadValidationErr := v.Struct(playhead); playheadValidationErr != nil {
 			return nil, playheadValidationErr
 		}
 	}
+
 	return &pti, nil
 }
 
@@ -179,29 +203,21 @@ func playtreeFromPlaytreeInfo(pti PlaytreeInfo) (*Playtree, error) {
 	}
 
 	pt := &Playtree{
-		CreatedBy: User{
-			id:   pti.Summary.CreatedBy.ID,
-			Name: pti.Summary.CreatedBy.Name,
-		},
-		Playheads: []*Playhead{},
-	}
-
-	serializedPlayheads := make(map[string]string)
-	for _, playhead := range pti.Playroots {
-		_, found := serializedPlayheads[playhead.NodeID]
-		if found {
-			return nil, errors.New(`JSON Playtree graph: multiple playheads assigned to the same play node`)
-		}
-		serializedPlayheads[playhead.NodeID] = playhead.Name
+		CreatedBy: pti.Summary.CreatedBy,
+		Playheads: make([]*Playhead, len(pti.Playroots)),
 	}
 
 	// third pass
-	for nodeId, name := range serializedPlayheads {
-		pt.Playheads = append(pt.Playheads, &Playhead{
-			Name:      name,
-			Node:      playNodesByID[nodeId],
+	for nodeID, playheadInfo := range pti.Playroots {
+		if otherPlayhead := pt.Playheads[playheadInfo.Index]; otherPlayhead != nil {
+			return nil, errors.New(`JSON Playtree graph: duplicate playroot index "` + strconv.Itoa(playheadInfo.Index) + `" (unspecified indices default to 0)`)
+		}
+
+		pt.Playheads[playheadInfo.Index] = &Playhead{
+			Name:      playheadInfo.Name,
+			Node:      playNodesByID[nodeID],
 			NodeIndex: 0,
-		})
+		}
 	}
 
 	return pt, nil

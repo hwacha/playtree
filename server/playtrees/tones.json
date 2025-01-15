@@ -2,145 +2,150 @@
     "summary": {
         "id": "tones",
         "name": "Random Tones",
-        "createdBy": {
-            "id":"0",
-            "name":"billmarcy"
-        }
+        "createdBy":"billmarcy",
+        "access": "public"
     },
-    "nodes": [
-        {
-            "id": "any",
+    "nodes": {
+        "0": {
+            "id": "0",
+            "name": "any",
             "type": "selector",
             "content": [
                 {
                     "type": "local-audio",
-                    "uri": "C.wav"
+                    "uri": "C"
                 },
                 {
                     "type": "local-audio",
-                    "uri": "D.wav"
+                    "uri": "D"
                 },
                 {
                     "type": "local-audio",
-                    "uri": "E.wav"
+                    "uri": "E"
                 },
                 {
                     "type": "local-audio",
-                    "uri": "F.wav"
+                    "uri": "F"
                 },
                 {
                     "type": "local-audio",
-                    "uri": "G.wav"
+                    "uri": "G"
                 },
                 {
                     "type": "local-audio",
-                    "uri": "A.wav"
+                    "uri": "A"
                 },
                 {
                     "type": "local-audio",
-                    "uri": "B.wav"
+                    "uri": "B"
                 },
                 {
                     "type": "local-audio",
-                    "uri": "C2.wav"
+                    "uri": "C2"
                 }
             ],
-            "next":[ { "nodeID": "any" } ]
+            "next":[ { "nodeID": "0" } ]
         },
-        {
-            "id": "C",
+        "1": {
+            "id": "1",
+            "name": "C",
             "type": "selector",
             "content": [
                 {
                     "type": "local-audio",
-                    "uri": "C.wav"
+                    "uri": "C"
                 }
             ],
-            "next":[ { "nodeID": "F" }, { "nodeID": "ErunB", "shares": 100 }, { "nodeID": "GtoA" }, { "nodeID": "GtoC" } ]
+            "next":[ { "nodeID": "3" }, { "nodeID": "6", "shares": 100 }, { "nodeID": "5" }, { "nodeID": "4" } ]
         },
-        {
-            "id": "A",
+        "2": {
+            "id": "2",
+            "name": "A",
             "type": "selector",
             "content": [
                 {
                     "type": "local-audio",
-                    "uri": "A.wav"
+                    "uri": "A"
                 }
             ],
-            "next":[ { "nodeID": "F" }, { "nodeID": "GtoA" }, { "nodeID":"GtoC" } ]
+            "next":[ { "nodeID": "3" }, { "nodeID": "5" }, { "nodeID":"4" } ]
         },
-        {
-            "id": "F",
+        "3": {
+            "id": "3",
+            "name": "F",
             "type": "selector",
             "content": [
                 {
                     "type": "local-audio",
-                    "uri": "F.wav"
+                    "uri": "F"
                 }
             ],
-            "next": [ { "nodeID": "GtoC" }, { "nodeID": "GtoA" } ]
+            "next": [ { "nodeID": "4" }, { "nodeID": "5" } ]
         },
-        {
-            "id": "GtoC",
+        "4": {
+            "id": "4",
+            "name": "GtoC",
             "type": "selector",
             "content": [
                 {
                     "type": "local-audio",
-                    "uri": "G.wav"
+                    "uri": "G"
                 }
             ],
-            "next": [ { "nodeID": "C", "repeat": 4 } ]
+            "next": [ { "nodeID": "1", "repeat": 4 } ]
         },
-        {
-            "id": "GtoA",
+        "5": {
+            "id": "5",
+            "name": "GtoA",
             "type": "selector",
             "content": [
                 {
                     "type": "local-audio",
-                    "uri": "G.wav"
+                    "uri": "G"
                 }
             ],
-            "next": [ { "nodeID": "A", "repeat": 4 } ]
+            "next": [ { "nodeID": "2", "repeat": 4 } ]
         },
-        {
-            "id": "ErunB",
+        "6": {
+            "id": "6",
+            "name": "ErunB",
             "type": "sequence",
             "content": [
                 {
                     "type": "local-audio",
-                    "uri": "E.wav"
+                    "uri": "E"
                 },
                 {
                     "type": "local-audio",
-                    "uri": "F.wav"
+                    "uri": "F"
                 },
                 {
                     "type": "local-audio",
-                    "uri": "G.wav"
+                    "uri": "G"
                 },
                 {
                     "type": "local-audio",
-                    "uri": "A.wav"
+                    "uri": "A"
                 },
                 {
                     "type": "local-audio",
-                    "uri": "B.wav"
+                    "uri": "B"
                 }
             ]
         }
-    ],
-    "playroots": [
-        {
-            "name": "grabbag",
-            "nodeID": "any"
+    },
+    "playroots": {
+        "0": {
+            "index": 0,
+            "name": "grabbag"
         },
-        {
-            "name": "major",
-            "nodeID": "C"
+        "1": {
+            "index": 1,
+            "name": "major"
         },
-        {
-            "name": "minor",
-            "nodeID": "A"
+        "2": {
+            "index": 2,
+            "name": "minor"
         }
-    ]
+    }
 }

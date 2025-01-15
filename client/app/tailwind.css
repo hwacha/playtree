@@ -6,3 +6,8 @@
     font-family: 'LilitaOne';
     src: url('/fonts/LilitaOne-Regular.ttf');
 }
+
+@font-face {
+    font-family: 'MarkaziText';
+    src: url('/fonts/MarkaziText-VariableFont_wght.ttf');
+}

@@ -134,11 +134,6 @@ type PlayNode struct {
 	Next    []*PlayEdge
 }
 
-type User struct {
-	id   string
-	Name string
-}
-
 type Playhead struct {
 	Name      string
 	Node      *PlayNode
@@ -146,7 +141,7 @@ type Playhead struct {
 }
 
 type Playtree struct {
-	CreatedBy User
+	CreatedBy string
 	Playheads []*Playhead
 }
 

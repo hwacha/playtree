@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer } from "react"
+import { Content, PlayEdge, Playhead, PlayheadInfo, PlayNode, Playtree } from "../types";
 
 type PlayerProps = {
     playtree: Playtree | null
@@ -14,33 +15,37 @@ type PlayerState = {
 type PlayerAction = {
     type: 'played' | 'paused';
 } | {
-    type: 'song_ended' | 'skipped_forward';
+    type: 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
     playtree: Playtree;
-    edgeRand: number;
+} | {
+    type: 'playtree_loaded';
+    playtree: Playtree;
     selectorRand: number;
 } | {
-    type:'playtree_loaded' | 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
+    type: 'song_ended' | 'skipped_forward';
     playtree: Playtree;
+    selectorRand: number;
+    edgeRand: number;
 }
 
 const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
     switch (action.type) {
         case 'playtree_loaded': {
             const newRepeatCounters = new Map<string, Map<string, number>>()
-            const newPlayheads = action.playtree.playroots.map(playhead => {
-                const playNode = action.playtree.nodes.find(node => node.id === playhead.nodeID)
+            const newPlayheads : Playhead[] = []
+            action.playtree.playroots.forEach((playroot: PlayheadInfo, nodeID: string) => {
+                const playNode = action.playtree.nodes.get(nodeID)
                 if (playNode !== undefined) {
-                    return {
-                        name: playhead.name,
+                    newPlayheads[playroot.index] = {
+                        name: playroot.name,
                         node: playNode,
-                        nodeIndex: playNode.type === "selector" ? Math.floor(Math.random() * playNode.content.length) : 0,
+                        nodeIndex: playNode.type === "selector" ? Math.floor(action.selectorRand * playNode.content.length) : 0,
                         history: []
                     }
-                } else {
-                    return undefined
                 }
-            }).filter(playhead => playhead !== undefined)
-            action.playtree.nodes.map((node: PlayNode) => {
+            })
+
+            Array.from(action.playtree.nodes.values()).map((node: PlayNode) => {
                 if (node.next) {
                     node.next.map((edge : PlayEdge) => {
                         if (edge.repeat >= 0) {
@@ -51,6 +56,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     })
                 }
             })
+
             return {
                 ...state,
                 playheadIndex: 0,
@@ -58,6 +64,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 repeatCounters: newRepeatCounters,
             }
         }
+
         case 'played': {
             return {
                 ...state,
@@ -127,9 +134,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     if (counter !== undefined) {
                         newRepeatCounters.get(curNode.id)?.set(selectedEdge.nodeID, counter + 1)
                     }
-                    let nextNode = action.playtree.nodes.find(node => {
-                        return node.id === selectedEdge.nodeID
-                    })
+                    let nextNode = action.playtree.nodes.get(selectedEdge.nodeID)
                     if (nextNode) {
                         newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex })
                         newPlayheads[state.playheadIndex].node = nextNode
@@ -161,9 +166,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
             if (prevHistoryNode === undefined) {
                 return structuredClone(state)
             } else {
-                const prevPlayNode = action.playtree.nodes.find(node => {
-                    return node.id === prevHistoryNode.nodeID
-                })
+                const prevPlayNode = action.playtree.nodes.get(prevHistoryNode.nodeID)
                 if (prevPlayNode === undefined) {
                     return structuredClone(state)
                 }
@@ -190,13 +193,10 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
     }
 }
 
-
-
 export default function Player({playtree}: PlayerProps) {
     const initialPlayheadIndex = 0
     let initialPlayheads : Playhead[] = []
     let initialRepeatCounters = new Map<string, Map<string, number>>()
-
 
     const [state, dispatch] = useReducer<typeof reducer>(reducer, {
         playheads: initialPlayheads,
@@ -207,35 +207,51 @@ export default function Player({playtree}: PlayerProps) {
 
     useEffect(() => {
         if (playtree) {
-            dispatch({type: "playtree_loaded", playtree: playtree})
+            dispatch({type: "playtree_loaded", playtree: playtree, selectorRand: Math.random()})
         }
     }, [playtree])
 
     const onAudioChange = useCallback((audio: HTMLAudioElement) => {
-        if (audio == null) {
+        if (!audio) {
             return
         }
 
         if (!audio.onended) {
             audio.onended = () => {
-                if (playtree !== null) {
+                if (playtree) {
                     dispatch({type: 'song_ended', playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random()})
-                }                
+                }
             }
         }
 
-        if (state.playheads.length > 0) {
-            const curPlayhead = state.playheads[state.playheadIndex]
+        const currentPlayhead = state.playheads[state.playheadIndex]
 
-            const curSongURI = curPlayhead.node.content[curPlayhead.nodeIndex].uri
-
-            if (audio.src.split("/").pop() !== curSongURI) {
-                audio.pause()
-                
-                audio.src = "/audio/" + curSongURI
-                if (state.isPlaying) {
-                    audio.play()
-                }
+        if (currentPlayhead) {
+            if (currentPlayhead.node && currentPlayhead.node.content && currentPlayhead.node.content[currentPlayhead.nodeIndex]) {
+                const curSongURI = currentPlayhead.node.content[currentPlayhead.nodeIndex].uri
+                fetch("http://localhost:8081/songs/" + curSongURI).then(response => {
+                    return response.body
+                }).then(stream => {
+                    if (stream) {
+                        (async () => {
+                            const reader = stream.getReader();
+                            const chunks = [];
+            
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+                                chunks.push(value);
+                            }
+    
+                            const blob = new Blob(chunks)
+                            const url = window.URL.createObjectURL(blob);
+                            audio.src = url;
+                            if (state.isPlaying) {
+                                audio.play()
+                            }
+                        })()
+                    }
+                })
             }
 
             if (state.isPlaying && audio.paused) {
@@ -247,64 +263,78 @@ export default function Player({playtree}: PlayerProps) {
     }, [state])
 
     if (playtree == null) {
-        return (<div className="bg-green-600 fixed flex w-full left-0 bottom-0"><div className="text-white mx-auto my-6 font-lilitaOne">No playtrees.</div></div>)
+        return (<div className="bg-green-600 fixed flex w-full left-48 bottom-0"><div className="text-white mx-auto my-6 font-lilitaOne">No playtrees.</div></div>)
     } else {
-        let currentSong = null
-        if (state && state.playheads && state.playheads[state.playheadIndex]) {
-            currentSong = state.playheads[state.playheadIndex].node.content[state.playheads[state.playheadIndex].nodeIndex].uri.split("/").pop()?.split(".")[0]
+        let currentPlayhead : Playhead | null | undefined = null
+        let currentPlaynode : PlayNode | null | undefined = null
+        let currentContent : Content | null | undefined = null
+        if (state && state.playheads) {
+            currentPlayhead = state.playheads[state.playheadIndex]
+            if (currentPlayhead && currentPlayhead.node) {
+                currentPlaynode = currentPlayhead.node
+                if (currentPlaynode.content) {
+                    currentContent = currentPlaynode.content[currentPlayhead.nodeIndex]
+                }
+            }
         }
         
-        return (<div className="bg-green-600 fixed w-full left-0 bottom-0">
-            <div className="text-white fixed left-2/3 bottom-4 font-lilitaOne">
-                {state.playheads.length > 0 ?
-                <table>
-                    <tbody>
-                        <tr className="p-2"><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
-                        <tr className="p-2"><td>Playhead</td><td>|</td><td>{state.playheads[state.playheadIndex].name}</td></tr>
-                        <tr className="p-2"><td>Song</td><td>|</td><td>{currentSong}</td></tr>
-                    </tbody>
-                </table> : "No playheads available"}
+        return (
+            <div className="bg-green-600 fixed flex w-[calc(100vw-12rem)] h-36 left-48 bottom-0">
+                <audio ref={onAudioChange} src="" />
+                <div className="w-full my-auto">
+                    <div className="w-fit float-right mr-8">
+                        <div className="w-fit mx-auto">
+                            <button
+                                type="button"
+                                title="Previous Playhead"
+                                className="rounded-sm p-2 text-white"
+                                onClick={() => dispatch({type: "decremented_playhead", playtree: playtree})}>
+                                {"\u23EB"}
+                            </button>
+                        </div>
+                        <div className="w-fit mx-auto">
+                            <button
+                                type="button"
+                                title="Skip Backward"
+                                className="rounded-sm p-2 text-white"
+                                onClick={() => dispatch({type: "skipped_backward", playtree: playtree})}>
+                                {"\u23EE"}
+                            </button>
+                            <button
+                                type="button"
+                                title={state.isPlaying ? "Pause" : "Play"}
+                                className="rounded-sm p-2 text-white fill-white"
+                                onClick={() => state.isPlaying ? dispatch({type: 'paused'}) : dispatch({type: 'played'})}>
+                                {state.isPlaying ? "\u23F8" : "\u23F5"}
+                            </button>
+                            <button
+                                type="button"
+                                title="Skip Forward"
+                                className="rounded-sm p-2 text-white"
+                                onClick={() => dispatch({type: "skipped_forward", playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random()})}>{"\u23ED"}</button>
+                        </div>
+                        <div className="w-fit mx-auto">
+                            <button
+                                type="button"
+                                title="Next Playhead"
+                                className="rounded-sm p-2 text-white"
+                                onClick={() => dispatch({type: "incremented_playhead", playtree: playtree})}>
+                                {"\u23EC"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div className="w-full mr-8 my-auto text-white font-lilitaOne">
+                    <table>
+                        <tbody>
+                            <tr><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
+                            <tr><td>Playhead</td><td>|</td><td>{currentPlayhead ? currentPlayhead.name : "Playhead not available"}</td></tr>
+                            <tr><td>Playnode</td><td>|</td><td>{currentPlaynode ? currentPlaynode.name : "Playnode not available"}</td></tr>
+                            <tr><td>Song</td><td>|</td><td>{currentContent ? currentContent.uri.split("/").pop()?.split(".")[0] : "Song not available"}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <audio ref={onAudioChange} src="" />
-            <div className="w-fit mx-auto">
-                <button
-                    type="button"
-                    title="Next Playhead"
-                    className="rounded-sm p-2 text-white"
-                    onClick={() => dispatch({type: "incremented_playhead", playtree: playtree})}>
-                    {"\u23EB"}
-                </button>
-            </div>
-            <div className="w-fit mx-auto">
-                <button
-                    type="button"
-                    title="Skip Backward"
-                    className="rounded-sm p-2 text-white"
-                    onClick={() => dispatch({type: "skipped_backward", playtree: playtree})}>
-                    {"\u23EE"}
-                </button>
-                <button
-                    type="button"
-                    title={state.isPlaying ? "Pause" : "Play"}
-                    className="rounded-sm p-2 text-white fill-white"
-                    onClick={() => state.isPlaying ? dispatch({type: 'paused'}) : dispatch({type: 'played'})}>
-                    {state.isPlaying ? "\u23F8" : "\u23F5"}
-                </button>
-                <button
-                    type="button"
-                    title="Skip Forward"
-                    className="rounded-sm p-2 text-white"
-                    onClick={() => dispatch({type: "skipped_forward", playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random()})}>{"\u23ED"}</button>
-            </div>
-            <div className="w-fit mx-auto">
-                <button
-                    type="button"
-                    title="Previous Playhead"
-                    className="rounded-sm p-2 text-white"
-                    onClick={() => dispatch({type: "decremented_playhead", playtree: playtree})}>
-                    {"\u23EC"}
-                </button>
-            </div>
-        </div>)
+        )
     }
 }

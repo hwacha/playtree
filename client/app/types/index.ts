@@ -1,57 +1,73 @@
-type UserInfo = {
-    id: string;
-    name: string;
-}
-
-type SourceInfo = {
+export type SourceInfo = {
     type: "graft" | "starter"
     id: string
 }
 
-type PlaytreeSummary = {
+export type PlaytreeSummary = {
     id: string;
     name: string;
-    createdBy: UserInfo;
+    createdBy: string;
     SourceInfo: SourceInfo | null;
 }
 
-type Content = {
+export type Content = {
     type: "local-audio" | "spotify-track" | "spotify-playlist";
     uri: string;
 }
 
-type PlayEdge = {
+export type PlayEdge = {
     nodeID: string;
     shares: number;
     repeat: number;
 }
 
-type PlayNode = {
+export type PlayNode = {
     id: string;
+    name: string;
     type: "sequence"|"selector";
     content: Content[];
     next: PlayEdge[];
 }
 
-type HistoryNode = {
+export type HistoryNode = {
     nodeID: string;
     index: number;
 }
 
-type PlayheadInfo = {
+export type PlayheadInfo = {
+    index: number;
     name: string;
-    nodeID: string;
 }
 
-type Playhead = {
+export type Playhead = {
     name: string;
     node: PlayNode;
     nodeIndex: number;
     history: HistoryNode[];
 }
 
-type Playtree = {
+export type Playtree = {
     summary: PlaytreeSummary;
-    nodes: PlayNode[];
-    playroots: PlayheadInfo[];
+    nodes: Map<string, PlayNode>;
+    playroots: Map<string, PlayheadInfo>;
+}
+
+export const playtreeFromJson = (playtreeWithNodesAsJSObject : {summary: PlaytreeSummary, nodes: {[key:string]: PlayNode}, playroots: {[key:string]: PlayheadInfo}}) : Playtree | null => {
+    if (playtreeWithNodesAsJSObject) {
+        return {
+            ...playtreeWithNodesAsJSObject,
+            nodes: new Map(Object.entries(playtreeWithNodesAsJSObject.nodes)),
+            playroots: new Map(Object.entries(playtreeWithNodesAsJSObject.playroots))
+        }
+    }
+
+    return null
+}
+
+export const jsonFromPlaytree = (playtree : Playtree) : {summary: PlaytreeSummary, nodes: {[key:string]: PlayNode}, playroots: {[key:string]: PlayheadInfo}} => {
+    return {
+        ...playtree,
+        nodes: Object.fromEntries(playtree.nodes.entries()),
+        playroots: Object.fromEntries(playtree.playroots.entries())
+    }
 }
