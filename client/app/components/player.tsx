@@ -263,7 +263,7 @@ export default function Player({playtree}: PlayerProps) {
     }, [state])
 
     if (playtree == null) {
-        return (<div className="bg-green-600 fixed flex w-full left-48 bottom-0"><div className="text-white mx-auto my-6 font-lilitaOne">No playtrees.</div></div>)
+        return (<div className="bg-green-600 fixed flex w-full h-36 left-48 bottom-0"><div className="text-white mx-auto my-16 w-fit font-lilitaOne">No playtrees.</div></div>)
     } else {
         let currentPlayhead : Playhead | null | undefined = null
         let currentPlaynode : PlayNode | null | undefined = null

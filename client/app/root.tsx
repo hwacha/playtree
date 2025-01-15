@@ -30,7 +30,7 @@ export const loader = async () => {
 export const action = async ({request}: ActionFunctionArgs) => {
     const formData = await request.formData()
     const id = formData.get("playtreeID");
-    const response = await fetch(`http://localhost:8080/me/player?playtree=${id}`, {
+    await fetch(`http://localhost:8080/me/player?playtree=${id}`, {
         method: "PUT"
     })
     return null

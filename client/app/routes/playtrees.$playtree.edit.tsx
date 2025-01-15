@@ -1,8 +1,8 @@
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { Background, Controls, Handle, MarkerType, Position, ReactFlow, Node, NodeProps, EdgeProps, getBezierPath, Edge, BaseEdge, BezierEdge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange, addEdge, OnConnect, useNodesState, useEdgesState, ConnectionLineComponent, useConnection, EdgeLabelRenderer, OnSelectionChangeFunc } from "@xyflow/react";
+import { Background, Controls, Handle, MarkerType, Position, ReactFlow, Node, NodeProps, EdgeProps, getBezierPath, Edge, BaseEdge, addEdge, OnConnect, useNodesState, useEdgesState, ConnectionLineComponent, EdgeLabelRenderer } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
 import SearchField from "~/components/SearchField";
 import { Content, jsonFromPlaytree, PlayEdge, PlayheadInfo, PlayNode, Playtree, playtreeFromJson } from "../types";
@@ -732,26 +732,44 @@ export default function PlaytreeEditor() {
     }, [flownodes])
 
     const generateWarnings = useCallback(() => {
+        const warnings : string[] = []
         if (state.playtree.playroots.size == 0) {
-            dispatch({type: "logged_message", message: {type: "warning", message: "Saved playtree has no playroots. You won't be able to play any music until you attach a playhead."}})
-            return true
+            warnings.push("Saved playtree has no playroots. You won't be able to play any music until you attach a playhead.")
         }
-        return false
+        return warnings
     }, [state.playtree.playroots])
 
     const handleSave = useCallback(() => {
-        const warningsGenerated = generateWarnings();
         (async () => {
-            const response = await fetch(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
-                method: "PUT",
-                body: JSON.stringify(jsonFromPlaytree(state.playtree))
-            })
-            if (response.ok) {
-                dispatch({type: "saved_playtree"})
-                dispatch({type: "logged_message", message: {type: "success", message: "Playtree saved successfully."}})
-            } else {
-                const errorMessage = await response.text()
-                dispatch({type: "logged_message", message: {type: "error", message: errorMessage }})
+            try {
+                const response = await fetch(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
+                    method: "PUT",
+                    body: JSON.stringify(jsonFromPlaytree(state.playtree))
+                })
+
+                if (response.ok) {
+                    dispatch({type: "saved_playtree"})
+                    const warningsGenerated = generateWarnings();
+                    if (warningsGenerated.length === 0) {
+                        dispatch({type: "logged_message", message: {type: "success", message: "Playtree saved successfully."}})
+                    } else {
+                        dispatch({type: "logged_message", message: {type: "warning", message: "Playtree saved with the following warnings:"}})
+                        warningsGenerated.forEach(warning => {
+                            dispatch({type: "logged_message", message: {type: "warning", message: warning}})
+                        })
+                    }
+                } else {
+                    const errorMessage = await response.text()
+                    dispatch({type: "logged_message", message: {type: "error", message: errorMessage }})
+                }
+            } catch (error : unknown) {
+                if (error instanceof Error) {
+                    dispatch({type: "logged_message", message: {type: "error", message: "Save failed: " + error.message}})
+                } else {
+                    throw error
+                }
+            } finally {
+
             }
         })()
 
