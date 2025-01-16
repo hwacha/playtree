@@ -16,7 +16,6 @@ export const loader = async ({params} : LoaderFunctionArgs) => {
 }
 
 type PlayheadProps = {
-    index: number;
     name: string;
     nodeID: string;
     dispatch: (action: PlaytreeEditorAction) => void;
@@ -30,8 +29,7 @@ function PlayheadComponent(props : PlayheadProps) {
         props.dispatch({
             type: "updated_playhead",
             nodeID: props.nodeID,
-            playhead: {
-                index: props.index,
+            patch: {
                 name: evt.target.value,
             }
         })
@@ -147,7 +145,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
 
     return (
         <React.Fragment key={props.id}>
-            <div>{ playhead ? <PlayheadComponent index={playhead.index} name={playhead.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)} onDeletePlayhead={handleDeletePlayhead}/> : null }</div>
+            <div>{ playhead ? <PlayheadComponent name={playhead.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)} onDeletePlayhead={handleDeletePlayhead}/> : null }</div>
             <Handle type="target" isConnectableStart={false} position={Position.Top} style={{width: 12, height: 12}} />
             {
                 props.selected ?
@@ -360,7 +358,7 @@ type PlaytreeEditorAction = {
 } | {
     type: "updated_playhead",
     nodeID: string,
-    playhead: PlayheadInfo
+    patch: Partial<Omit<PlayheadInfo, 'nodeID'>>
 } | {
     type: "deleted_playhead",
     nodeID: string,
@@ -523,7 +521,11 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
         }
         case "updated_playhead": {
             const newPlayroots = structuredClone(state.playtree.playroots)
-            newPlayroots.set(action.nodeID, action.playhead)
+            const playroot = newPlayroots.get(action.nodeID)
+            if (playroot) {
+                const newPlayroot = Object.assign(playroot, action.patch)
+                newPlayroots.set(action.nodeID, newPlayroot)
+            }
             return {
                 ...state,
                 playtree: {
