@@ -6,7 +6,7 @@ type UserSidebarProps = {
 }
 
 export default function UserSidebar(props : UserSidebarProps) {
-    const fetcher = useFetcher()
+    const fetcher = useFetcher({key: "player"})
     return (
         <aside id="sidebar-multi-level-sidebar" className="fixed font-markazi top-0 left-0 z-40 w-48 h-screen transition-transform -translate-x-full sm:translate-x-0" aria-label="Sidebar">
             <div className="h-full border-4 border-green-600 bg-green-100 px-1">
