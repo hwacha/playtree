@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useReducer } from "react"
+import { useCallback, useEffect, useReducer, useRef } from "react"
 import { Content, PlayEdge, Playhead, PlayheadInfo, PlayNode, Playtree } from "../types";
+import React from "react";
 
 type PlayerProps = {
     playtree: Playtree | null
@@ -10,11 +11,13 @@ type PlayerState = {
     playheads: Playhead[];
     playheadIndex: number;
     repeatCounters: Map<string, Map<string, number>>;
-    isPlaying: boolean;
+    playerStatus: 'awaiting_play'|'playing'|'paused';
+    autoplay: boolean;
+    mapOfURIsToGeneratedBlobURLs: Map<string, string>;
 }
 
 type PlayerAction = {
-    type: 'played' | 'paused';
+    type: 'started_playing' | 'played' | 'paused';
 } | {
     type: 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
     playtree: Playtree;
@@ -28,6 +31,13 @@ type PlayerAction = {
     playtree: Playtree;
     selectorRand: number;
     edgeRand: number;
+} | {
+    type: 'new_song_loaded';
+    uri: string;
+    blobURL: string
+} | {
+    type: 'autoplay_set';
+    autoplay: boolean;
 }
 
 const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
@@ -64,20 +74,24 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 playheadIndex: 0,
                 playheads: newPlayheads,
                 repeatCounters: newRepeatCounters,
-                isPlaying: action.autoplay ?? state.isPlaying
             }
         }
-
+        case 'started_playing': {
+            return {
+                ...state,
+                playerStatus: "awaiting_play"
+            }
+        }
         case 'played': {
             return {
                 ...state,
-                isPlaying: true
+                playerStatus: "playing"
             };
         }
         case 'paused': {
             return {
                 ...state,
-                isPlaying: false
+                playerStatus: "paused"
             }
         }
         case 'song_ended':
@@ -143,6 +157,8 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                         newPlayheads[state.playheadIndex].node = nextNode
                         if (nextNode.type === "selector") {
                             newPlayheads[state.playheadIndex].nodeIndex = Math.floor(action.selectorRand * nextNode.content.length)
+                        } else {
+                            newPlayheads[state.playheadIndex].nodeIndex = 0
                         }
                     }
                 }
@@ -193,6 +209,20 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 playheadIndex: (state.playheadIndex + 1) % state.playheads.length
             }
         }
+        case 'new_song_loaded': {
+            const newMap = structuredClone(state.mapOfURIsToGeneratedBlobURLs)
+            newMap.set(action.uri, action.blobURL)
+            return {
+                ...state,
+                mapOfURIsToGeneratedBlobURLs: newMap
+            }
+        }
+        case 'autoplay_set': {
+            return {
+                ...state,
+                autoplay: action.autoplay
+            }
+        }
     }
 }
 
@@ -205,7 +235,9 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         playheads: initialPlayheads,
         playheadIndex: initialPlayheadIndex,
         repeatCounters: initialRepeatCounters,
-        isPlaying: false
+        playerStatus: autoplay ? "awaiting_play" : "paused",
+        autoplay: autoplay ?? false,
+        mapOfURIsToGeneratedBlobURLs: new Map<string, string>()
     })
 
     useEffect(() => {
@@ -214,64 +246,90 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         }
     }, [playtree])
 
-    const onAudioChange = useCallback((audio: HTMLAudioElement) => {
-        if (!audio) {
-            return
-        }
+    const audioRef = useRef<HTMLAudioElement | null>(null)
 
-        if (!audio.onended) {
-            audio.onended = () => {
-                if (playtree) {
-                    dispatch({type: 'song_ended', playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random()})
+    const handlePlayPauseAudio = useCallback((shouldPlay: boolean) => {
+        if (shouldPlay) {
+            if (playtree && audioRef.current && audioRef.current.src === "") {
+                dispatch({ type: "skipped_forward", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
+            } else {
+                audioRef.current?.play()
+                dispatch({type: 'started_playing'})
+            }
+        } else {
+            audioRef.current?.pause()
+        }
+        dispatch({type: "autoplay_set", autoplay: shouldPlay})
+    }, [audioRef])
+
+    const handleAudioPlaying = useCallback(() => {
+        dispatch({type: "played"})
+    }, [])
+
+    const handleAudioPaused = useCallback(() => {
+        dispatch({type: "paused"})
+    }, [])
+
+    const handleSongEnded = useCallback(() => {
+        if (playtree) {
+            dispatch({type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random()})
+        }
+    }, [playtree, state])
+
+    useEffect(() => {
+        const audio = audioRef.current
+        const currentPlayhead = state.playheads[state.playheadIndex]
+        if (audio && currentPlayhead) {
+            if (currentPlayhead.node && currentPlayhead.node.content) {
+                let currentContent : Content | undefined = currentPlayhead.node.content[currentPlayhead.nodeIndex]
+                let curSongURI     : string  | undefined = currentContent?.uri
+
+                if (playtree && (!currentContent || !curSongURI || curSongURI === "")) {
+                    dispatch({ type: "skipped_forward", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random()})
+                    return
+                }
+                
+                if (state.mapOfURIsToGeneratedBlobURLs.has(curSongURI)) {
+                    audio.src = state.mapOfURIsToGeneratedBlobURLs.get(curSongURI) as string
+                    if (autoplay || state.autoplay) {
+                        audio.play()
+                    }
+                } else {
+                    fetch("http://localhost:8081/songs/" + curSongURI).then(response => {
+                        return response.body
+                    }).then(stream => {
+                        if (stream) {
+                            (async () => {
+                                const reader = stream.getReader();
+                                const chunks = [];
+                
+                                while (true) {
+                                    const { done, value } = await reader.read();
+                                    if (done) break;
+                                    chunks.push(value);
+                                }
+        
+                                const blob = new Blob(chunks)
+                                const blobURL = window.URL.createObjectURL(blob)
+                                dispatch({type: "new_song_loaded", uri: curSongURI, blobURL: blobURL})
+                                audio.src = blobURL;
+                                if (autoplay || state.autoplay) {
+                                    audio.play()
+                                }
+                            })()
+                        }
+                    })
                 }
             }
         }
-
-        const currentPlayhead = state.playheads[state.playheadIndex]
-
-        if (currentPlayhead) {
-            if (currentPlayhead.node && currentPlayhead.node.content && currentPlayhead.node.content[currentPlayhead.nodeIndex]) {
-                const curSongURI = currentPlayhead.node.content[currentPlayhead.nodeIndex].uri
-                fetch("http://localhost:8081/songs/" + curSongURI).then(response => {
-                    return response.body
-                }).then(stream => {
-                    if (stream) {
-                        (async () => {
-                            const reader = stream.getReader();
-                            const chunks = [];
-            
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                chunks.push(value);
-                            }
-    
-                            const blob = new Blob(chunks)
-                            const url = window.URL.createObjectURL(blob);
-                            audio.pause()
-                            audio.src = url;
-                            if (state.isPlaying) {
-                                audio.play()
-                            }
-                        })()
-                    }
-                })
-            }
-
-            if (state.isPlaying && audio.paused) {
-                audio.play()
-            } else if (!state.isPlaying && !audio.paused) {
-                audio.pause()
-            }
-        }
-    }, [state])
+    }, [playtree, state.playheads, state.playheadIndex])
 
     if (playtree == null) {
         return (<div className="bg-green-600 fixed flex w-full h-36 left-48 bottom-0"><div className="text-white mx-auto my-16 w-fit font-lilitaOne">No playtrees.</div></div>)
     } else {
         let currentPlayhead : Playhead | null | undefined = null
         let currentPlaynode : PlayNode | null | undefined = null
-        let currentContent : Content | null | undefined = null
+        let currentContent  : Content  | null | undefined = null
         if (state && state.playheads) {
             currentPlayhead = state.playheads[state.playheadIndex]
             if (currentPlayhead && currentPlayhead.node) {
@@ -284,7 +342,7 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         
         return (
             <div className="bg-green-600 fixed flex w-[calc(100vw-12rem)] h-36 left-48 bottom-0">
-                <audio ref={onAudioChange} src="" />
+                <audio preload="auto" src="" ref={audioRef} onEnded={handleSongEnded} onPlaying={handleAudioPlaying} onPause={handleAudioPaused} />
                 <div className="w-full my-auto">
                     <div className="w-fit float-right mr-8">
                         <div className="w-fit mx-auto">
@@ -306,10 +364,15 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                             </button>
                             <button
                                 type="button"
-                                title={state.isPlaying ? "Pause" : "Play"}
+                                title={state.playerStatus === 'awaiting_play' ? "..." : state.playerStatus === 'playing' ? "Pause" : "Play"}
                                 className="rounded-sm p-2 text-white fill-white"
-                                onClick={() => state.isPlaying ? dispatch({type: 'paused'}) : dispatch({type: 'played'})}>
-                                {state.isPlaying ? "\u23F8" : "\u23F5"}
+                                onClick={() => {
+                                    if (state.playerStatus !== 'awaiting_play') {
+                                        handlePlayPauseAudio(state.playerStatus === 'paused')
+                                    }}
+                                }
+                            >
+                                {state.playerStatus === 'awaiting_play' ? "\u{1F51C}" : state.playerStatus === 'playing' ? "\u23F8" : "\u23F5"}
                             </button>
                             <button
                                 type="button"
