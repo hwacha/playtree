@@ -18,6 +18,7 @@ export type Content = {
 export type PlayEdge = {
     nodeID: string;
     shares: number;
+    priority: number;
     repeat: number;
 }
 

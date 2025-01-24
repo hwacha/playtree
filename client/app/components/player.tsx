@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef } from "react"
 import { Content, PlayEdge, Playhead, PlayheadInfo, PlayNode, Playtree } from "../types";
-import React from "react";
 
 type PlayerProps = {
     playtree: Playtree | null
@@ -60,9 +59,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
             Array.from(action.playtree.nodes.values()).forEach((node: PlayNode) => {
                 if (node.next) {
                     node.next.forEach((edge : PlayEdge) => {
-                        console.log(node.id, "=>", edge.nodeID)
                         if (edge.repeat >= 0) {
-                            console.log("counter set")
                             if (newRepeatCounters.has(node.id)) {
                                 newRepeatCounters.get(node.id)?.set(edge.nodeID, 0)
                             } else {
@@ -75,8 +72,6 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     
                 }
             })
-
-            console.log(newRepeatCounters)
 
             return {
                 ...state,
@@ -127,12 +122,19 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
             if (curNode.next) {
                 let totalShares = 0
                 const elligibleEdges : PlayEdge[] = []
-                for (let i in curNode.next) {
-                    let curEdge = curNode.next[i]
+                const nextEdgesSortedByPriority = [...curNode.next].sort((playedge1, playedge2) => playedge1.priority - playedge2.priority)
+                let currentPriority = 0
+
+                // go through each edge and choose edges by
+                // the lowest available priority group
+                for (let i in nextEdgesSortedByPriority) {
+                    let curEdge = nextEdgesSortedByPriority[i]
+
+                    if (curEdge.priority > currentPriority && elligibleEdges.length > 0) {
+                        break
+                    }
 
                     const counter = state.repeatCounters.get(curNode.id)?.get(curEdge.nodeID)
-                    console.log(curNode.id, "=>", curEdge.nodeID)
-                    console.log(counter)
                     if (counter !== undefined && curEdge.repeat >= 0 && counter >= curEdge.repeat) {
                         continue
                     }
@@ -190,7 +192,6 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     repeatCounters: newRepeatCounters
                 }
             }
-            StopPlayhead:
             newPlayheads.splice(state.playheadIndex, 1)
             let index = state.playheadIndex % newPlayheads.length
 

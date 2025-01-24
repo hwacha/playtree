@@ -194,9 +194,11 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
     }
 
     const initialShares = props.data.playedge.shares ??  1
-    const initialRepeat = props.data.playedge.repeat ?? -1 
+    const initialPriority = props.data.playedge.priority ?? 0
+    const initialRepeat = props.data.playedge.repeat ?? -1
 
     const [sharesInputText, setSharesInputText] = useState<string>(initialShares.toString())
+    const [priorityInputText, setPriorityInputText] = useState<string>(initialPriority.toString())
     const [repeatInputText, setRepeatInputText] = useState<string>(initialRepeat.toString())
 
     const handleSharesChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,6 +212,18 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
             }
         }
     }, [sharesInputText])
+
+    const handlePriorityChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const inputAsNumber = Number(event.target.value)
+        if (event.target.value == "" || (Number.isInteger(inputAsNumber) && inputAsNumber >= 0)) {
+            setPriorityInputText(event.target.value)
+            if (props.data) {
+                props.data.dispatch({type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {
+                    priority: event.target.value === "" ? 0 : inputAsNumber
+                }})
+            }
+        }
+    }, [priorityInputText])
 
     const handleRepeatChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         let inputAsNumber = Number(event.target.value)
@@ -304,6 +318,11 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
                             <input value={sharesInputText} className="bg-neutral-200 w-full text-right" onChange={handleSharesChange} />
                         </div>
                         <div className="w-24 flex">
+                            <div className="w-full h-fit">Priority</div>
+                            <div className="w-fit">|</div>
+                            <input value={priorityInputText} className="bg-neutral-200 w-full text-right" onChange={handlePriorityChange} />
+                        </div>
+                        <div className="w-24 flex">
                             <div className="w-full h-fit">Repeat</div>
                             <div className="w-fit">|</div>
                             <input value={repeatInputText} className="bg-neutral-200 w-full text-right" onChange={handleRepeatChange} />
@@ -313,7 +332,7 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
                         position: 'absolute',
                         transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
                         pointerEvents: 'all'
-                    }}>S={sharesInputText}, R={repeatInputText === "-1" ? "∞" : repeatInputText}</div>
+                    }}>S={sharesInputText}, P={priorityInputText}, R={repeatInputText === "-1" ? "∞" : repeatInputText}</div>
             }
             </EdgeLabelRenderer>
         </React.Fragment>
@@ -454,6 +473,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
                 sourceNode.next.push({
                     nodeID: action.targetID,
                     shares: 1,
+                    priority: 0,
                     repeat: -1,
                 })
                 return {
@@ -698,7 +718,7 @@ export default function PlaytreeEditor() {
     const onConnect : OnConnect = useCallback(connection => {
         const sourcePlaynode = state.playtree.nodes.get(connection.source)
         if (sourcePlaynode) {
-            const playedge = { nodeID: connection.target, shares: 1, repeat: -1 }
+            const playedge = { nodeID: connection.target, shares: 1, priority: 0, repeat: -1 }
             setFlowedges((eds) => addEdge(makePlayedgeFlow(sourcePlaynode, playedge), eds))
             dispatch({type: "added_playedge", sourceID: connection.source, targetID: connection.target})
         }

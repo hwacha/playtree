@@ -122,9 +122,10 @@ func (song *Song) Skip(_ int, skip chan<- bool) {
 }
 
 type PlayEdge struct {
-	Node   *PlayNode
-	Shares int
-	Repeat int
+	Node     *PlayNode
+	Shares   int
+	Priority int
+	Repeat   int
 }
 
 type PlayNode struct {

@@ -14,13 +14,14 @@ type (
 	ContentInfo struct {
 		Type string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
 		URI  string `json:"uri" validate:"required"`
-		Mult string `json:"mult" validate:"required,min=0"`
+		// Mult string `json:"mult" validate:"required,min=0"`
 	}
 
 	PlayEdgeInfo struct {
-		NodeID string `json:"nodeID" validate:"required"`
-		Shares int    `json:"shares,omitempty" validate:"omitempty,min=0"`
-		Repeat int    `json:"repeat" validate:"min=-1"`
+		NodeID   string `json:"nodeID" validate:"required"`
+		Shares   int    `json:"shares,omitempty" validate:"omitempty,min=0"`
+		Priority int    `json:"priority" validate:"omitempty,min=0"`
+		Repeat   int    `json:"repeat" validate:"min=-1"`
 	}
 
 	PlayNodeInfo struct {
@@ -64,15 +65,17 @@ type (
 
 func (pei *PlayEdgeInfo) UnmarshalJSON(data []byte) error {
 	type PlayEdgeInfo2 struct {
-		NodeID string `json:"nodeID" validate:"required"`
-		Shares int    `json:"shares,omitempty" validate:"omitempty,min=0"`
-		Repeat int    `json:"repeat,omitempty"`
+		NodeID   string `json:"nodeID" validate:"required"`
+		Shares   int    `json:"shares,omitempty" validate:"omitempty,min=0"`
+		Priority int    `json:"priority" validate:"omitempty,min=0"`
+		Repeat   int    `json:"repeat,omitempty"`
 	}
 
 	pei2 := &PlayEdgeInfo2{
-		NodeID: "",
-		Shares: 1,
-		Repeat: -1,
+		NodeID:   "",
+		Shares:   1,
+		Priority: 0,
+		Repeat:   -1,
 	}
 	err := json.Unmarshal(data, pei2)
 	if err != nil {
@@ -80,6 +83,7 @@ func (pei *PlayEdgeInfo) UnmarshalJSON(data []byte) error {
 	}
 	pei.NodeID = pei2.NodeID
 	pei.Shares = pei2.Shares
+	pei.Priority = pei2.Priority
 	pei.Repeat = pei2.Repeat
 
 	return nil
@@ -200,7 +204,7 @@ func playtreeFromPlaytreeInfo(pti PlaytreeInfo) (*Playtree, error) {
 					return nil, errors.New(`JSON Playtree graph: undefined node "` + pei.NodeID + `"`)
 				}
 
-				pes = append(pes, &PlayEdge{Node: nextNode, Shares: pei.Shares, Repeat: pei.Repeat})
+				pes = append(pes, &PlayEdge{Node: nextNode, Shares: pei.Shares, Priority: pei.Priority, Repeat: pei.Repeat})
 			}
 			playNode.Next = pes
 		}
