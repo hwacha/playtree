@@ -46,6 +46,7 @@ export type Playhead = {
     node: PlayNode;
     nodeIndex: number;
     history: HistoryNode[];
+    stopped: boolean;
 }
 
 export type Playtree = {

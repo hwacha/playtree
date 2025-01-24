@@ -51,7 +51,8 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                         name: playroot.name,
                         node: playNode,
                         nodeIndex: playNode.type === "selector" ? Math.floor(action.selectorRand * playNode.content.length) : 0,
-                        history: []
+                        history: [],
+                        stopped: false,
                     }
                 }
             })
@@ -119,6 +120,24 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 }
             }
 
+            const resetPlayheadAndIncrementIndex = () : number => {
+                // reset playhead
+                const playheadStartNodeID = newPlayheads[state.playheadIndex].history[0]?.nodeID ?? newPlayheads[state.playheadIndex].node.id
+                const playheadStartNode = action.playtree.nodes.get(playheadStartNodeID)
+                if (playheadStartNode) {
+                    newPlayheads[state.playheadIndex] = {
+                        ...newPlayheads[state.playheadIndex],
+                        node: playheadStartNode,
+                        nodeIndex: playheadStartNode.type === "selector" ? Math.floor(action.selectorRand * playheadStartNode.content.length) : 0,
+                        history: [],
+                        stopped: true,
+                    }
+                }
+
+                // move to next playhead
+                return (state.playheadIndex + 1) % newPlayheads.length
+            }
+
             if (curNode.next) {
                 let totalShares = 0
                 const elligibleEdges : PlayEdge[] = []
@@ -147,13 +166,13 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     elligibleEdges.push(curEdge)
                 }
                 if (elligibleEdges.length === 0) {
-                    newPlayheads.splice(state.playheadIndex, 1)
-                    let index = state.playheadIndex % newPlayheads.length
+                    const nextPlayheadIndex = resetPlayheadAndIncrementIndex()
         
                     return {
                         ...state,
-                        playheadIndex: index,
+                        playheadIndex: nextPlayheadIndex,
                         playheads: newPlayheads,
+                        autoplay: !newPlayheads[nextPlayheadIndex].stopped
                     }
                 }
                 const scaledRand = Math.floor(action.edgeRand * totalShares)
@@ -192,13 +211,12 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     repeatCounters: newRepeatCounters
                 }
             }
-            newPlayheads.splice(state.playheadIndex, 1)
-            let index = state.playheadIndex % newPlayheads.length
-
+            const nextPlayheadIndex = resetPlayheadAndIncrementIndex()
             return {
                 ...state,
-                playheadIndex: index,
+                playheadIndex: nextPlayheadIndex,
                 playheads: newPlayheads,
+                autoplay: !newPlayheads[nextPlayheadIndex].stopped
             }
         }
         case 'skipped_backward': {
@@ -326,7 +344,7 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                 
                 if (state.mapOfURIsToGeneratedBlobURLs.has(curSongURI)) {
                     audio.src = state.mapOfURIsToGeneratedBlobURLs.get(curSongURI) as string
-                    if (autoplay || state.autoplay) {
+                    if (state.autoplay) {
                         audio.play()
                     }
                 } else {
@@ -348,7 +366,7 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                                 const blobURL = window.URL.createObjectURL(blob)
                                 dispatch({type: "new_song_loaded", uri: curSongURI, blobURL: blobURL})
                                 audio.src = blobURL;
-                                if (autoplay || state.autoplay) {
+                                if (state.autoplay) {
                                     audio.play()
                                 }
                             })()
