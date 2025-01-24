@@ -57,17 +57,26 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 }
             })
 
-            Array.from(action.playtree.nodes.values()).map((node: PlayNode) => {
+            Array.from(action.playtree.nodes.values()).forEach((node: PlayNode) => {
                 if (node.next) {
-                    node.next.map((edge : PlayEdge) => {
+                    node.next.forEach((edge : PlayEdge) => {
+                        console.log(node.id, "=>", edge.nodeID)
                         if (edge.repeat >= 0) {
-                            const targetNodeToCounter = new Map<string, number>()
-                            targetNodeToCounter.set(edge.nodeID, 0)
-                            newRepeatCounters.set(node.id, targetNodeToCounter)
+                            console.log("counter set")
+                            if (newRepeatCounters.has(node.id)) {
+                                newRepeatCounters.get(node.id)?.set(edge.nodeID, 0)
+                            } else {
+                                const targetNodeToCounter = new Map<string, number>()
+                                targetNodeToCounter.set(edge.nodeID, 0)
+                                newRepeatCounters.set(node.id, targetNodeToCounter)
+                            }
                         }
                     })
+                    
                 }
             })
+
+            console.log(newRepeatCounters)
 
             return {
                 ...state,
@@ -106,7 +115,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
             const newPlayheads = structuredClone(state.playheads)
 
             if (curNode.type === "sequence" && curNodeIndex + 1 < curNode.content.length) {
-                newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex })
+                newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex, traversedPlayedge: null })
                 newPlayheads[state.playheadIndex].node = curNode
                 newPlayheads[state.playheadIndex].nodeIndex = curNodeIndex + 1
                 return {
@@ -122,7 +131,9 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     let curEdge = curNode.next[i]
 
                     const counter = state.repeatCounters.get(curNode.id)?.get(curEdge.nodeID)
-                    if (counter !== undefined && curEdge.repeat > 0 && counter >= curEdge.repeat) {
+                    console.log(curNode.id, "=>", curEdge.nodeID)
+                    console.log(counter)
+                    if (counter !== undefined && curEdge.repeat >= 0 && counter >= curEdge.repeat) {
                         continue
                     }
 
@@ -132,6 +143,16 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                         totalShares += curEdge.shares
                     }
                     elligibleEdges.push(curEdge)
+                }
+                if (elligibleEdges.length === 0) {
+                    newPlayheads.splice(state.playheadIndex, 1)
+                    let index = state.playheadIndex % newPlayheads.length
+        
+                    return {
+                        ...state,
+                        playheadIndex: index,
+                        playheads: newPlayheads,
+                    }
                 }
                 const scaledRand = Math.floor(action.edgeRand * totalShares)
                 let bound : number = 0
@@ -153,7 +174,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     }
                     let nextNode = action.playtree.nodes.get(selectedEdge.nodeID)
                     if (nextNode) {
-                        newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex })
+                        newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex, traversedPlayedge: selectedEdge })
                         newPlayheads[state.playheadIndex].node = nextNode
                         if (nextNode.type === "selector") {
                             newPlayheads[state.playheadIndex].nodeIndex = Math.floor(action.selectorRand * nextNode.content.length)
@@ -169,7 +190,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     repeatCounters: newRepeatCounters
                 }
             }
-
+            StopPlayhead:
             newPlayheads.splice(state.playheadIndex, 1)
             let index = state.playheadIndex % newPlayheads.length
 
@@ -185,15 +206,28 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
             if (prevHistoryNode === undefined) {
                 return structuredClone(state)
             } else {
-                const prevPlayNode = action.playtree.nodes.get(prevHistoryNode.nodeID)
-                if (prevPlayNode === undefined) {
+                const prevPlaynode = action.playtree.nodes.get(prevHistoryNode.nodeID)
+                if (prevPlaynode === undefined) {
                     return structuredClone(state)
                 }
-                newPlayheads[state.playheadIndex].node = structuredClone(prevPlayNode)
+                newPlayheads[state.playheadIndex].node = structuredClone(prevPlaynode)
                 newPlayheads[state.playheadIndex].nodeIndex = prevHistoryNode.index
+                const traversedPlayedge = prevHistoryNode.traversedPlayedge
+                if (traversedPlayedge && traversedPlayedge.repeat >= 0) {
+                    const newRepeatCounters = structuredClone(state.repeatCounters)
+                    const oldRepeatCounterValue = newRepeatCounters.get(prevPlaynode.id)?.get(traversedPlayedge.nodeID)
+                    if (oldRepeatCounterValue !== undefined) {
+                        newRepeatCounters.get(prevPlaynode.id)?.set(traversedPlayedge.nodeID, Math.max(oldRepeatCounterValue - 1, 0))
+                        return {
+                            ...state,
+                            playheads: newPlayheads,
+                            repeatCounters: newRepeatCounters
+                        }
+                    }
+                }
                 return {
                     ...state,
-                    playheads: newPlayheads
+                    playheads: newPlayheads,
                 }
             }
         }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
@@ -13,12 +14,13 @@ type (
 	ContentInfo struct {
 		Type string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
 		URI  string `json:"uri" validate:"required"`
+		Mult string `json:"mult" validate:"required,min=0"`
 	}
 
 	PlayEdgeInfo struct {
 		NodeID string `json:"nodeID" validate:"required"`
 		Shares int    `json:"shares,omitempty" validate:"omitempty,min=0"`
-		Repeat int    `json:"repeat,omitempty"`
+		Repeat int    `json:"repeat" validate:"min=-1"`
 	}
 
 	PlayNodeInfo struct {
@@ -79,6 +81,7 @@ func (pei *PlayEdgeInfo) UnmarshalJSON(data []byte) error {
 	pei.NodeID = pei2.NodeID
 	pei.Shares = pei2.Shares
 	pei.Repeat = pei2.Repeat
+
 	return nil
 }
 
@@ -125,6 +128,7 @@ func playtreeInfoFromJSON(r io.Reader) (*PlaytreeInfo, error) {
 			}
 		}
 		for _, edge := range node.Next {
+			log.Println(edge)
 			if nextValidationErr := v.Struct(edge); nextValidationErr != nil {
 				return nil, nextValidationErr
 			}

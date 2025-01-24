@@ -32,6 +32,7 @@ export type PlayNode = {
 export type HistoryNode = {
     nodeID: string;
     index: number;
+    traversedPlayedge: PlayEdge | null;
 }
 
 export type PlayheadInfo = {

@@ -193,8 +193,8 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
         return null
     }
 
-    const initialShares = props.data.playedge.shares ? props.data.playedge.shares : 1
-    const initialRepeat = props.data.playedge.repeat ? props.data.playedge.repeat : -1 
+    const initialShares = props.data.playedge.shares ??  1
+    const initialRepeat = props.data.playedge.repeat ?? -1 
 
     const [sharesInputText, setSharesInputText] = useState<string>(initialShares.toString())
     const [repeatInputText, setRepeatInputText] = useState<string>(initialRepeat.toString())
@@ -313,7 +313,7 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
                         position: 'absolute',
                         transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
                         pointerEvents: 'all'
-                    }}>S={sharesInputText}, R={repeatInputText}</div>
+                    }}>S={sharesInputText}, R={repeatInputText === "-1" ? "∞" : repeatInputText}</div>
             }
             </EdgeLabelRenderer>
         </React.Fragment>
@@ -426,8 +426,14 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
             }
         }
         case "deleted_playnode": {
-            const newNodes = structuredClone(state.playtree.nodes)
+            let newNodes = structuredClone(state.playtree.nodes)
             newNodes.delete(action.nodeID)
+            Array.from(newNodes.values()).forEach(node => {
+                newNodes.set(node.id, {
+                    ...node,
+                    next: node.next.filter(playedge => playedge.nodeID !== action.nodeID)
+                })
+            })
             return {
                 ...state,
                 playtree: {
