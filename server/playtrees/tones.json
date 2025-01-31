@@ -10,6 +10,7 @@
             "id": "0",
             "name": "any",
             "type": "selector",
+            "repeat": -1,
             "content": [
                 {
                     "type": "local-audio",
@@ -50,6 +51,7 @@
             "id": "1",
             "name": "C",
             "type": "selector",
+            "repeat": -1,
             "content": [
                 {
                     "type": "local-audio",
@@ -62,6 +64,7 @@
             "id": "2",
             "name": "A",
             "type": "selector",
+            "repeat": -1,
             "content": [
                 {
                     "type": "local-audio",
@@ -74,6 +77,7 @@
             "id": "3",
             "name": "F",
             "type": "selector",
+            "repeat": -1,
             "content": [
                 {
                     "type": "local-audio",
@@ -86,6 +90,7 @@
             "id": "4",
             "name": "GtoC",
             "type": "selector",
+            "repeat": -1,
             "content": [
                 {
                     "type": "local-audio",
@@ -98,6 +103,7 @@
             "id": "5",
             "name": "GtoA",
             "type": "selector",
+            "repeat": -1,
             "content": [
                 {
                     "type": "local-audio",
@@ -110,6 +116,7 @@
             "id": "6",
             "name": "ErunB",
             "type": "sequence",
+            "repeat": -1,
             "content": [
                 {
                     "type": "local-audio",

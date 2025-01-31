@@ -28,6 +28,7 @@ type (
 		ID      string         `json:"id" validate:"required"`
 		Name    string         `json:"name" validate:"required"`
 		Type    string         `json:"type" validate:"required,oneof=sequence selector"`
+		Repeat  int            `json:"repeat" validate:"min=-1"`
 		Content []ContentInfo  `json:"content" validate:"required"`
 		Next    []PlayEdgeInfo `json:"next,omitempty"`
 	}
@@ -62,6 +63,40 @@ type (
 		Playroots map[string]PlayheadInfo `json:"playroots" validate:"required"`
 	}
 )
+
+func (pni *PlayNodeInfo) UnmarshalJSON(data []byte) error {
+	type PlayNodeInfo2 struct {
+		ID      string         `json:"id" validate:"required"`
+		Name    string         `json:"name" validate:"required"`
+		Type    string         `json:"type" validate:"required,oneof=sequence selector"`
+		Repeat  int            `json:"repeat" validate:"min=-1"`
+		Content []ContentInfo  `json:"content" validate:"required"`
+		Next    []PlayEdgeInfo `json:"next,omitempty"`
+	}
+
+	pni2 := &PlayNodeInfo2{
+		ID:      "",
+		Name:    "",
+		Type:    "",
+		Repeat:  -1,
+		Content: []ContentInfo{},
+		Next:    []PlayEdgeInfo{},
+	}
+
+	err := json.Unmarshal(data, pni2)
+	if err != nil {
+		return err
+	}
+
+	pni.ID = pni2.ID
+	pni.Name = pni2.Name
+	pni.Type = pni2.Type
+	pni.Repeat = pni2.Repeat
+	pni.Content = pni2.Content
+	pni.Next = pni2.Next
+
+	return nil
+}
 
 func (pei *PlayEdgeInfo) UnmarshalJSON(data []byte) error {
 	type PlayEdgeInfo2 struct {
