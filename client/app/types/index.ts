@@ -26,6 +26,7 @@ export type PlayNode = {
     id: string;
     name: string;
     type: "sequence"|"selector";
+    repeat: number;
     content: Content[];
     next: PlayEdge[];
 }

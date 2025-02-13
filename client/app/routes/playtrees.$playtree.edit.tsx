@@ -62,8 +62,11 @@ export type PlayNodeFlow = Node<{
 function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
     const [adding, setAdding] = useState<boolean>(false)
 
+    const initialRepeat = props.data.playnode.repeat ?? -1
+
     const [playnodeName, setPlaynodeName] = useState<string>(props.data.playnode.name)
     const [playnodeType, setPlaynodeType] = useState<PlayNode["type"]>(props.data.playnode.type)
+    const [playnodeRepeat, setPlaynodeRepeat] = useState<string>(initialRepeat.toString())
     const [contentList, setContentList] = useState<Content[]>(props.data.playnode.content)
 
     const [playhead, setPlayhead] = useState<PlayheadInfo | null>(props.data.playhead)
@@ -85,10 +88,28 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
         setAdding(false)
     }, [])
 
-    const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChangeName = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         setPlaynodeName(event.target.value)
         props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {name: event.target.value}})
     }, [playnodeName]);
+
+    const handleChangeRepeat = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        let inputAsNumber = Number(event.target.value)
+        if (event.target.value === "" || event.target.value === "-" || (Number.isInteger(inputAsNumber) && inputAsNumber >= -1)) {
+            setPlaynodeRepeat(event.target.value)
+            if (event.target.value === "") {
+                inputAsNumber = 1
+            }
+            if (event.target.value === "-") {
+                inputAsNumber = -1
+            }
+            if (props.data) {
+                props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {
+                    repeat: inputAsNumber
+                }})
+            }
+        }
+    }, [playnodeRepeat])
 
     const handleTogglePlaynodeType = useCallback(() => {
         const otherType : PlayNode["type"] = playnodeType === "sequence" ? "selector" : "sequence"
@@ -154,7 +175,11 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
                         <button className={`bg-${color}-300 rounded-lg px-2 py-1 absolute top-1 left-1`} onClick={handleTogglePlaynodeType} title={playnodeType}>{isSequence ? <>🔢</> : <>🎲</> }</button>
                         <button className={`bg-red-300 rounded-lg px-2 py-1 absolute top-1 right-1`} onClick={handleDeleteSelf} title="Delete Playnode">🗑️</button>
                     </div>
-                    <input id="text" name="text" value={playnodeName} onChange={handleChange} className={`w-full bg-${color}-100 text-center`} />
+                    <input id="text" name="text" value={playnodeName} onChange={handleChangeName} className={`w-full bg-${color}-100 text-center`} />
+                    <div className="font-markazi">
+                        <span className="mr-1">Repeat:</span>
+                        <input id="repeat" name="repeat" value={playnodeRepeat} onChange={handleChangeRepeat} className={`w-12 bg-${color}-100`}></input>
+                    </div>
                     <ul className="my-3">
                         {
                             contentList.map((content: Content, index : number) => {
@@ -414,6 +439,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
                 id: (maxValue + 1).toString(),
                 name: "New Playnode",
                 type: "sequence",
+                repeat: -1,
                 content: [],
                 next: []
             }
@@ -747,6 +773,7 @@ export default function PlaytreeEditor() {
                     id: newID,
                     name: "New Playnode",
                     type: "sequence",
+                    repeat: -1,
                     content: [],
                     next: []
                 },

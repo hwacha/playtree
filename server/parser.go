@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
@@ -167,7 +166,6 @@ func playtreeInfoFromJSON(r io.Reader) (*PlaytreeInfo, error) {
 			}
 		}
 		for _, edge := range node.Next {
-			log.Println(edge)
 			if nextValidationErr := v.Struct(edge); nextValidationErr != nil {
 				return nil, nextValidationErr
 			}

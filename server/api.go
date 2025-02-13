@@ -86,9 +86,9 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		psi, invalidPartialSummaryJsonErr := partialSummaryInfoFromJSON(r.Body)
 
 		if invalidPartialSummaryJsonErr != nil {
-			log.Fatal(invalidPartialSummaryJsonErr)
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, invalidPartialSummaryJsonErr.Error())
+			log.Println(invalidPartialSummaryJsonErr)
 			return
 		}
 
