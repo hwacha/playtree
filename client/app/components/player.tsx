@@ -9,7 +9,8 @@ type PlayerProps = {
 type PlayerState = {
     playheads: Playhead[];
     playheadIndex: number;
-    repeatCounters: Map<string, Map<string, number>>;
+    nodeRepeatCounters: Map<string, number>;
+    edgeRepeatCounters: Map<string, Map<string, number>>;
     playerStatus: 'awaiting_play'|'playing'|'paused';
     autoplay: boolean;
     mapOfURIsToGeneratedBlobURLs: Map<string, string>;
@@ -42,7 +43,8 @@ type PlayerAction = {
 const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
     switch (action.type) {
         case 'playtree_loaded': {
-            const newRepeatCounters = new Map<string, Map<string, number>>()
+            const newNodeRepeatCounters = new Map<string, number>()
+            const newEdgeRepeatCounters = new Map<string, Map<string, number>>()
             const newPlayheads : Playhead[] = []
             action.playtree.playroots.forEach((playroot: PlayheadInfo, nodeID: string) => {
                 const playNode = action.playtree.nodes.get(nodeID)
@@ -58,15 +60,18 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
             })
 
             Array.from(action.playtree.nodes.values()).forEach((node: PlayNode) => {
+                if (node.repeat >= 0) {
+                    newNodeRepeatCounters.set(node.id, 0)
+                }
                 if (node.next) {
                     node.next.forEach((edge : PlayEdge) => {
                         if (edge.repeat >= 0) {
-                            if (newRepeatCounters.has(node.id)) {
-                                newRepeatCounters.get(node.id)?.set(edge.nodeID, 0)
+                            if (newEdgeRepeatCounters.has(node.id)) {
+                                newEdgeRepeatCounters.get(node.id)?.set(edge.nodeID, 0)
                             } else {
                                 const targetNodeToCounter = new Map<string, number>()
                                 targetNodeToCounter.set(edge.nodeID, 0)
-                                newRepeatCounters.set(node.id, targetNodeToCounter)
+                                newEdgeRepeatCounters.set(node.id, targetNodeToCounter)
                             }
                         }
                     })
@@ -78,7 +83,8 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 ...state,
                 playheadIndex: 0,
                 playheads: newPlayheads,
-                repeatCounters: newRepeatCounters,
+                nodeRepeatCounters: newNodeRepeatCounters,
+                edgeRepeatCounters: newEdgeRepeatCounters,
             }
         }
         case 'started_playing': {
@@ -153,7 +159,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                         break
                     }
 
-                    const counter = state.repeatCounters.get(curNode.id)?.get(curEdge.nodeID)
+                    const counter = state.edgeRepeatCounters.get(curNode.id)?.get(curEdge.nodeID)
                     if (counter !== undefined && curEdge.repeat >= 0 && counter >= curEdge.repeat) {
                         continue
                     }
@@ -187,14 +193,19 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                         break
                     }
                 }
-                const newRepeatCounters = structuredClone(state.repeatCounters)
-                if (selectedEdge != null) {
-                    const counter = state.repeatCounters.get(curNode.id)?.get(selectedEdge.nodeID)
-                    if (counter !== undefined) {
-                        newRepeatCounters.get(curNode.id)?.set(selectedEdge.nodeID, counter + 1)
+                const newEdgeRepeatCounters = structuredClone(state.edgeRepeatCounters)
+                const newNodeRepeatCounters = structuredClone(state.nodeRepeatCounters)
+                if (selectedEdge !== null) {
+                    const count = state.edgeRepeatCounters.get(curNode.id)?.get(selectedEdge.nodeID)
+                    if (count !== undefined) {
+                        newEdgeRepeatCounters.get(curNode.id)?.set(selectedEdge.nodeID, count + 1)
                     }
                     let nextNode = action.playtree.nodes.get(selectedEdge.nodeID)
                     if (nextNode) {
+                        const count = state.nodeRepeatCounters.get(curNode.id)
+                        if (count !== undefined) {
+                            newNodeRepeatCounters.set(curNode.id, Math.min(count + 1, curNode.repeat))
+                        }
                         newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex, traversedPlayedge: selectedEdge })
                         newPlayheads[state.playheadIndex].node = nextNode
                         if (nextNode.type === "selector") {
@@ -208,7 +219,8 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 return {
                     ...state,
                     playheads: newPlayheads,
-                    repeatCounters: newRepeatCounters
+                    nodeRepeatCounters: newNodeRepeatCounters,
+                    edgeRepeatCounters: newEdgeRepeatCounters
                 }
             }
             const nextPlayheadIndex = resetPlayheadAndIncrementIndex()
@@ -233,14 +245,24 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 newPlayheads[state.playheadIndex].nodeIndex = prevHistoryNode.index
                 const traversedPlayedge = prevHistoryNode.traversedPlayedge
                 if (traversedPlayedge && traversedPlayedge.repeat >= 0) {
-                    const newRepeatCounters = structuredClone(state.repeatCounters)
-                    const oldRepeatCounterValue = newRepeatCounters.get(prevPlaynode.id)?.get(traversedPlayedge.nodeID)
-                    if (oldRepeatCounterValue !== undefined) {
-                        newRepeatCounters.get(prevPlaynode.id)?.set(traversedPlayedge.nodeID, Math.max(oldRepeatCounterValue - 1, 0))
+                    const newNodeRepeatCounters = structuredClone(state.nodeRepeatCounters)
+                    const oldNodeRepeatCounterValue = newNodeRepeatCounters.get(prevPlaynode.id)
+                    if (oldNodeRepeatCounterValue !== undefined) {
+                        newNodeRepeatCounters.set(prevPlaynode.id, Math.max(oldNodeRepeatCounterValue - 1, 0))
+                    }
+
+                    const newEdgeRepeatCounters = structuredClone(state.edgeRepeatCounters)
+                    const oldEdgeRepeatCounterValue = newEdgeRepeatCounters.get(prevPlaynode.id)?.get(traversedPlayedge.nodeID)
+                    if (oldEdgeRepeatCounterValue !== undefined) {
+                        newEdgeRepeatCounters.get(prevPlaynode.id)?.set(traversedPlayedge.nodeID, Math.max(oldEdgeRepeatCounterValue - 1, 0))
+                    }
+
+                    if (oldNodeRepeatCounterValue !== undefined || oldEdgeRepeatCounterValue !== undefined) {
                         return {
                             ...state,
                             playheads: newPlayheads,
-                            repeatCounters: newRepeatCounters
+                            nodeRepeatCounters: newNodeRepeatCounters,
+                            edgeRepeatCounters: newEdgeRepeatCounters
                         }
                     }
                 }
@@ -282,12 +304,15 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
 export default function Player({playtree, autoplay}: PlayerProps) {
     const initialPlayheadIndex = 0
     let initialPlayheads : Playhead[] = []
-    let initialRepeatCounters = new Map<string, Map<string, number>>()
+
+    let initialNodeRepeatCounters = new Map<string, number>()
+    let initialEdgeRepeatCounters = new Map<string, Map<string, number>>()
 
     const [state, dispatch] = useReducer<typeof reducer>(reducer, {
         playheads: initialPlayheads,
         playheadIndex: initialPlayheadIndex,
-        repeatCounters: initialRepeatCounters,
+        nodeRepeatCounters: initialNodeRepeatCounters,
+        edgeRepeatCounters: initialEdgeRepeatCounters,
         playerStatus: autoplay ? "awaiting_play" : "paused",
         autoplay: autoplay ?? false,
         mapOfURIsToGeneratedBlobURLs: new Map<string, string>()
@@ -306,7 +331,6 @@ export default function Player({playtree, autoplay}: PlayerProps) {
             if (playtree && audioRef.current && (audioRef.current.src === "" || audioRef.current.src === window.location.href)) {
                 dispatch({ type: "skipped_forward", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
             } else {
-                debugger
                 audioRef.current?.play()
                 dispatch({type: 'started_playing'})
             }
@@ -334,12 +358,14 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         const audio = audioRef.current
         const currentPlayhead = state.playheads[state.playheadIndex]
         if (audio && currentPlayhead) {
-            console.log(audio.src)
             if (currentPlayhead.node && currentPlayhead.node.content) {
                 let currentContent : Content | undefined = currentPlayhead.node.content[currentPlayhead.nodeIndex]
                 let curSongURI     : string  | undefined = currentContent?.uri
 
-                if (playtree && (!currentContent || !curSongURI || curSongURI === "")) {
+                const nodeRepeatCount = state.nodeRepeatCounters.get(currentPlayhead.node.id)
+                console.log(currentPlayhead.node.id, nodeRepeatCount)
+
+                if (playtree && (!currentContent || !curSongURI || curSongURI === "" || (nodeRepeatCount !== undefined && nodeRepeatCount >= currentPlayhead.node.repeat))) {
                     if (state.autoplay) {
                         dispatch({ type: "skipped_forward", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random()})
                     }
@@ -347,7 +373,6 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                 }
                 
                 if (state.mapOfURIsToGeneratedBlobURLs.has(curSongURI)) {
-                    console.log("herherhehre")
                     audio.src = state.mapOfURIsToGeneratedBlobURLs.get(curSongURI) as string
                     if (state.autoplay) {
                         audio.play()
@@ -370,7 +395,6 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                                 const blob = new Blob(chunks)
                                 const blobURL = window.URL.createObjectURL(blob)
                                 dispatch({type: "new_song_loaded", uri: curSongURI, blobURL: blobURL})
-                                console.log("BLOB")
                                 audio.src = blobURL;
                                 if (state.autoplay) {
                                     audio.play()
