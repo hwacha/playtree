@@ -303,9 +303,10 @@ export default function Player({playtree, autoplay}: PlayerProps) {
 
     const handlePlayPauseAudio = useCallback((shouldPlay: boolean) => {
         if (shouldPlay) {
-            if (playtree && audioRef.current && audioRef.current.src === "") {
+            if (playtree && audioRef.current && (audioRef.current.src === "" || audioRef.current.src === window.location.href)) {
                 dispatch({ type: "skipped_forward", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
             } else {
+                debugger
                 audioRef.current?.play()
                 dispatch({type: 'started_playing'})
             }
@@ -333,16 +334,20 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         const audio = audioRef.current
         const currentPlayhead = state.playheads[state.playheadIndex]
         if (audio && currentPlayhead) {
+            console.log(audio.src)
             if (currentPlayhead.node && currentPlayhead.node.content) {
                 let currentContent : Content | undefined = currentPlayhead.node.content[currentPlayhead.nodeIndex]
                 let curSongURI     : string  | undefined = currentContent?.uri
 
                 if (playtree && (!currentContent || !curSongURI || curSongURI === "")) {
-                    dispatch({ type: "skipped_forward", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random()})
+                    if (state.autoplay) {
+                        dispatch({ type: "skipped_forward", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random()})
+                    }
                     return
                 }
                 
                 if (state.mapOfURIsToGeneratedBlobURLs.has(curSongURI)) {
+                    console.log("herherhehre")
                     audio.src = state.mapOfURIsToGeneratedBlobURLs.get(curSongURI) as string
                     if (state.autoplay) {
                         audio.play()
@@ -365,6 +370,7 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                                 const blob = new Blob(chunks)
                                 const blobURL = window.URL.createObjectURL(blob)
                                 dispatch({type: "new_song_loaded", uri: curSongURI, blobURL: blobURL})
+                                console.log("BLOB")
                                 audio.src = blobURL;
                                 if (state.autoplay) {
                                     audio.play()
@@ -392,7 +398,7 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                 }
             }
         }
-        
+
         return (
             <div className="bg-green-600 fixed flex w-[calc(100vw-12rem)] h-36 left-48 bottom-0">
                 <audio preload="auto" src="" ref={audioRef} onEnded={handleSongEnded} onPlaying={handleAudioPlaying} onPause={handleAudioPaused} />
