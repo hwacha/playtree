@@ -355,6 +355,12 @@ export default function Player({playtree, autoplay}: PlayerProps) {
     }, [playtree, state])
 
     useEffect(() => {
+        if (audioRef.current?.src) {
+            audioRef.current.src = ""
+        }
+    }, [state.playheadIndex])
+
+    useEffect(() => {
         const audio = audioRef.current
         const currentPlayhead = state.playheads[state.playheadIndex]
         if (audio && currentPlayhead) {
@@ -363,7 +369,6 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                 let curSongURI     : string  | undefined = currentContent?.uri
 
                 const nodeRepeatCount = state.nodeRepeatCounters.get(currentPlayhead.node.id)
-                console.log(currentPlayhead.node.id, nodeRepeatCount)
 
                 if (playtree && (!currentContent || !curSongURI || curSongURI === "" || (nodeRepeatCount !== undefined && nodeRepeatCount >= currentPlayhead.node.repeat))) {
                     if (state.autoplay) {
