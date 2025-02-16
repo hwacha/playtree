@@ -53,6 +53,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                         name: playroot.name,
                         node: playNode,
                         nodeIndex: playNode.type === "selector" ? Math.floor(action.selectorRand * playNode.content.length) : 0,
+                        multIndex: 0,
                         history: [],
                         stopped: false,
                     }
@@ -114,12 +115,20 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
             const curPlayhead = state.playheads[state.playheadIndex]
             const curNode = curPlayhead.node
             const curNodeIndex = curPlayhead.nodeIndex
+            const curMultIndex = curPlayhead.multIndex
             const newPlayheads = structuredClone(state.playheads)
 
-            if (curNode.type === "sequence" && curNodeIndex + 1 < curNode.content.length) {
-                newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex, traversedPlayedge: null })
+            const multNotReached = curMultIndex + 1 < curNode.content[curNodeIndex].mult
+            const contentEndNotReached = curNodeIndex + 1 < curNode.content.length
+
+            if (curNode.type === "sequence" && (multNotReached || contentEndNotReached)) {
+                newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex, multIndex: curMultIndex, traversedPlayedge: null })
                 newPlayheads[state.playheadIndex].node = curNode
-                newPlayheads[state.playheadIndex].nodeIndex = curNodeIndex + 1
+                if (multNotReached) {
+                    newPlayheads[state.playheadIndex].multIndex = curMultIndex + 1
+                } else if (contentEndNotReached) {
+                    newPlayheads[state.playheadIndex].nodeIndex = curNodeIndex + 1
+                }
                 return {
                     ...state,
                     playheads: newPlayheads,
@@ -206,7 +215,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                         if (count !== undefined) {
                             newNodeRepeatCounters.set(curNode.id, Math.min(count + 1, curNode.repeat))
                         }
-                        newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex, traversedPlayedge: selectedEdge })
+                        newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex, multIndex: curMultIndex, traversedPlayedge: selectedEdge })
                         newPlayheads[state.playheadIndex].node = nextNode
                         if (nextNode.type === "selector") {
                             newPlayheads[state.playheadIndex].nodeIndex = Math.floor(action.selectorRand * nextNode.content.length)

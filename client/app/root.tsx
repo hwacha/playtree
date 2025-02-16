@@ -7,7 +7,7 @@ import {
   useFetcher,
   useLoaderData} from "@remix-run/react";
 
-import Player from "./components/Player";
+import Player from "./components/player";
 
 import styles from "./tailwind.css?url";
 import UserSidebar from "./components/UserSidebar";
@@ -21,7 +21,6 @@ export const links: LinksFunction = () => [
 export const loader = async () => {
   const playerPlaytreeJson = await fetch("http://localhost:8080/me/player").then(response => response.json())
   const userPlaytreeSummariesJson = await fetch("http://localhost:8080/playtrees/me").then(response => response.json())
-  
   return {
     playerPlaytree: playerPlaytreeJson,
     userPlaytreeSummaries: userPlaytreeSummariesJson

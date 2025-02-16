@@ -116,7 +116,10 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 			return
 		}
 
-		writeErr := json.NewEncoder(file).Encode(pti)
+		encoder := json.NewEncoder(file)
+		encoder.SetIndent("", "\t")
+
+		writeErr := encoder.Encode(pti)
 		if writeErr != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, writeErr)
@@ -170,7 +173,10 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		defer file.Close()
 
 		// write updated playtree to file
-		writeToFileErr := json.NewEncoder(file).Encode(pti)
+		encoder := json.NewEncoder(file)
+		encoder.SetIndent("", "\t")
+
+		writeToFileErr := encoder.Encode(pti)
 		if writeToFileErr != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, "Could not update playtree resource")

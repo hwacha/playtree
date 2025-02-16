@@ -11,9 +11,9 @@ import (
 
 type (
 	ContentInfo struct {
-		Type string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
-		URI  string `json:"uri" validate:"required"`
-		// Mult string `json:"mult" validate:"required,min=0"`
+		Type       string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
+		URI        string `json:"uri" validate:"required"`
+		Multiplier int    `json:"mult" validate:"min=0"`
 	}
 
 	PlayEdgeInfo struct {
@@ -62,6 +62,31 @@ type (
 		Playroots map[string]PlayheadInfo `json:"playroots" validate:"required"`
 	}
 )
+
+func (ci *ContentInfo) UnmarshalJSON(data []byte) error {
+	type ContentInfo2 struct {
+		Type       string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
+		URI        string `json:"uri" validate:"required"`
+		Multiplier int    `json:"mult" validate:"min=0"`
+	}
+
+	ci2 := &ContentInfo2{
+		Type:       "local-audio",
+		URI:        "",
+		Multiplier: 1,
+	}
+
+	err := json.Unmarshal(data, ci2)
+	if err != nil {
+		return err
+	}
+
+	ci.Type = ci2.Type
+	ci.URI = ci2.URI
+	ci.Multiplier = ci2.Multiplier
+
+	return nil
+}
 
 func (pni *PlayNodeInfo) UnmarshalJSON(data []byte) error {
 	type PlayNodeInfo2 struct {

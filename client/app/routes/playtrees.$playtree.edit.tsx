@@ -8,6 +8,7 @@ import SearchField from "~/components/SearchField";
 import { Content, jsonFromPlaytree, PlayEdge, PlayheadInfo, PlayNode, Playtree, playtreeFromJson } from "../types";
 import React from "react";
 import Dagre from '@dagrejs/dagre';
+import { loadVitePluginContext } from "@remix-run/dev/dist/vite/plugin";
 
 export const loader = async ({params} : LoaderFunctionArgs) => {
     invariant(params.playtree)
@@ -52,6 +53,44 @@ function PlayheadComponent(props : PlayheadProps) {
     )
 }
 
+type ContentProps = {
+    nodeID: string;
+    index:   number;
+    color:   string;
+    contentList: Content[];
+    onMoveUp?:   () => void;
+    onMoveDown?: () => void;
+    onDeleteSelf: (index : number) => () => void;
+    setMult: React.Dispatch<React.SetStateAction<Content[]>>;
+    dispatch: (action: PlaytreeEditorAction) => void;
+}
+
+function ContentComponent(props : ContentProps) {
+    const [mult, setMult] = useState<string>(props.contentList[props.index].mult.toString())
+    const handleChangeMult = (event: React.ChangeEvent<HTMLInputElement>) => {
+        let inputAsNumber = Number(event.target.value)
+        if (event.target.value === "" || (Number.isInteger(inputAsNumber) && inputAsNumber >= 0)) {
+            if (event.target.value === "") {
+                inputAsNumber = 1
+            }
+            setMult(event.target.value)
+            const newContentList = [...props.contentList]
+            newContentList[props.index].mult = inputAsNumber
+            props.setMult(newContentList)
+            props.dispatch({type: "updated_playnode", nodeID: props.nodeID, patch: { content: newContentList }})
+        }
+    }
+    return (
+        <li key={props.contentList[props.index].uri} className={`border border-${props.color}-600 bg-${props.color}-200 font-markazi flex`}>
+            {props.onMoveUp ? <button className="w-fit ml-1" title="Move Content Up In List" onClick={props.onMoveUp}>⬆️</button> : <div className="ml-5"/>}
+            {props.onMoveDown ? <button className="w-fit ml-1" title="Move Content Down In List" onClick={props.onMoveDown}>⬇️</button> : <div className="ml-5"/>}
+            <span className="w-full ml-3">{props.contentList[props.index].uri}</span>
+            <input id="mult" name="mult" value={mult} onChange={handleChangeMult} className={`bg-${props.color}-200 w-6`}/>
+            <button className="w-fit mr-1" title="Delete Content" onClick={props.onDeleteSelf(props.index)}>❌</button>
+        </li>
+    )
+}
+
 export type PlayNodeFlow = Node<{
     playnode: PlayNode;
     playhead: PlayheadInfo|null;
@@ -77,7 +116,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
 
     const handleContentSelect = useCallback((newContent: string) : boolean => {
         const newContentList = structuredClone(contentList)
-        newContentList.push({type: "spotify-track", uri: newContent})
+        newContentList.push({type: "spotify-track", uri: newContent, mult: 1})
         setContentList(newContentList)
         props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {content: newContentList}})
         setAdding(false)
@@ -117,7 +156,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
         props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {type: otherType}})
     }, [playnodeType])
 
-    const handleMoveUp = useCallback((index : number) => (_ : any) => {
+    const handleMoveUp = useCallback((index : number) => () => {
         if (index <= 0) {
             return
         }
@@ -128,7 +167,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
         props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {content: newContentList}})
     }, [contentList])
 
-    const handleMoveDown = useCallback((index : number) => (_ : any) => {
+    const handleMoveDown = useCallback((index : number) => () => {
         if (index + 1 >= contentList.length) {
             return
         }
@@ -136,10 +175,9 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
         newContentList[index + 1] = contentList[index]
         newContentList[index] = contentList[index + 1]
         setContentList(newContentList)
-        props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: { content: newContentList}})
     }, [contentList])
 
-    const handleDeleteContent = useCallback((index : number) => (_ : any) => {
+    const handleDeleteContent = useCallback((index : number) => () => {
         const newContentList = structuredClone(contentList)
         newContentList.splice(index, 1)
         setContentList(newContentList)
@@ -170,7 +208,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
             <Handle type="target" isConnectableStart={false} position={Position.Top} style={{width: 12, height: 12}} />
             {
                 props.selected ?
-                <div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-48 p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
+                <div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-64 p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
                     <div className="mb-5">
                         <button className={`bg-${color}-300 rounded-lg px-2 py-1 absolute top-1 left-1`} onClick={handleTogglePlaynodeType} title={playnodeType}>{isSequence ? <>🔢</> : <>🎲</> }</button>
                         <button className={`bg-red-300 rounded-lg px-2 py-1 absolute top-1 right-1`} onClick={handleDeleteSelf} title="Delete Playnode">🗑️</button>
@@ -183,14 +221,12 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
                     <ul className="my-3">
                         {
                             contentList.map((content: Content, index : number) => {
-                                return (
-                                    <li key={index} className={`border border-${color}-600 bg-${color}-200 font-markazi flex`}>
-                                        {index > 0 ? <button className="w-fit ml-1" title="Move Content Up In List" onClick={handleMoveUp(index)}>⬆️</button> : <div className="ml-5"/>}
-                                        {index + 1 < contentList.length ? <button className="w-fit ml-1" title="Move Content Down In List" onClick={handleMoveDown(index)}>⬇️</button> : <div className="ml-5"/>}
-                                        <span className="w-full ml-3">{content.uri}</span>
-                                        <button className="w-fit mr-1" title="Delete Content" onClick={handleDeleteContent(index)}>❌</button>
-                                    </li>
-                                )
+                                return <ContentComponent key={content.uri} nodeID={props.id} index={index} color={color} contentList={contentList}
+                                    onMoveUp={index > 0 ? handleMoveUp(index) : undefined}
+                                    onMoveDown={index + 1 < contentList.length ? handleMoveDown(index) : undefined}
+                                    onDeleteSelf={handleDeleteContent}
+                                    setMult={setContentList}
+                                    dispatch={props.data.dispatch}/>
                             })
                         }
                     </ul>
@@ -200,7 +236,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
                             <div className="flex"><button title="Add Content" className={`border-${color}-600 bg-${color}-400 border-2 rounded-full px-2 py-1 m-auto`} onClick={handleAddBegin}>➕</button></div>
                         }
                 </div> :
-                <div className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-48 h-16 py-4 text-center`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>{playnodeName}</div>
+                <div className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-64 h-16 py-4 text-center`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>{playnodeName}</div>
             }
             <Handle type="source" position={Position.Bottom} id="a" style={{width: 12, height: 12}}/>
         </React.Fragment>
