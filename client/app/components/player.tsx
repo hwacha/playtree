@@ -233,11 +233,13 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 }
             }
             const nextPlayheadIndex = resetPlayheadAndIncrementIndex()
+            const playheadShouldPlay = !newPlayheads[nextPlayheadIndex].stopped
             return {
                 ...state,
                 playheadIndex: nextPlayheadIndex,
                 playheads: newPlayheads,
-                autoplay: !newPlayheads[nextPlayheadIndex].stopped
+                playerStatus: playheadShouldPlay ? "awaiting_play" : "paused",
+                autoplay: playheadShouldPlay
             }
         }
         case 'skipped_backward': {
