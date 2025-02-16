@@ -11,6 +11,7 @@ import (
 
 type (
 	ContentInfo struct {
+		ID         string `json:"id" validate:"required"`
 		Type       string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
 		URI        string `json:"uri" validate:"required"`
 		Multiplier int    `json:"mult" validate:"min=0"`

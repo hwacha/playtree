@@ -13,41 +13,49 @@
 			"repeat": -1,
 			"content": [
 				{
+                    "id": "0",
 					"type": "local-audio",
 					"uri": "C",
 					"mult": 1
 				},
 				{
+                    "id": "1",
 					"type": "local-audio",
 					"uri": "D",
 					"mult": 1
 				},
 				{
+                    "id": "2",
 					"type": "local-audio",
 					"uri": "E",
 					"mult": 1
 				},
 				{
+                    "id": "3",
 					"type": "local-audio",
 					"uri": "F",
 					"mult": 1
 				},
 				{
+                    "id": "4",
 					"type": "local-audio",
 					"uri": "G",
 					"mult": 1
 				},
 				{
+                    "id": "5",
 					"type": "local-audio",
 					"uri": "A",
 					"mult": 1
 				},
 				{
+                    "id": "6",
 					"type": "local-audio",
 					"uri": "B",
 					"mult": 1
 				},
 				{
+                    "id": "7",
 					"type": "local-audio",
 					"uri": "C2",
 					"mult": 1
@@ -69,6 +77,7 @@
 			"repeat": -1,
 			"content": [
 				{
+                    "id": "8",
 					"type": "local-audio",
 					"uri": "C",
 					"mult": 1
@@ -108,6 +117,7 @@
 			"repeat": -1,
 			"content": [
 				{
+                    "id": "9",
 					"type": "local-audio",
 					"uri": "A",
 					"mult": 1
@@ -141,6 +151,7 @@
 			"repeat": -1,
 			"content": [
 				{
+                    "id": "10",
 					"type": "local-audio",
 					"uri": "F",
 					"mult": 1
@@ -168,6 +179,7 @@
 			"repeat": -1,
 			"content": [
 				{
+                    "id": "11",
 					"type": "local-audio",
 					"uri": "G",
 					"mult": 1
@@ -189,6 +201,7 @@
 			"repeat": -1,
 			"content": [
 				{
+                    "id": "12",
 					"type": "local-audio",
 					"uri": "G",
 					"mult": 1
@@ -210,26 +223,31 @@
 			"repeat": -1,
 			"content": [
 				{
+                    "id": "13",
 					"type": "local-audio",
 					"uri": "E",
 					"mult": 1
 				},
 				{
+                    "id": "14",
 					"type": "local-audio",
 					"uri": "F",
 					"mult": 1
 				},
 				{
+                    "id": "15",
 					"type": "local-audio",
 					"uri": "G",
 					"mult": 1
 				},
 				{
+                    "id": "16",
 					"type": "local-audio",
 					"uri": "A",
 					"mult": 1
 				},
 				{
+                    "id": "17",
 					"type": "local-audio",
 					"uri": "B",
 					"mult": 1

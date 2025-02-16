@@ -11,6 +11,7 @@ export type PlaytreeSummary = {
 }
 
 export type Content = {
+    id: string;
     type: "local-audio" | "spotify-track" | "spotify-playlist";
     uri: string;
     mult: number;

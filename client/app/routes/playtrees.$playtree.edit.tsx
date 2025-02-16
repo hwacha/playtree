@@ -81,7 +81,7 @@ function ContentComponent(props : ContentProps) {
         }
     }
     return (
-        <li key={props.contentList[props.index].uri} className={`border border-${props.color}-600 bg-${props.color}-200 font-markazi flex`}>
+        <li key={props.contentList[props.index].id} className={`border border-${props.color}-600 bg-${props.color}-200 font-markazi flex`}>
             {props.onMoveUp ? <button className="w-fit ml-1" title="Move Content Up In List" onClick={props.onMoveUp}>⬆️</button> : <div className="ml-5"/>}
             {props.onMoveDown ? <button className="w-fit ml-1" title="Move Content Down In List" onClick={props.onMoveDown}>⬇️</button> : <div className="ml-5"/>}
             <span className="w-full ml-3">{props.contentList[props.index].uri}</span>
@@ -110,13 +110,22 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
 
     const [playhead, setPlayhead] = useState<PlayheadInfo | null>(props.data.playhead)
 
+    const highestID = props.data.playnode.content.map(content => parseInt(content.id)).reduce((id1, id2) => Math.max(id1, id2), -1)
+    const [contentID, setContentID] = useState<number>(highestID + 1)
+
+    const getNextID = useCallback(() => {
+        const nextID = contentID
+        setContentID(c => c + 1)
+        return nextID
+    }, [contentID])
+
     const handleAddBegin = useCallback((_ : any) => {
         setAdding(true)
     }, [])
 
     const handleContentSelect = useCallback((newContent: string) : boolean => {
         const newContentList = structuredClone(contentList)
-        newContentList.push({type: "spotify-track", uri: newContent, mult: 1})
+        newContentList.push({id: getNextID().toString(), type: "spotify-track", uri: newContent, mult: 1})
         setContentList(newContentList)
         props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {content: newContentList}})
         setAdding(false)
@@ -221,7 +230,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
                     <ul className="my-3">
                         {
                             contentList.map((content: Content, index : number) => {
-                                return <ContentComponent key={content.uri} nodeID={props.id} index={index} color={color} contentList={contentList}
+                                return <ContentComponent key={content.id} nodeID={props.id} index={index} color={color} contentList={contentList}
                                     onMoveUp={index > 0 ? handleMoveUp(index) : undefined}
                                     onMoveDown={index + 1 < contentList.length ? handleMoveDown(index) : undefined}
                                     onDeleteSelf={handleDeleteContent}
