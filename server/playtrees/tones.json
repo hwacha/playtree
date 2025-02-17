@@ -16,49 +16,57 @@
                     "id": "0",
 					"type": "local-audio",
 					"uri": "C",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				},
 				{
                     "id": "1",
 					"type": "local-audio",
 					"uri": "D",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				},
 				{
                     "id": "2",
 					"type": "local-audio",
 					"uri": "E",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				},
 				{
                     "id": "3",
 					"type": "local-audio",
 					"uri": "F",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				},
 				{
                     "id": "4",
 					"type": "local-audio",
 					"uri": "G",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				},
 				{
                     "id": "5",
 					"type": "local-audio",
 					"uri": "A",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				},
 				{
                     "id": "6",
 					"type": "local-audio",
 					"uri": "B",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				},
 				{
                     "id": "7",
 					"type": "local-audio",
 					"uri": "C2",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				}
 			],
 			"next": [
@@ -80,7 +88,8 @@
                     "id": "8",
 					"type": "local-audio",
 					"uri": "C",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				}
 			],
 			"next": [
@@ -120,7 +129,8 @@
                     "id": "9",
 					"type": "local-audio",
 					"uri": "A",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				}
 			],
 			"next": [
@@ -154,7 +164,8 @@
                     "id": "10",
 					"type": "local-audio",
 					"uri": "F",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				}
 			],
 			"next": [
@@ -182,7 +193,8 @@
                     "id": "11",
 					"type": "local-audio",
 					"uri": "G",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				}
 			],
 			"next": [
@@ -204,7 +216,8 @@
                     "id": "12",
 					"type": "local-audio",
 					"uri": "G",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				}
 			],
 			"next": [
@@ -226,31 +239,36 @@
                     "id": "13",
 					"type": "local-audio",
 					"uri": "E",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				},
 				{
                     "id": "14",
 					"type": "local-audio",
 					"uri": "F",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				},
 				{
                     "id": "15",
 					"type": "local-audio",
 					"uri": "G",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				},
 				{
                     "id": "16",
 					"type": "local-audio",
 					"uri": "A",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				},
 				{
                     "id": "17",
 					"type": "local-audio",
 					"uri": "B",
-					"mult": 1
+					"mult": 1,
+                    "repeat": -1
 				}
 			]
 		}

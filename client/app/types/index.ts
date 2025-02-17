@@ -15,6 +15,7 @@ export type Content = {
     type: "local-audio" | "spotify-track" | "spotify-playlist";
     uri: string;
     mult: number;
+    repeat: number;
 }
 
 export type PlayEdge = {

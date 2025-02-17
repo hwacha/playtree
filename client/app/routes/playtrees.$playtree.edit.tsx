@@ -61,12 +61,13 @@ type ContentProps = {
     onMoveUp?:   () => void;
     onMoveDown?: () => void;
     onDeleteSelf: (index : number) => () => void;
-    setMult: React.Dispatch<React.SetStateAction<Content[]>>;
+    onUpdateContentList: React.Dispatch<React.SetStateAction<Content[]>>;
     dispatch: (action: PlaytreeEditorAction) => void;
 }
 
 function ContentComponent(props : ContentProps) {
     const [mult, setMult] = useState<string>(props.contentList[props.index].mult.toString())
+    const [repeat, setRepeat] = useState<string>(props.contentList[props.index].repeat.toString())
     const handleChangeMult = (event: React.ChangeEvent<HTMLInputElement>) => {
         let inputAsNumber = Number(event.target.value)
         if (event.target.value === "" || (Number.isInteger(inputAsNumber) && inputAsNumber >= 0)) {
@@ -76,7 +77,22 @@ function ContentComponent(props : ContentProps) {
             setMult(event.target.value)
             const newContentList = [...props.contentList]
             newContentList[props.index].mult = inputAsNumber
-            props.setMult(newContentList)
+            props.onUpdateContentList(newContentList)
+            props.dispatch({type: "updated_playnode", nodeID: props.nodeID, patch: { content: newContentList }})
+        }
+    }
+    const handleChangeRepeat = (event: React.ChangeEvent<HTMLInputElement>) => {
+        let inputAsNumber = Number(event.target.value)
+        if (event.target.value === "" || event.target.value === "-" || (Number.isInteger(inputAsNumber) && inputAsNumber >= -1)) {
+            if (event.target.value === "") {
+                inputAsNumber = 1
+            } else if (event.target.value === "-") {
+                inputAsNumber = -1
+            }
+            setRepeat(event.target.value)
+            const newContentList = [...props.contentList]
+            newContentList[props.index].repeat = inputAsNumber
+            props.onUpdateContentList(newContentList)
             props.dispatch({type: "updated_playnode", nodeID: props.nodeID, patch: { content: newContentList }})
         }
     }
@@ -86,6 +102,7 @@ function ContentComponent(props : ContentProps) {
             {props.onMoveDown ? <button className="w-fit ml-1" title="Move Content Down In List" onClick={props.onMoveDown}>⬇️</button> : <div className="ml-5"/>}
             <span className="w-full ml-3">{props.contentList[props.index].uri}</span>
             <input id="mult" name="mult" value={mult} onChange={handleChangeMult} className={`bg-${props.color}-200 w-6`}/>
+            <input id="repeat" name="repeat" value={repeat} onChange={handleChangeRepeat} className={`bg-${props.color}-200 w-6`}/>
             <button className="w-fit mr-1" title="Delete Content" onClick={props.onDeleteSelf(props.index)}>❌</button>
         </li>
     )
@@ -125,7 +142,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
 
     const handleContentSelect = useCallback((newContent: string) : boolean => {
         const newContentList = structuredClone(contentList)
-        newContentList.push({id: getNextID().toString(), type: "spotify-track", uri: newContent, mult: 1})
+        newContentList.push({id: getNextID().toString(), type: "spotify-track", uri: newContent, mult: 1, repeat: -1})
         setContentList(newContentList)
         props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {content: newContentList}})
         setAdding(false)
@@ -227,6 +244,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
                         <span className="mr-1">Repeat:</span>
                         <input id="repeat" name="repeat" value={playnodeRepeat} onChange={handleChangeRepeat} className={`w-12 bg-${color}-100`}></input>
                     </div>
+                    <div className="flex font-markazi"><div className="ml-14">Name</div><div className="ml-[3.75rem]">M</div><div className="ml-3">R</div></div>
                     <ul className="my-3">
                         {
                             contentList.map((content: Content, index : number) => {
@@ -234,7 +252,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
                                     onMoveUp={index > 0 ? handleMoveUp(index) : undefined}
                                     onMoveDown={index + 1 < contentList.length ? handleMoveDown(index) : undefined}
                                     onDeleteSelf={handleDeleteContent}
-                                    setMult={setContentList}
+                                    onUpdateContentList={setContentList}
                                     dispatch={props.data.dispatch}/>
                             })
                         }

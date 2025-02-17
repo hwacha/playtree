@@ -15,6 +15,7 @@ type (
 		Type       string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
 		URI        string `json:"uri" validate:"required"`
 		Multiplier int    `json:"mult" validate:"min=0"`
+		Repeat     int    `json:"repeat" validate:"min=-1"`
 	}
 
 	PlayEdgeInfo struct {
@@ -66,9 +67,11 @@ type (
 
 func (ci *ContentInfo) UnmarshalJSON(data []byte) error {
 	type ContentInfo2 struct {
+		ID         string `json:"id" validate:"required"`
 		Type       string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
 		URI        string `json:"uri" validate:"required"`
 		Multiplier int    `json:"mult" validate:"min=0"`
+		Repeat     int    `json:"repeat" validate:"min=-1"`
 	}
 
 	ci2 := &ContentInfo2{
@@ -82,9 +85,11 @@ func (ci *ContentInfo) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	ci.ID = ci2.ID
 	ci.Type = ci2.Type
 	ci.URI = ci2.URI
 	ci.Multiplier = ci2.Multiplier
+	ci.Repeat = ci2.Repeat
 
 	return nil
 }
