@@ -11,8 +11,11 @@ export type PlaytreeSummary = {
 }
 
 export type Content = {
+    id: string;
     type: "local-audio" | "spotify-track" | "spotify-playlist";
     uri: string;
+    mult: number;
+    repeat: number;
 }
 
 export type PlayEdge = {
@@ -26,6 +29,7 @@ export type PlayNode = {
     id: string;
     name: string;
     type: "sequence"|"selector";
+    repeat: number;
     content: Content[];
     next: PlayEdge[];
 }
@@ -33,6 +37,7 @@ export type PlayNode = {
 export type HistoryNode = {
     nodeID: string;
     index: number;
+    multIndex: number;
     traversedPlayedge: PlayEdge | null;
 }
 
@@ -45,6 +50,7 @@ export type Playhead = {
     name: string;
     node: PlayNode;
     nodeIndex: number;
+    multIndex: number;
     history: HistoryNode[];
     stopped: boolean;
 }

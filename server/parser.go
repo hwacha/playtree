@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
@@ -12,9 +11,11 @@ import (
 
 type (
 	ContentInfo struct {
-		Type string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
-		URI  string `json:"uri" validate:"required"`
-		// Mult string `json:"mult" validate:"required,min=0"`
+		ID         string `json:"id" validate:"required"`
+		Type       string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
+		URI        string `json:"uri" validate:"required"`
+		Multiplier int    `json:"mult" validate:"min=0"`
+		Repeat     int    `json:"repeat" validate:"min=-1"`
 	}
 
 	PlayEdgeInfo struct {
@@ -28,6 +29,7 @@ type (
 		ID      string         `json:"id" validate:"required"`
 		Name    string         `json:"name" validate:"required"`
 		Type    string         `json:"type" validate:"required,oneof=sequence selector"`
+		Repeat  int            `json:"repeat" validate:"min=-1"`
 		Content []ContentInfo  `json:"content" validate:"required"`
 		Next    []PlayEdgeInfo `json:"next,omitempty"`
 	}
@@ -62,6 +64,69 @@ type (
 		Playroots map[string]PlayheadInfo `json:"playroots" validate:"required"`
 	}
 )
+
+func (ci *ContentInfo) UnmarshalJSON(data []byte) error {
+	type ContentInfo2 struct {
+		ID         string `json:"id" validate:"required"`
+		Type       string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
+		URI        string `json:"uri" validate:"required"`
+		Multiplier int    `json:"mult" validate:"min=0"`
+		Repeat     int    `json:"repeat" validate:"min=-1"`
+	}
+
+	ci2 := &ContentInfo2{
+		Type:       "local-audio",
+		URI:        "",
+		Multiplier: 1,
+	}
+
+	err := json.Unmarshal(data, ci2)
+	if err != nil {
+		return err
+	}
+
+	ci.ID = ci2.ID
+	ci.Type = ci2.Type
+	ci.URI = ci2.URI
+	ci.Multiplier = ci2.Multiplier
+	ci.Repeat = ci2.Repeat
+
+	return nil
+}
+
+func (pni *PlayNodeInfo) UnmarshalJSON(data []byte) error {
+	type PlayNodeInfo2 struct {
+		ID      string         `json:"id" validate:"required"`
+		Name    string         `json:"name" validate:"required"`
+		Type    string         `json:"type" validate:"required,oneof=sequence selector"`
+		Repeat  int            `json:"repeat" validate:"min=-1"`
+		Content []ContentInfo  `json:"content" validate:"required"`
+		Next    []PlayEdgeInfo `json:"next,omitempty"`
+	}
+
+	pni2 := &PlayNodeInfo2{
+		ID:      "",
+		Name:    "",
+		Type:    "",
+		Repeat:  -1,
+		Content: []ContentInfo{},
+		Next:    []PlayEdgeInfo{},
+	}
+
+	err := json.Unmarshal(data, pni2)
+	if err != nil {
+		return err
+	}
+
+	pni.ID = pni2.ID
+	pni.Name = pni2.Name
+	pni.Type = pni2.Type
+	pni.Repeat = pni2.Repeat
+	pni.Content = pni2.Content
+	pni.Next = pni2.Next
+
+	return nil
+}
 
 func (pei *PlayEdgeInfo) UnmarshalJSON(data []byte) error {
 	type PlayEdgeInfo2 struct {
@@ -132,7 +197,6 @@ func playtreeInfoFromJSON(r io.Reader) (*PlaytreeInfo, error) {
 			}
 		}
 		for _, edge := range node.Next {
-			log.Println(edge)
 			if nextValidationErr := v.Struct(edge); nextValidationErr != nil {
 				return nil, nextValidationErr
 			}
