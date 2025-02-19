@@ -13,6 +13,7 @@ export type PlaytreeSummary = {
 export type Content = {
     id: string;
     type: "local-audio" | "spotify-track" | "spotify-playlist";
+    name: string;
     uri: string;
     mult: number;
     repeat: number;
@@ -53,6 +54,7 @@ export type Playhead = {
     multIndex: number;
     history: HistoryNode[];
     stopped: boolean;
+    spotifyPlaybackPosition_ms: number;
 }
 
 export type Playtree = {

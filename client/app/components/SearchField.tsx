@@ -1,14 +1,19 @@
 import { FormEventHandler, useEffect, useRef, useState } from "react";
+import { SPOTIFY_SEARCH_API_PATH } from "../api_endpoints";
 
 type SearchFieldProps = {
-    onContentSelect: (content: string) => boolean;
+    onContentSelect: (content: SearchResult) => boolean;
     onFocusOut: (event: FocusEvent) => void
 }
 
+export type SearchResult = {
+    name: string;
+    uri: string | null;
+}
+
 export default function SearchField(props: SearchFieldProps) {
-    const [query, setQuery] = useState<string>("")
-    const [searchResults, setSearchResults] = useState<string[]>([])
-    const [isQueryValidSelection, setIsQueryValidSelection] = useState<boolean>(false)
+    const [query, setQuery] = useState<SearchResult>({name: "", uri: null})
+    const [searchResults, setSearchResults] = useState<SearchResult[]>([])
 
     const inputRef = useRef<HTMLInputElement>(null)
     useEffect(() => {
@@ -20,17 +25,17 @@ export default function SearchField(props: SearchFieldProps) {
     }, [])
 
     const onSearchQueryChange = (event : React.ChangeEvent<HTMLInputElement>) => {
-        const newQuery = event.target.value
-        setIsQueryValidSelection(searchResults.includes(newQuery))
+        const newQueryString = event.target.value
+        const matchingSearchResult = searchResults.find(sr => sr.name === newQueryString)
+        const newQuery : SearchResult = { name: newQueryString, uri: matchingSearchResult?.uri ?? null }
         setQuery(newQuery)
     }
 
     const handleSubmit : FormEventHandler<HTMLFormElement> = event => {
-        if (isQueryValidSelection) {
+        if (query.uri !== null) {
             if (props.onContentSelect(query)) {
-                setQuery("")
+                setQuery({name: "", uri: null})
                 setSearchResults([])
-                setIsQueryValidSelection(false)
             }
         }
         event.preventDefault()
@@ -40,10 +45,15 @@ export default function SearchField(props: SearchFieldProps) {
 
 
     useEffect(() => {
-        if (query.length >= 2) {
+        if (query.name.length >= 2) {
             (async () => {
-                const data = await fetch(`http://localhost:8081/search?q=${query}`)
-                const searchResultsJSON : string[] = await data.json()
+                const data = await fetch(SPOTIFY_SEARCH_API_PATH(query.name), {
+                    headers: {
+                        Authorization: "Bearer " + localStorage.getItem("access_token")
+                    }
+                })
+                const dataAsJSON = await data.json()
+                const searchResultsJSON : SearchResult[] = dataAsJSON.tracks.items.map((item : any) => { return {name: item.name, uri: item.uri} })
                 setSearchResults(searchResultsJSON)
             })()
         } else if (searchResults.length > 0) {
@@ -53,11 +63,11 @@ export default function SearchField(props: SearchFieldProps) {
 
     return (
         <form onSubmit={handleSubmit}>
-            <input ref={inputRef} autoComplete="off" className="w-40 font-markazi text-black" list="spotify-search-suggestions" id="search-field" name="search-field" value={query} placeholder="Search for a song" onChange={onSearchQueryChange}/>
+            <input ref={inputRef} autoComplete="off" className="w-40 font-markazi text-black" list="spotify-search-suggestions" id="search-field" name="search-field" value={query.name} placeholder="Search for a song" onChange={onSearchQueryChange}/>
             <datalist id="spotify-search-suggestions">
                 {
                     searchResults.map((searchResult, index) => {
-                        return <option key={index} value={searchResult}/>
+                        return <option key={index} value={searchResult.name}/>
                     })
                 }
             </datalist>

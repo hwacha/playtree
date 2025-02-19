@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from "react"
+import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import { Content, PlayEdge, Playhead, PlayheadInfo, PlayNode, Playtree } from "../types";
 
 type PlayerProps = {
@@ -12,13 +12,13 @@ type PlayerState = {
     contentRepeatCounters: Map<string, Map<string, number>>;
     nodeRepeatCounters: Map<string, number>;
     edgeRepeatCounters: Map<string, Map<string, number>>;
-    playerStatus: 'awaiting_play'|'playing'|'paused';
+    playing: boolean;
     autoplay: boolean;
     mapOfURIsToGeneratedBlobURLs: Map<string, string>;
 }
 
 type PlayerAction = {
-    type: 'started_playing' | 'played' | 'paused';
+    type: 'played' | 'paused';
 } | {
     type: 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
     playtree: Playtree;
@@ -33,12 +33,11 @@ type PlayerAction = {
     selectorRand: number;
     edgeRand: number;
 } | {
-    type: 'new_song_loaded';
-    uri: string;
-    blobURL: string
-} | {
     type: 'autoplay_set';
     autoplay: boolean;
+} | {
+    type: 'song_progress_received';
+    spotifyPlaybackPosition_ms: number;
 }
 
 const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
@@ -84,6 +83,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                         multIndex: 0,
                         history: [],
                         stopped: false,
+                        spotifyPlaybackPosition_ms: 0
                     }
                 }
             })
@@ -114,7 +114,6 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                     
                 }
             })
-
             return {
                 ...state,
                 playheadIndex: 0,
@@ -122,24 +121,19 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 contentRepeatCounters: newContentRepeatCounters,
                 nodeRepeatCounters: newNodeRepeatCounters,
                 edgeRepeatCounters: newEdgeRepeatCounters,
-            }
-        }
-        case 'started_playing': {
-            return {
-                ...state,
-                playerStatus: "awaiting_play"
+                playing: false
             }
         }
         case 'played': {
             return {
                 ...state,
-                playerStatus: "playing"
+                playing: true
             };
         }
         case 'paused': {
             return {
                 ...state,
-                playerStatus: "paused"
+                playing: false
             }
         }
         case 'song_ended':
@@ -239,6 +233,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                         nodeIndex: initialNodeIndex,
                         history: [],
                         stopped: true,
+                        spotifyPlaybackPosition_ms: 0
                     }
                 }
 
@@ -308,7 +303,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                         if (count !== undefined) {
                             newNodeRepeatCounters.set(curNode.id, Math.min(count + 1, curNode.repeat))
                         }
-                        newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: nextNodeIndex, multIndex: nextMultIndex, traversedPlayedge: selectedEdge })
+                        newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex, multIndex: curMultIndex, traversedPlayedge: selectedEdge })
                         newPlayheads[state.playheadIndex].node = nextNode
                         newPlayheads[state.playheadIndex].multIndex = 0
                         if (nextNode.type === "selector") {
@@ -362,7 +357,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 ...state,
                 playheadIndex: nextPlayheadIndex,
                 playheads: newPlayheads,
-                playerStatus: playheadShouldPlay ? "awaiting_play" : "paused",
+                playing: playheadShouldPlay,
                 autoplay: playheadShouldPlay
             }
         }
@@ -432,18 +427,18 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 playheadIndex: (state.playheadIndex + 1) % state.playheads.length
             }
         }
-        case 'new_song_loaded': {
-            const newMap = structuredClone(state.mapOfURIsToGeneratedBlobURLs)
-            newMap.set(action.uri, action.blobURL)
-            return {
-                ...state,
-                mapOfURIsToGeneratedBlobURLs: newMap
-            }
-        }
         case 'autoplay_set': {
             return {
                 ...state,
                 autoplay: action.autoplay
+            }
+        }
+        case 'song_progress_received': {
+            const newPlayheads = structuredClone(state.playheads)
+            newPlayheads[state.playheadIndex].spotifyPlaybackPosition_ms = action.spotifyPlaybackPosition_ms
+            return {
+                ...state,
+                playheads: newPlayheads
             }
         }
     }
@@ -457,16 +452,52 @@ export default function Player({playtree, autoplay}: PlayerProps) {
     let initialNodeRepeatCounters = new Map<string, number>()
     let initialEdgeRepeatCounters = new Map<string, Map<string, number>>()
 
+    const [token, setToken] = useState<string | null>(null);
+
     const [state, dispatch] = useReducer<typeof reducer>(reducer, {
         playheads: initialPlayheads,
         playheadIndex: initialPlayheadIndex,
         contentRepeatCounters: initialContentRepeatCounters,
         nodeRepeatCounters: initialNodeRepeatCounters,
         edgeRepeatCounters: initialEdgeRepeatCounters,
-        playerStatus: autoplay ? "awaiting_play" : "paused",
+        playing: false,
         autoplay: autoplay ?? false,
         mapOfURIsToGeneratedBlobURLs: new Map<string, string>()
     })
+
+    useEffect(() => {
+        // get Spotify access token
+        let accessToken = localStorage.getItem('access_token');
+        
+        // try to find token in local storage
+        if (accessToken) {
+            setToken(accessToken);
+            return;
+        }
+
+        // try to find token granted from spotify login
+        const hash = window.location.hash;
+        if (hash) {
+            const urlParams = new URLSearchParams(hash.substring(1));
+            accessToken = urlParams.get('access_token');
+
+            if (accessToken) {
+                localStorage.setItem('access_token', accessToken);
+                setToken(accessToken);
+                // Remove the token from the URL for cleaner UX
+                window.history.pushState({}, document.title, window.location.pathname);
+                return
+            }
+        }
+
+        // No token, redirect to Spotify for authorization
+        const authUrl = new URL('https://accounts.spotify.com/authorize');
+        authUrl.searchParams.set('client_id', import.meta.env.VITE_SPOTIFY_CLIENT_ID);
+        authUrl.searchParams.set('response_type', 'token'); // Implicit Grant Flow
+        authUrl.searchParams.set('redirect_uri', import.meta.env.VITE_SPOTIFY_REDIRECT_URI);
+        authUrl.searchParams.set('scope', 'streaming user-read-playback-state user-modify-playback-state');
+        window.location.href = authUrl.toString();
+    }, [])
 
     useEffect(() => {
         if (playtree) {
@@ -474,93 +505,45 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         }
     }, [playtree])
 
-    const audioRef = useRef<HTMLAudioElement | null>(null)
+    useEffect(() => {
+    }, [state.playing])
+
+    useEffect(() => {
+        const currentPlayhead = state.playheads[state.playheadIndex]
+        if (state.playing) {
+            fetch(`https://api.spotify.com/v1/me/player/play`, {
+                method: "PUT",
+                headers: { Authorization: "Bearer " + token },
+                body: JSON.stringify({
+                    uris: [currentPlayhead.node.content[currentPlayhead.nodeIndex].uri],
+                })
+            })
+        }
+    }, [state.playheads, state.playheadIndex])
 
     const handlePlayPauseAudio = useCallback((shouldPlay: boolean) => {
-        if (shouldPlay) {
-            if (playtree && audioRef.current && (audioRef.current.src === "" || audioRef.current.src === window.location.href)) {
-                dispatch({ type: "skipped_forward", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
-            } else {
-                audioRef.current?.play()
-                dispatch({type: 'started_playing'})
-            }
-        } else {
-            audioRef.current?.pause()
-        }
-        dispatch({type: "autoplay_set", autoplay: shouldPlay})
-    }, [audioRef])
-
-    const handleAudioPlaying = useCallback(() => {
-        dispatch({type: "played"})
-    }, [])
-
-    const handleAudioPaused = useCallback(() => {
-        dispatch({type: "paused"})
-    }, [])
-
-    const handleSongEnded = useCallback(() => {
-        if (playtree) {
-            dispatch({type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random()})
-        }
-    }, [playtree, state])
-
-    useEffect(() => {
-        if (audioRef.current?.src) {
-            audioRef.current.src = ""
-        }
-    }, [state.playheadIndex])
-
-    useEffect(() => {
-        const audio = audioRef.current
         const currentPlayhead = state.playheads[state.playheadIndex]
-        if (audio && currentPlayhead) {
-            if (currentPlayhead.node && currentPlayhead.node.content) {
-                let currentContent : Content | undefined = currentPlayhead.node.content[currentPlayhead.nodeIndex]
-                let curSongURI     : string  | undefined = currentContent?.uri
-
-                const nodeRepeatCount = state.nodeRepeatCounters.get(currentPlayhead.node.id)
-
-                if (playtree && (!currentContent || !curSongURI || curSongURI === "" || (nodeRepeatCount !== undefined && nodeRepeatCount >= currentPlayhead.node.repeat))) {
-                    if (state.autoplay) {
-                        dispatch({ type: "skipped_forward", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random()})
-                    }
-                    return
-                }
-                
-                if (state.mapOfURIsToGeneratedBlobURLs.has(curSongURI)) {
-                    audio.src = state.mapOfURIsToGeneratedBlobURLs.get(curSongURI) as string
-                    if (state.autoplay) {
-                        audio.play()
-                    }
-                } else {
-                    fetch("http://localhost:8081/songs/" + curSongURI).then(response => {
-                        return response.body
-                    }).then(stream => {
-                        if (stream) {
-                            (async () => {
-                                const reader = stream.getReader();
-                                const chunks = [];
-                
-                                while (true) {
-                                    const { done, value } = await reader.read();
-                                    if (done) break;
-                                    chunks.push(value);
-                                }
-        
-                                const blob = new Blob(chunks)
-                                const blobURL = window.URL.createObjectURL(blob)
-                                dispatch({type: "new_song_loaded", uri: curSongURI, blobURL: blobURL})
-                                audio.src = blobURL;
-                                if (state.autoplay) {
-                                    audio.play()
-                                }
-                            })()
-                        }
-                    })
-                }
-            }
+        const apiRouteVerb = shouldPlay ? "play" : "pause"
+        fetch(`https://api.spotify.com/v1/me/player/${apiRouteVerb}`, {
+            method: "PUT",
+            headers: { Authorization: "Bearer " + token },
+            body: JSON.stringify({
+                uris: [currentPlayhead.node.content[currentPlayhead.nodeIndex].uri],
+                position_ms: currentPlayhead.spotifyPlaybackPosition_ms
+            })
+        })
+        if (!shouldPlay) {
+            fetch("https://api.spotify.com/v1/me/player/", {
+                headers: { Authorization: "Bearer " + token }
+            }).then(response => {
+                response.json().then((spotifyStateJSON) => {
+                    dispatch({type: "song_progress_received", spotifyPlaybackPosition_ms: spotifyStateJSON.progress_ms})
+                })
+            })
         }
-    }, [playtree, state.playheads, state.playheadIndex])
+        dispatch({type: shouldPlay ? "played" : "paused"})
+        dispatch({type: "autoplay_set", autoplay: shouldPlay})
+    }, [state.playheads, state.playheadIndex])
 
     if (playtree == null) {
         return (<div className="bg-green-600 fixed flex w-full h-36 left-48 bottom-0"><div className="text-white mx-auto my-16 w-fit font-lilitaOne">No playtrees.</div></div>)
@@ -580,7 +563,6 @@ export default function Player({playtree, autoplay}: PlayerProps) {
 
         return (
             <div className="bg-green-600 fixed flex w-[calc(100vw-12rem)] h-36 left-48 bottom-0">
-                <audio preload="auto" src="" ref={audioRef} onEnded={handleSongEnded} onPlaying={handleAudioPlaying} onPause={handleAudioPaused} />
                 <div className="w-full my-auto">
                     <div className="w-fit float-right mr-8">
                         <div className="w-fit mx-auto">
@@ -602,15 +584,11 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                             </button>
                             <button
                                 type="button"
-                                title={state.playerStatus === 'awaiting_play' ? "..." : state.playerStatus === 'playing' ? "Pause" : "Play"}
+                                title={state.playing ? "Pause" : "Play"}
                                 className="rounded-sm p-2 text-white fill-white"
-                                onClick={() => {
-                                    if (state.playerStatus !== 'awaiting_play') {
-                                        handlePlayPauseAudio(state.playerStatus === 'paused')
-                                    }}
-                                }
+                                onClick={() => handlePlayPauseAudio(!state.playing)}
                             >
-                                {state.playerStatus === 'awaiting_play' ? "\u{1F51C}" : state.playerStatus === 'playing' ? "\u23F8" : "\u23F5"}
+                                {state.playing ? "\u23F8" : "\u23F5"}
                             </button>
                             <button
                                 type="button"
@@ -635,7 +613,7 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                             <tr><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
                             <tr><td>Playhead</td><td>|</td><td>{currentPlayhead ? currentPlayhead.name : "Playhead not available"}</td></tr>
                             <tr><td>Playnode</td><td>|</td><td>{currentPlaynode ? currentPlaynode.name : "Playnode not available"}</td></tr>
-                            <tr><td>Song</td><td>|</td><td>{currentContent ? currentContent.uri.split("/").pop()?.split(".")[0] : "Song not available"}</td></tr>
+                            <tr><td>Song</td><td>|</td><td>{currentContent ? currentContent.name : "Song not available"}</td></tr>
                         </tbody>
                     </table>
                 </div>

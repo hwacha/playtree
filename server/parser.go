@@ -13,6 +13,7 @@ type (
 	ContentInfo struct {
 		ID         string `json:"id" validate:"required"`
 		Type       string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
+		Name       string `json:"name" validate:"required"`
 		URI        string `json:"uri" validate:"required"`
 		Multiplier int    `json:"mult" validate:"min=0"`
 		Repeat     int    `json:"repeat" validate:"min=-1"`
@@ -69,15 +70,15 @@ func (ci *ContentInfo) UnmarshalJSON(data []byte) error {
 	type ContentInfo2 struct {
 		ID         string `json:"id" validate:"required"`
 		Type       string `json:"type" validate:"required,oneof=local-audio spotify-track spotify-playlist"`
+		Name       string `json:"name" validate:"required"`
 		URI        string `json:"uri" validate:"required"`
 		Multiplier int    `json:"mult" validate:"min=0"`
 		Repeat     int    `json:"repeat" validate:"min=-1"`
 	}
 
 	ci2 := &ContentInfo2{
-		Type:       "local-audio",
-		URI:        "",
 		Multiplier: 1,
+		Repeat:     -1,
 	}
 
 	err := json.Unmarshal(data, ci2)
@@ -87,6 +88,7 @@ func (ci *ContentInfo) UnmarshalJSON(data []byte) error {
 
 	ci.ID = ci2.ID
 	ci.Type = ci2.Type
+	ci.Name = ci2.Name
 	ci.URI = ci2.URI
 	ci.Multiplier = ci2.Multiplier
 	ci.Repeat = ci2.Repeat
