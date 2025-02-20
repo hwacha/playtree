@@ -49,7 +49,7 @@ export default function SearchField(props: SearchFieldProps) {
             (async () => {
                 const data = await fetch(SPOTIFY_SEARCH_API_PATH(query.name), {
                     headers: {
-                        Authorization: "Bearer " + localStorage.getItem("access_token")
+                        Authorization: "Bearer " + JSON.parse(localStorage.getItem("spotify-sdk:AuthorizationCodeWithPKCEStrategy:token") as string).access_token
                     }
                 })
                 const dataAsJSON = await data.json()

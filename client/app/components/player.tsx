@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { Content, PlayEdge, Playhead, PlayheadInfo, PlayNode, Playtree } from "../types";
+import { SpotifyApi } from "@spotify/web-api-ts-sdk";
 
 type PlayerProps = {
     playtree: Playtree | null
@@ -452,8 +453,6 @@ export default function Player({playtree, autoplay}: PlayerProps) {
     let initialNodeRepeatCounters = new Map<string, number>()
     let initialEdgeRepeatCounters = new Map<string, Map<string, number>>()
 
-    const [token, setToken] = useState<string | null>(null);
-
     const [state, dispatch] = useReducer<typeof reducer>(reducer, {
         playheads: initialPlayheads,
         playheadIndex: initialPlayheadIndex,
@@ -465,38 +464,16 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         mapOfURIsToGeneratedBlobURLs: new Map<string, string>()
     })
 
+    const spotify = useMemo(() => SpotifyApi.withUserAuthorization(import.meta.env.VITE_SPOTIFY_CLIENT_ID, "http://localhost:5173", ["streaming", "user-read-playback-state", "user-modify-playback-state"]), [])
+
     useEffect(() => {
-        // get Spotify access token
-        let accessToken = localStorage.getItem('access_token');
-        
-        // try to find token in local storage
-        if (accessToken) {
-            setToken(accessToken);
-            return;
-        }
-
-        // try to find token granted from spotify login
-        const hash = window.location.hash;
-        if (hash) {
-            const urlParams = new URLSearchParams(hash.substring(1));
-            accessToken = urlParams.get('access_token');
-
-            if (accessToken) {
-                localStorage.setItem('access_token', accessToken);
-                setToken(accessToken);
-                // Remove the token from the URL for cleaner UX
-                window.history.pushState({}, document.title, window.location.pathname);
-                return
+        spotify.player.getPlaybackState().then(playbackState => {
+            const deviceId = playbackState.device.id
+            if (deviceId) {
+                spotify.player.startResumePlayback(deviceId, undefined, ["spotify:track:6yQrIsWAZM5WeX4TKeLOgj"], undefined, 360000)
             }
-        }
-
-        // No token, redirect to Spotify for authorization
-        const authUrl = new URL('https://accounts.spotify.com/authorize');
-        authUrl.searchParams.set('client_id', import.meta.env.VITE_SPOTIFY_CLIENT_ID);
-        authUrl.searchParams.set('response_type', 'token'); // Implicit Grant Flow
-        authUrl.searchParams.set('redirect_uri', import.meta.env.VITE_SPOTIFY_REDIRECT_URI);
-        authUrl.searchParams.set('scope', 'streaming user-read-playback-state user-modify-playback-state');
-        window.location.href = authUrl.toString();
+        })
+        
     }, [])
 
     useEffect(() => {
@@ -506,41 +483,41 @@ export default function Player({playtree, autoplay}: PlayerProps) {
     }, [playtree])
 
     useEffect(() => {
-    }, [state.playing])
-
-    useEffect(() => {
         const currentPlayhead = state.playheads[state.playheadIndex]
         if (state.playing) {
-            fetch(`https://api.spotify.com/v1/me/player/play`, {
-                method: "PUT",
-                headers: { Authorization: "Bearer " + token },
-                body: JSON.stringify({
-                    uris: [currentPlayhead.node.content[currentPlayhead.nodeIndex].uri],
-                })
+            const currentSongURI = currentPlayhead.node.content[currentPlayhead.nodeIndex].uri
+            spotify.player.getPlaybackState().then(playbackState => {
+                const deviceID = playbackState.device.id
+                if (deviceID) {
+                    spotify.player.startResumePlayback(deviceID, undefined, [currentSongURI], undefined, currentPlayhead.spotifyPlaybackPosition_ms)
+                }
             })
         }
+        // if (state.playing) {
+        //     fetch(`https://api.spotify.com/v1/me/player/play`, {
+        //         method: "PUT",
+        //         headers: { Authorization: "Bearer " + token },
+        //         body: JSON.stringify({
+        //             uris: [currentPlayhead.node.content[currentPlayhead.nodeIndex].uri],
+        //         })
+        //     })
+        // }
     }, [state.playheads, state.playheadIndex])
 
     const handlePlayPauseAudio = useCallback((shouldPlay: boolean) => {
         const currentPlayhead = state.playheads[state.playheadIndex]
-        const apiRouteVerb = shouldPlay ? "play" : "pause"
-        fetch(`https://api.spotify.com/v1/me/player/${apiRouteVerb}`, {
-            method: "PUT",
-            headers: { Authorization: "Bearer " + token },
-            body: JSON.stringify({
-                uris: [currentPlayhead.node.content[currentPlayhead.nodeIndex].uri],
-                position_ms: currentPlayhead.spotifyPlaybackPosition_ms
-            })
+        const currentSongURI = currentPlayhead.node.content[currentPlayhead.nodeIndex].uri
+        spotify.player.getPlaybackState().then(playbackState => {
+            const deviceID = playbackState.device.id
+            if (deviceID) {
+                if (shouldPlay) {
+                    spotify.player.startResumePlayback(deviceID, undefined, [currentSongURI], undefined, currentPlayhead.spotifyPlaybackPosition_ms)
+                } else {
+                    spotify.player.pausePlayback(deviceID)
+                    dispatch({type: "song_progress_received", spotifyPlaybackPosition_ms: playbackState.progress_ms})
+                }
+            }
         })
-        if (!shouldPlay) {
-            fetch("https://api.spotify.com/v1/me/player/", {
-                headers: { Authorization: "Bearer " + token }
-            }).then(response => {
-                response.json().then((spotifyStateJSON) => {
-                    dispatch({type: "song_progress_received", spotifyPlaybackPosition_ms: spotifyStateJSON.progress_ms})
-                })
-            })
-        }
         dispatch({type: shouldPlay ? "played" : "paused"})
         dispatch({type: "autoplay_set", autoplay: shouldPlay})
     }, [state.playheads, state.playheadIndex])
