@@ -535,13 +535,7 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                     newPlayer.activateElement()
             
                     newPlayer.addListener('ready', ({ device_id } : any) => {
-                        console.log("MAKING NEW DEVICE: ", device_id)
-                        localStorage.setItem("spotify_device_id", device_id)
                         transferPlaybackToDevice(device_id)
-                    });
-            
-                    newPlayer.addListener('not_ready', ({ device_id } : any) => {
-                        console.log('Device ID has gone offline', device_id);
                     });
             
                     newPlayer.connect()
