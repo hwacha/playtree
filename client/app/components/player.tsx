@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer } from "react"
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react"
 import { Content, PlayEdge, Playhead, PlayheadInfo, PlayNode, Playtree } from "../types";
 import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk";
 
@@ -499,6 +499,8 @@ export default function Player({playtree, autoplay}: PlayerProps) {
 
     const deviceName = useMemo<string>(suggestDeviceName, [])
 
+    const prevPlaybackState = useRef<Spotify.PlaybackState | null>(null)
+
     useEffect(() => {
         const script = document.createElement("script");
         script.src = "https://sdk.scdn.co/spotify-player.js";
@@ -517,15 +519,6 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                     })
                 }
                 if (accessToken) {
-                    const transferPlaybackToDevice = (deviceID : string) => {
-                        spotify.player.getAvailableDevices().then(({devices}) => {
-                            const webPlayerDevice = devices.find(device => device.id === deviceID)
-                            if (webPlayerDevice && webPlayerDevice.id && !webPlayerDevice.is_active) {
-                                spotify.player.transferPlayback([webPlayerDevice.id], false)
-                            }
-                        })
-                    }
-
                     newPlayer = new window.Spotify.Player({
                         name: 'Playtree Web Player: ' + deviceName,
                         getOAuthToken: (cb : any) => { cb(accessToken?.access_token); },
@@ -535,8 +528,22 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                     newPlayer.activateElement()
             
                     newPlayer.addListener('ready', ({ device_id } : any) => {
-                        transferPlaybackToDevice(device_id)
+                        spotify.player.getAvailableDevices().then(({devices}) => {
+                            const webPlayerDevice = devices.find(device => device.id === device_id)
+                            if (webPlayerDevice && webPlayerDevice.id && !webPlayerDevice.is_active) {
+                                spotify.player.transferPlayback([webPlayerDevice.id], false)
+                            }
+                        })
                     });
+
+                    newPlayer.addListener('player_state_changed', playbackState => {
+                        if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
+                            if (playtree) {
+                                dispatch({type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random()})
+                            }
+                        }
+                        prevPlaybackState.current = playbackState
+                    })
             
                     newPlayer.connect()
                 }
