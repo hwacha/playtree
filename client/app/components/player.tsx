@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useReducer } from "react"
 import { Content, PlayEdge, Playhead, PlayheadInfo, PlayNode, Playtree } from "../types";
-import { SpotifyApi } from "@spotify/web-api-ts-sdk";
+import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk";
 
 type PlayerProps = {
     playtree: Playtree | null
@@ -142,7 +142,8 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
             if (state.playheads.length == 0) {
                 return structuredClone(state)
             }
-            const newPlayheads = structuredClone(state.playheads)
+            const newPlayheads = structuredClone(state.playheads)   
+            newPlayheads[state.playheadIndex].spotifyPlaybackPosition_ms = 0
             const curPlayhead = state.playheads[state.playheadIndex]
             const curNode = curPlayhead.node
             const curNodeIndex = curPlayhead.nodeIndex 
@@ -364,6 +365,7 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
         }
         case 'skipped_backward': {
             const newPlayheads = structuredClone(state.playheads)
+            newPlayheads[state.playheadIndex].spotifyPlaybackPosition_ms = 0
             const prevHistoryNode = newPlayheads[state.playheadIndex].history.pop()
             if (prevHistoryNode === undefined) {
                 return structuredClone(state)
@@ -464,16 +466,94 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         mapOfURIsToGeneratedBlobURLs: new Map<string, string>()
     })
 
-    const spotify = useMemo(() => SpotifyApi.withUserAuthorization(import.meta.env.VITE_SPOTIFY_CLIENT_ID, "http://localhost:5173", ["streaming", "user-read-playback-state", "user-modify-playback-state"]), [])
+    const spotify = useMemo(() =>
+        SpotifyApi.withUserAuthorization(import.meta.env.VITE_SPOTIFY_CLIENT_ID,
+            "http://localhost:5173",
+            [
+                "streaming",
+                "user-read-playback-state",
+                "user-modify-playback-state",
+                "user-read-email",
+                "user-read-private"
+            ]), [])
+    
+    function suggestDeviceName() {
+        const userAgent = navigator.userAgent;
+
+        let browserName = "Unknown Browser"
+    
+        if (userAgent.includes('Firefox')) browserName = "Firefox";
+        if ( userAgent.includes('Chrome')) browserName = "Chrome";
+        if ( userAgent.includes('Safari')) browserName = "Safari";
+        if (   userAgent.includes('Edge')) browserName = "Edge";
+
+        let platformName = "Unknown Platform"
+        if (    userAgent.includes('Win')) platformName = "Windows";
+        if (    userAgent.includes('Mac')) platformName = "macOS";
+        if (  userAgent.includes('Linux')) platformName = "Linux";
+        if (userAgent.includes('Android')) platformName = "Android";
+        if ( userAgent.includes('iPhone')) platformName = "iOS";
+
+        return browserName + " on " + platformName;
+    }
+
+    const deviceName = useMemo<string>(suggestDeviceName, [])
 
     useEffect(() => {
-        spotify.player.getPlaybackState().then(playbackState => {
-            const deviceId = playbackState.device.id
-            if (deviceId) {
-                spotify.player.startResumePlayback(deviceId, undefined, ["spotify:track:6yQrIsWAZM5WeX4TKeLOgj"], undefined, 360000)
+        const script = document.createElement("script");
+        script.src = "https://sdk.scdn.co/spotify-player.js";
+        script.async = true;
+    
+        document.body.appendChild(script);
+
+        let newPlayer : Spotify.Player | null = null;
+    
+        window.onSpotifyWebPlaybackSDKReady = () => {
+            spotify.getAccessToken().then(token => {
+                let accessToken : AccessToken | null = token
+                if (!accessToken) {
+                    spotify.authenticate().then(response => {
+                        accessToken = response.accessToken
+                    })
+                }
+                if (accessToken) {
+                    const transferPlaybackToDevice = (deviceID : string) => {
+                        spotify.player.getAvailableDevices().then(({devices}) => {
+                            const webPlayerDevice = devices.find(device => device.id === deviceID)
+                            if (webPlayerDevice && webPlayerDevice.id && !webPlayerDevice.is_active) {
+                                spotify.player.transferPlayback([webPlayerDevice.id], false)
+                            }
+                        })
+                    }
+
+                    newPlayer = new window.Spotify.Player({
+                        name: 'Playtree Web Player: ' + deviceName,
+                        getOAuthToken: (cb : any) => { cb(accessToken?.access_token); },
+                        volume: 1
+                    });
+
+                    newPlayer.activateElement()
+            
+                    newPlayer.addListener('ready', ({ device_id } : any) => {
+                        console.log("MAKING NEW DEVICE: ", device_id)
+                        localStorage.setItem("spotify_device_id", device_id)
+                        transferPlaybackToDevice(device_id)
+                    });
+            
+                    newPlayer.addListener('not_ready', ({ device_id } : any) => {
+                        console.log('Device ID has gone offline', device_id);
+                    });
+            
+                    newPlayer.connect()
+                }
+            })
+        }
+
+        return () => {
+            if (newPlayer) {
+                newPlayer.disconnect()
             }
-        })
-        
+        }
     }, [])
 
     useEffect(() => {
@@ -493,15 +573,6 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                 }
             })
         }
-        // if (state.playing) {
-        //     fetch(`https://api.spotify.com/v1/me/player/play`, {
-        //         method: "PUT",
-        //         headers: { Authorization: "Bearer " + token },
-        //         body: JSON.stringify({
-        //             uris: [currentPlayhead.node.content[currentPlayhead.nodeIndex].uri],
-        //         })
-        //     })
-        // }
     }, [state.playheads, state.playheadIndex])
 
     const handlePlayPauseAudio = useCallback((shouldPlay: boolean) => {

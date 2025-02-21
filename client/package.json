@@ -17,6 +17,7 @@
     "@remix-run/react": "^2.15.0",
     "@remix-run/serve": "^2.15.0",
     "@spotify/web-api-ts-sdk": "^1.2.0",
+    "@types/spotify-web-playback-sdk": "^0.1.19",
     "@xyflow/react": "^12.3.6",
     "autoprefixer": "^10.4.20",
     "dotenv": "^16.4.7",
