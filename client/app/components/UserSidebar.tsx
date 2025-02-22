@@ -22,7 +22,7 @@ export default function UserSidebar(props : UserSidebarProps) {
                                                 <input type="hidden" id="playtreeID" name="playtreeID" value={summary.id} />
                                                 <button type="submit" className="bg-green-300 px-2">Play</button>
                                             </fetcher.Form>
-                                            <Link to={`playtrees/${summary.id}/edit`}><button className="ml-3 bg-blue-300 px-2">Edit</button></Link>
+                                            <Link to={`playtrees/${summary.id}/edit`} replace><button className="ml-3 bg-blue-300 px-2">Edit</button></Link>
                                         </div>
                                     </div>
                                 )
