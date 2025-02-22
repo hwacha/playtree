@@ -13,13 +13,14 @@ type PlayerState = {
     contentRepeatCounters: Map<string, Map<string, number>>;
     nodeRepeatCounters: Map<string, number>;
     edgeRepeatCounters: Map<string, Map<string, number>>;
+    spotifyPlayerReady: boolean;
     playing: boolean;
     autoplay: boolean;
     mapOfURIsToGeneratedBlobURLs: Map<string, string>;
 }
 
 type PlayerAction = {
-    type: 'played' | 'paused';
+    type: 'spotify_player_ready' | 'played' | 'paused';
 } | {
     type: 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
     playtree: Playtree;
@@ -444,6 +445,12 @@ const reducer = (state : PlayerState, action : PlayerAction) : PlayerState => {
                 playheads: newPlayheads
             }
         }
+        case 'spotify_player_ready': {
+            return {
+                ...state,
+                spotifyPlayerReady: true
+            }
+        }
     }
 }
 
@@ -463,7 +470,8 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         edgeRepeatCounters: initialEdgeRepeatCounters,
         playing: false,
         autoplay: autoplay ?? false,
-        mapOfURIsToGeneratedBlobURLs: new Map<string, string>()
+        mapOfURIsToGeneratedBlobURLs: new Map<string, string>(),
+        spotifyPlayerReady: false,
     })
 
     const spotify = useMemo(() =>
@@ -511,12 +519,11 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         let newPlayer : Spotify.Player | null = null;
     
         window.onSpotifyWebPlaybackSDKReady = () => {
-            spotify.getAccessToken().then(token => {
+            spotify.getAccessToken().then(async token => {
                 let accessToken : AccessToken | null = token
                 if (!accessToken) {
-                    spotify.authenticate().then(response => {
-                        accessToken = response.accessToken
-                    })
+                    const response = await spotify.authenticate()
+                    accessToken = response.accessToken
                 }
                 if (accessToken) {
                     newPlayer = new window.Spotify.Player({
@@ -532,6 +539,7 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                             const webPlayerDevice = devices.find(device => device.id === device_id)
                             if (webPlayerDevice && webPlayerDevice.id && !webPlayerDevice.is_active) {
                                 spotify.player.transferPlayback([webPlayerDevice.id], false)
+                                dispatch({type: 'spotify_player_ready'})
                             }
                         })
                     });
@@ -565,12 +573,18 @@ export default function Player({playtree, autoplay}: PlayerProps) {
 
     useEffect(() => {
         const currentPlayhead = state.playheads[state.playheadIndex]
-        if (state.playing) {
-            const currentSongURI = currentPlayhead.node.content[currentPlayhead.nodeIndex].uri
+        if (currentPlayhead) {
             spotify.player.getPlaybackState().then(playbackState => {
-                const deviceID = playbackState.device.id
-                if (deviceID) {
-                    spotify.player.startResumePlayback(deviceID, undefined, [currentSongURI], undefined, currentPlayhead.spotifyPlaybackPosition_ms)
+                if (playbackState) {
+                    const deviceID = playbackState.device.id
+                    if (deviceID) {
+                        if (state.playing) {
+                            const currentSongURI = currentPlayhead.node.content[currentPlayhead.nodeIndex].uri
+                            spotify.player.startResumePlayback(deviceID, undefined, [currentSongURI], undefined, currentPlayhead.spotifyPlaybackPosition_ms)
+                        } else {
+                            spotify.player.pausePlayback(deviceID)
+                        }
+                    }
                 }
             })
         }
@@ -609,7 +623,6 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                 }
             }
         }
-
         return (
             <div className="bg-green-600 fixed flex w-[calc(100vw-12rem)] h-36 left-48 bottom-0">
                 <div className="w-full my-auto">
@@ -633,11 +646,12 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                             </button>
                             <button
                                 type="button"
-                                title={state.playing ? "Pause" : "Play"}
+                                title={!state.spotifyPlayerReady ? "Loading Player" : state.playing ? "Pause" : "Play"}
                                 className="rounded-sm p-2 text-white fill-white"
                                 onClick={() => handlePlayPauseAudio(!state.playing)}
+                                disabled={!state.spotifyPlayerReady}
                             >
-                                {state.playing ? "\u23F8" : "\u23F5"}
+                                {!state.spotifyPlayerReady ? "\u23F3" : state.playing ? "\u23F8" : "\u23F5"}
                             </button>
                             <button
                                 type="button"
