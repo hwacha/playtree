@@ -4,7 +4,7 @@ import { Background, Controls, Handle, MarkerType, Position, ReactFlow, Node, No
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
-import SearchField, { SearchResult } from "~/components/SearchField";
+import SearchField, { queryString, SearchResult } from "~/components/SearchField";
 import { Content, jsonFromPlaytree, PlayEdge, PlayheadInfo, PlayNode, Playtree, playtreeFromJson } from "../types";
 import React from "react";
 import Dagre from '@dagrejs/dagre';
@@ -144,7 +144,7 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
             return false
         }
         const newContentList = structuredClone(contentList)
-        newContentList.push({id: getNextID().toString(), type: "spotify-track", name: newContent.name, uri: newContent.uri, mult: 1, repeat: -1})
+        newContentList.push({id: getNextID().toString(), type: "spotify-track", name: queryString(newContent), uri: newContent.uri, mult: 1, repeat: -1})
         setContentList(newContentList)
         props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {content: newContentList}})
         setAdding(false)

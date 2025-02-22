@@ -7,12 +7,21 @@ type SearchFieldProps = {
 }
 
 export type SearchResult = {
-    name: string;
+    track: string;
+    artist: string;
     uri: string | null;
 }
 
+export const queryString : ((sr : SearchResult) => string) = sr => {
+    if (sr.artist === "") {
+        return sr.track
+    } else {
+        return `${sr.track} - ${sr.artist}`
+    }
+}
+
 export default function SearchField(props: SearchFieldProps) {
-    const [query, setQuery] = useState<SearchResult>({name: "", uri: null})
+    const [query, setQuery] = useState<SearchResult>({track: "", artist: "", uri: null})
     const [searchResults, setSearchResults] = useState<SearchResult[]>([])
 
     const inputRef = useRef<HTMLInputElement>(null)
@@ -26,15 +35,18 @@ export default function SearchField(props: SearchFieldProps) {
 
     const onSearchQueryChange = (event : React.ChangeEvent<HTMLInputElement>) => {
         const newQueryString = event.target.value
-        const matchingSearchResult = searchResults.find(sr => sr.name === newQueryString)
-        const newQuery : SearchResult = { name: newQueryString, uri: matchingSearchResult?.uri ?? null }
+        let newQuery : SearchResult = {track: event.target.value, artist: "", uri: null}
+        const matchingSearchResult = searchResults.find(sr => queryString(sr) === newQueryString)
+        if (matchingSearchResult) {
+            newQuery = matchingSearchResult
+        }
         setQuery(newQuery)
     }
 
     const handleSubmit : FormEventHandler<HTMLFormElement> = event => {
         if (query.uri !== null) {
             if (props.onContentSelect(query)) {
-                setQuery({name: "", uri: null})
+                setQuery({track: "", artist: "", uri: null})
                 setSearchResults([])
             }
         }
@@ -45,15 +57,15 @@ export default function SearchField(props: SearchFieldProps) {
 
 
     useEffect(() => {
-        if (query.name.length >= 2) {
+        if (query.track.length >= 2) {
             (async () => {
-                const data = await fetch(SPOTIFY_SEARCH_API_PATH(query.name), {
+                const data = await fetch(SPOTIFY_SEARCH_API_PATH(query.track), {
                     headers: {
                         Authorization: "Bearer " + JSON.parse(localStorage.getItem("spotify-sdk:AuthorizationCodeWithPKCEStrategy:token") as string).access_token
                     }
                 })
                 const dataAsJSON = await data.json()
-                const searchResultsJSON : SearchResult[] = dataAsJSON.tracks.items.map((item : any) => { return {name: item.name, uri: item.uri} })
+                const searchResultsJSON : SearchResult[] = dataAsJSON.tracks.items.map((item : any) => { return {track: item.name, artist: item.artists[0].name, uri: item.uri} })
                 setSearchResults(searchResultsJSON)
             })()
         } else if (searchResults.length > 0) {
@@ -63,11 +75,11 @@ export default function SearchField(props: SearchFieldProps) {
 
     return (
         <form onSubmit={handleSubmit}>
-            <input ref={inputRef} autoComplete="off" className="w-40 font-markazi text-black" list="spotify-search-suggestions" id="search-field" name="search-field" value={query.name} placeholder="Search for a song" onChange={onSearchQueryChange}/>
+            <input ref={inputRef} autoComplete="off" className="w-40 font-markazi text-black" list="spotify-search-suggestions" id="search-field" name="search-field" value={queryString(query)} placeholder="Search for a song" onChange={onSearchQueryChange}/>
             <datalist id="spotify-search-suggestions">
                 {
                     searchResults.map((searchResult, index) => {
-                        return <option key={index} value={searchResult.name}/>
+                        return <option key={index} value={queryString(searchResult)}/>
                     })
                 }
             </datalist>
