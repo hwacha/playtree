@@ -1,5 +1,5 @@
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useLocation, useNavigate } from "@remix-run/react";
 import { Background, Controls, Handle, MarkerType, Position, ReactFlow, Node, NodeProps, EdgeProps, getBezierPath, Edge, BaseEdge, addEdge, OnConnect, useNodesState, useEdgesState, ConnectionLineComponent, EdgeLabelRenderer } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
@@ -501,7 +501,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
             })
             const newPlaynode : PlayNode = {
                 id: (maxValue + 1).toString(),
-                name: "New Playnode",
+                name: "Playnode",
                 type: "sequence",
                 repeat: -1,
                 content: [],
@@ -835,7 +835,7 @@ export default function PlaytreeEditor() {
             data: {
                 playnode: {
                     id: newID,
-                    name: "New Playnode",
+                    name: "Playnode",
                     type: "sequence",
                     repeat: -1,
                     content: [],

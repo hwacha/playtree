@@ -4,8 +4,10 @@ import {
   Meta,
   Outlet,
   Scripts,
+  ShouldRevalidateFunctionArgs,
   useFetcher,
-  useLoaderData} from "@remix-run/react";
+  useLoaderData,
+  useLocation} from "@remix-run/react";
 
 import Player from "./components/player";
 
@@ -13,6 +15,7 @@ import styles from "./tailwind.css?url";
 import UserSidebar from "./components/UserSidebar";
 import Banner from "./components/Banner";
 import { playtreeFromJson } from "./types";
+import { useEffect } from "react";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: styles },
@@ -27,13 +30,23 @@ export const loader = async () => {
   }
 }
 
+export function shouldRevalidate({ actionResult, defaultShouldRevalidate } : ShouldRevalidateFunctionArgs) : boolean {
+  if (!actionResult) {
+    return false
+  }
+  if (!actionResult.revalidate) {
+    return false
+  }
+  return defaultShouldRevalidate
+}
+
 export const action = async ({request}: ActionFunctionArgs) => {
     const formData = await request.formData()
     const id = formData.get("playtreeID");
     await fetch(`http://localhost:8080/me/player?playtree=${id}`, {
         method: "PUT"
     })
-    return { autoplay: true }
+    return { autoplay: true, revalidate: true }
 }
 
 export default function App() {
@@ -41,6 +54,8 @@ export default function App() {
   const playerActionData = useFetcher<typeof action>({key: "player"})
   const playerPlaytree = playtreeFromJson(data.playerPlaytree)
   const userPlaytreeSummaries = data.userPlaytreeSummaries
+
+  const location = useLocation()
   return (
     <html lang="en">
       <head>
@@ -56,7 +71,7 @@ export default function App() {
       <div className="absolute left-48 w-[calc(100vw-12rem)] h-full">
         <Banner />
         <div className="absolute w-full h-[calc(100%-13rem)] top-16 -bottom-64">
-          <Outlet />
+          <Outlet key={location.pathname} />
         </div>
         <Player playtree={playerPlaytree} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined}/>
       </div>

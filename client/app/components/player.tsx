@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react"
 import { Content, PlayEdge, Playhead, PlayheadInfo, PlayNode, Playtree } from "../types";
 import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk";
+import deepEqual from "deep-equal";
 
 type PlayerProps = {
     playtree: Playtree | null
@@ -485,7 +486,7 @@ export default function Player({playtree, autoplay}: PlayerProps) {
                 "user-read-private"
             ]), [])
     
-    function suggestDeviceName() {
+    const suggestDeviceName = useCallback(() => {
         const userAgent = navigator.userAgent;
 
         let browserName = "Unknown Browser"
@@ -503,9 +504,9 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         if ( userAgent.includes('iPhone')) platformName = "iOS";
 
         return browserName + " on " + platformName;
-    }
+    }, [navigator.userAgent])
 
-    const deviceName = useMemo<string>(suggestDeviceName, [])
+    const deviceName = useMemo<string>(suggestDeviceName, [navigator.userAgent])
 
     const prevPlaybackState = useRef<Spotify.PlaybackState | null>(null)
 
@@ -565,9 +566,11 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         }
     }, [])
 
+    const oldPlaytree = useRef<Playtree | null>(null)
     useEffect(() => {
-        if (playtree) {
+        if (playtree && !deepEqual(playtree, oldPlaytree.current)) {
             dispatch({type: "playtree_loaded", playtree: playtree, selectorRand: Math.random(), autoplay: autoplay})
+            oldPlaytree.current = playtree
         }
     }, [playtree])
 
@@ -608,7 +611,7 @@ export default function Player({playtree, autoplay}: PlayerProps) {
         dispatch({type: "autoplay_set", autoplay: shouldPlay})
     }, [state.playheads, state.playheadIndex])
 
-    if (playtree == null) {
+    if (playtree === null) {
         return (<div className="bg-green-600 fixed flex w-full h-36 left-48 bottom-0"><div className="text-white mx-auto my-16 w-fit font-lilitaOne">No playtrees.</div></div>)
     } else {
         let currentPlayhead : Playhead | null | undefined = null
