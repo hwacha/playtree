@@ -674,7 +674,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
     }
 }
 
-const PlayConnectionLine : ConnectionLineComponent = ({ fromX, fromY, toX, toY }) => {
+const PlayConnectionLine : ConnectionLineComponent<PlayNodeFlow> = ({ fromX, fromY, toX, toY }) => {
     const [path] = getBezierPath({ sourceX: fromX, sourceY: fromY, targetX: toX, targetY: toY })
     return (
         <g>

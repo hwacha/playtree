@@ -15,7 +15,6 @@ import styles from "./tailwind.css?url";
 import UserSidebar from "./components/UserSidebar";
 import Banner from "./components/Banner";
 import { playtreeFromJson } from "./types";
-import { useEffect } from "react";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: styles },
