@@ -1,10 +1,10 @@
 import type { Spotify } from '@types/spotify-web-playback-sdk';
 
-export {};
+export { };
 
 declare global {
-  interface Window {
-    Spotify: typeof Spotify; // Add this line!
-    onSpotifyWebPlaybackSDKReady: () => void;
-  }
+	interface Window {
+		Spotify: typeof Spotify; // Add this line!
+		onSpotifyWebPlaybackSDKReady: () => void;
+	}
 }
