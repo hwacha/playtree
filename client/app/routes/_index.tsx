@@ -13,7 +13,7 @@ const ActionCard = (props : LinkCardProps) => {
                 <h2 className="text-4xl text-center underline">{props.title}</h2>
                 <p className="mt-4 ml-2">{props.description}</p>
                 <div className="absolute bottom-2 flex items-center w-48 -mx-4">
-                    <Link to={props.path} className="mx-auto">
+                    <Link to={props.path} replace className="mx-auto">
                         <button type="button" className="border-green-600 bg-green-300 border-2 rounded-md px-2 py-1">{props.action}</button>
                     </Link>
                 </div>

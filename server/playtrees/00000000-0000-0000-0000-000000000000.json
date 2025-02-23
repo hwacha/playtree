@@ -1,8 +1,8 @@
 {
 	"summary": {
 		"id": "00000000-0000-0000-0000-000000000000",
-		"name": "Random Tones",
-		"createdBy": "billmarcy",
+		"name": "Test Playtree",
+		"createdBy": "h_wacha",
 		"access": "public"
 	},
 	"nodes": {
@@ -15,6 +15,7 @@
 				{
                     "id": "0",
 					"type": "local-audio",
+					"name": "C",
 					"uri": "C",
 					"mult": 1,
                     "repeat": -1
@@ -22,6 +23,7 @@
 				{
                     "id": "1",
 					"type": "local-audio",
+					"name": "D",
 					"uri": "D",
 					"mult": 1,
                     "repeat": -1
@@ -29,6 +31,7 @@
 				{
                     "id": "2",
 					"type": "local-audio",
+					"name": "E",
 					"uri": "E",
 					"mult": 1,
                     "repeat": -1
@@ -36,6 +39,7 @@
 				{
                     "id": "3",
 					"type": "local-audio",
+					"name": "F",
 					"uri": "F",
 					"mult": 1,
                     "repeat": -1
@@ -43,6 +47,7 @@
 				{
                     "id": "4",
 					"type": "local-audio",
+					"name": "G",
 					"uri": "G",
 					"mult": 1,
                     "repeat": -1
@@ -50,6 +55,7 @@
 				{
                     "id": "5",
 					"type": "local-audio",
+					"name": "A",
 					"uri": "A",
 					"mult": 1,
                     "repeat": -1
@@ -57,6 +63,7 @@
 				{
                     "id": "6",
 					"type": "local-audio",
+					"name": "B",
 					"uri": "B",
 					"mult": 1,
                     "repeat": -1
@@ -64,6 +71,7 @@
 				{
                     "id": "7",
 					"type": "local-audio",
+					"name": "C2",
 					"uri": "C2",
 					"mult": 1,
                     "repeat": -1
@@ -85,8 +93,9 @@
 			"repeat": -1,
 			"content": [
 				{
-                    "id": "8",
+                    "id": "0",
 					"type": "local-audio",
+					"name": "C",
 					"uri": "C",
 					"mult": 1,
                     "repeat": -1
@@ -126,8 +135,9 @@
 			"repeat": -1,
 			"content": [
 				{
-                    "id": "9",
+                    "id": "0",
 					"type": "local-audio",
+					"name": "A",
 					"uri": "A",
 					"mult": 1,
                     "repeat": -1
@@ -161,8 +171,9 @@
 			"repeat": -1,
 			"content": [
 				{
-                    "id": "10",
+                    "id": "0",
 					"type": "local-audio",
+					"name": "F",
 					"uri": "F",
 					"mult": 1,
                     "repeat": -1
@@ -190,8 +201,9 @@
 			"repeat": -1,
 			"content": [
 				{
-                    "id": "11",
+                    "id": "0",
 					"type": "local-audio",
+					"name": "G",
 					"uri": "G",
 					"mult": 1,
                     "repeat": -1
@@ -213,8 +225,9 @@
 			"repeat": -1,
 			"content": [
 				{
-                    "id": "12",
+                    "id": "0",
 					"type": "local-audio",
+					"name": "G",
 					"uri": "G",
 					"mult": 1,
                     "repeat": -1
@@ -236,36 +249,41 @@
 			"repeat": -1,
 			"content": [
 				{
-                    "id": "13",
+                    "id": "0",
 					"type": "local-audio",
+					"name": "E",
 					"uri": "E",
 					"mult": 1,
                     "repeat": -1
 				},
 				{
-                    "id": "14",
+                    "id": "1",
 					"type": "local-audio",
+					"name": "F",
 					"uri": "F",
 					"mult": 1,
                     "repeat": -1
 				},
 				{
-                    "id": "15",
+                    "id": "2",
 					"type": "local-audio",
+					"name": "G",
 					"uri": "G",
 					"mult": 1,
                     "repeat": -1
 				},
 				{
-                    "id": "16",
+                    "id": "3",
 					"type": "local-audio",
+					"name": "A",
 					"uri": "A",
 					"mult": 1,
                     "repeat": -1
 				},
 				{
-                    "id": "17",
+                    "id": "4",
 					"type": "local-audio",
+					"name": "B",
 					"uri": "B",
 					"mult": 1,
                     "repeat": -1

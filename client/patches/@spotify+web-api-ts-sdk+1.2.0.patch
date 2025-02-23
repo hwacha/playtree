@@ -1,0 +1,32 @@
+diff --git a/node_modules/@spotify/web-api-ts-sdk/dist/mjs/endpoints/PlayerEndpoints.js b/node_modules/@spotify/web-api-ts-sdk/dist/mjs/endpoints/PlayerEndpoints.js
+index 9d97505..c993041 100644
+--- a/node_modules/@spotify/web-api-ts-sdk/dist/mjs/endpoints/PlayerEndpoints.js
++++ b/node_modules/@spotify/web-api-ts-sdk/dist/mjs/endpoints/PlayerEndpoints.js
+@@ -33,9 +33,9 @@ export default class PlayerEndpoints extends EndpointsBase {
+         }
+         await this.putRequest('me/player', { device_ids, play });
+     }
+-    async startResumePlayback(device_id, context_uri, uris, offset, positionMs) {
++    async startResumePlayback(device_id, context_uri, uris, offset, position_ms) {
+         const params = this.paramsFor({ device_id });
+-        await this.putRequest(`me/player/play${params}`, { context_uri, uris, offset, positionMs });
++        await this.putRequest(`me/player/play${params}`, { context_uri, uris, offset, position_ms });
+     }
+     async pausePlayback(device_id) {
+         const params = this.paramsFor({ device_id });
+diff --git a/node_modules/@spotify/web-api-ts-sdk/src/endpoints/PlayerEndpoints.ts b/node_modules/@spotify/web-api-ts-sdk/src/endpoints/PlayerEndpoints.ts
+index c468acc..69c15bf 100644
+--- a/node_modules/@spotify/web-api-ts-sdk/src/endpoints/PlayerEndpoints.ts
++++ b/node_modules/@spotify/web-api-ts-sdk/src/endpoints/PlayerEndpoints.ts
+@@ -48,9 +48,9 @@ export default class PlayerEndpoints extends EndpointsBase {
+         await this.putRequest('me/player', { device_ids, play });
+     }
+ 
+-    public async startResumePlayback(device_id: string, context_uri?: string, uris?: string[], offset?: object, positionMs?: number) {
++    public async startResumePlayback(device_id: string, context_uri?: string, uris?: string[], offset?: object, position_ms?: number) {
+         const params = this.paramsFor({ device_id });
+-        await this.putRequest(`me/player/play${params}`, { context_uri, uris, offset, positionMs });
++        await this.putRequest(`me/player/play${params}`, { context_uri, uris, offset, position_ms: position_ms});
+     }
+ 
+     public async pausePlayback(device_id: string) {

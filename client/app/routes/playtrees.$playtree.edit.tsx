@@ -1,14 +1,13 @@
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useLocation, useNavigate } from "@remix-run/react";
 import { Background, Controls, Handle, MarkerType, Position, ReactFlow, Node, NodeProps, EdgeProps, getBezierPath, Edge, BaseEdge, addEdge, OnConnect, useNodesState, useEdgesState, ConnectionLineComponent, EdgeLabelRenderer } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
-import SearchField from "~/components/SearchField";
+import SearchField, { queryString, SearchResult } from "~/components/SearchField";
 import { Content, jsonFromPlaytree, PlayEdge, PlayheadInfo, PlayNode, Playtree, playtreeFromJson } from "../types";
 import React from "react";
 import Dagre from '@dagrejs/dagre';
-import { loadVitePluginContext } from "@remix-run/dev/dist/vite/plugin";
 
 export const loader = async ({params} : LoaderFunctionArgs) => {
     invariant(params.playtree)
@@ -100,7 +99,7 @@ function ContentComponent(props : ContentProps) {
         <li key={props.contentList[props.index].id} className={`border border-${props.color}-600 bg-${props.color}-200 font-markazi flex`}>
             {props.onMoveUp ? <button className="w-fit ml-1" title="Move Content Up In List" onClick={props.onMoveUp}>⬆️</button> : <div className="ml-5"/>}
             {props.onMoveDown ? <button className="w-fit ml-1" title="Move Content Down In List" onClick={props.onMoveDown}>⬇️</button> : <div className="ml-5"/>}
-            <span className="w-full ml-3">{props.contentList[props.index].uri}</span>
+            <span className="w-full ml-3">{props.contentList[props.index].name}</span>
             <input id="mult" name="mult" value={mult} onChange={handleChangeMult} className={`bg-${props.color}-200 w-6`}/>
             <input id="repeat" name="repeat" value={repeat} onChange={handleChangeRepeat} className={`bg-${props.color}-200 w-6`}/>
             <button className="w-fit mr-1" title="Delete Content" onClick={props.onDeleteSelf(props.index)}>❌</button>
@@ -140,9 +139,12 @@ function PlayNodeFlow(props : NodeProps<PlayNodeFlow>) {
         setAdding(true)
     }, [])
 
-    const handleContentSelect = useCallback((newContent: string) : boolean => {
+    const handleContentSelect = useCallback((newContent: SearchResult) : boolean => {
+        if (newContent.uri === null) {
+            return false
+        }
         const newContentList = structuredClone(contentList)
-        newContentList.push({id: getNextID().toString(), type: "spotify-track", uri: newContent, mult: 1, repeat: -1})
+        newContentList.push({id: getNextID().toString(), type: "spotify-track", name: queryString(newContent), uri: newContent.uri, mult: 1, repeat: -1})
         setContentList(newContentList)
         props.data.dispatch({type: "updated_playnode", nodeID: props.data.playnode.id, patch: {content: newContentList}})
         setAdding(false)
@@ -348,8 +350,8 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
         
         const dx = sourceX - targetX
         const nodeWidth = 500
-        const underAndLeft  = dx <= 0 && dx > -nodeWidth
-        const underAndRight = dx  > 0 && dx <  nodeWidth
+        const underAndLeft  = dx  < 0 && dx > -nodeWidth
+        const underAndRight = dx >= 0 && dx <  nodeWidth
 
         if (underAndLeft || underAndRight) {
             const p0 = {x: sourceX, y: sourceY}
@@ -396,7 +398,6 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
                             zIndex: 101
                         }}>
                         <div className="w-full h-fit flex content-evenly">
-                            {/* <div className="w-full">{`${props.source}=>${props.target}`}</div> */}
                             <div className="w-full"><button className="absolute -left-1 -top-1 hidden bg-red-300 text-xs rounded-full px-1 pt-1 group-hover:block" onClick={handleDeleteSelf}>🗑️</button></div>
                         </div>
                         <hr></hr>
@@ -500,7 +501,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
             })
             const newPlaynode : PlayNode = {
                 id: (maxValue + 1).toString(),
-                name: "New Playnode",
+                name: "Playnode",
                 type: "sequence",
                 repeat: -1,
                 content: [],
@@ -673,7 +674,7 @@ const playtreeReducer = (state : PlaytreeEditorState, action : PlaytreeEditorAct
     }
 }
 
-const PlayConnectionLine : ConnectionLineComponent = ({ fromX, fromY, toX, toY }) => {
+const PlayConnectionLine : ConnectionLineComponent<PlayNodeFlow> = ({ fromX, fromY, toX, toY }) => {
     const [path] = getBezierPath({ sourceX: fromX, sourceY: fromY, targetX: toX, targetY: toY })
     return (
         <g>
@@ -834,7 +835,7 @@ export default function PlaytreeEditor() {
             data: {
                 playnode: {
                     id: newID,
-                    name: "New Playnode",
+                    name: "Playnode",
                     type: "sequence",
                     repeat: -1,
                     content: [],

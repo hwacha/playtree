@@ -69,7 +69,7 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 
 		summariesByUser := []SummaryInfo{}
 		for _, summary := range summaries {
-			if summary.CreatedBy == "billmarcy" { // TODO auth
+			if summary.CreatedBy == "h_wacha" { // TODO auth
 				summariesByUser = append(summariesByUser, summary)
 			}
 		}
