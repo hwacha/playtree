@@ -302,10 +302,21 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				return (state.playheadIndex + 1) % newPlayheads.length
 			}
 
-			if (curNode.next) {
+			const curNodePlaycount = newPlaycounters.node.get(curNode.id)
+			if (curNodePlaycount !== undefined) {
+				newPlaycounters.node.set(curNode.id, Math.min(curNodePlaycount + 1, curNode.repeat))
+			}
+
+			const LOOP_LIMIT = 10_000 // prevent infinite no-song loops
+			let curNodeForEdgeTraversal = curNode
+			for (let loopCounter = 0; loopCounter < LOOP_LIMIT; loopCounter++) {
+				if (!curNodeForEdgeTraversal.next) {
+					break;
+				}
+
 				let totalShares = 0
 				const elligibleEdges: PlayEdge[] = []
-				const nextEdgesSortedByPriority = [...curNode.next].sort((playedge1, playedge2) => playedge1.priority - playedge2.priority)
+				const nextEdgesSortedByPriority = [...curNodeForEdgeTraversal.next].sort((playedge1, playedge2) => playedge1.priority - playedge2.priority)
 				let currentPriority = 0
 
 				// go through each edge and choose edges by
@@ -317,7 +328,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 						break
 					}
 
-					const counter = newPlaycounters.edge.get(curNode.id)?.get(curEdge.nodeID)
+					const counter = newPlaycounters.edge.get(curNodeForEdgeTraversal.id)?.get(curEdge.nodeID)
 					if (counter !== undefined && curEdge.repeat >= 0 && counter >= curEdge.repeat) {
 						continue
 					}
@@ -330,19 +341,11 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					elligibleEdges.push(curEdge)
 				}
 				if (elligibleEdges.length === 0) {
-					const nextPlayheadIndex = resetPlayheadAndIncrementIndex()
-					const playheadShouldPlay = !newPlayheads[nextPlayheadIndex].stopped
-					return {
-						...state,
-						playheadIndex: nextPlayheadIndex,
-						playheads: newPlayheads,
-						playing: playheadShouldPlay,
-						autoplay: playheadShouldPlay
-					}
+					break;
 				}
 				const scaledRand = Math.floor(action.edgeRand * totalShares)
 				let bound: number = 0
-				let selectedEdge: PlayEdge | null = null
+				let selectedEdge: PlayEdge = elligibleEdges[0]
 				for (let i in elligibleEdges) {
 					const curEdge = elligibleEdges[i]
 					const curShares = curEdge.shares ? curEdge.shares : 1
@@ -353,59 +356,63 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					}
 				}
 
-				if (selectedEdge !== null) {
-					const count = newPlaycounters.edge.get(curNode.id)?.get(selectedEdge.nodeID)
-					if (count !== undefined) {
-						newPlaycounters.edge.get(curNode.id)?.set(selectedEdge.nodeID, count + 1)
+				const edgePlaycount = newPlaycounters.edge.get(curNodeForEdgeTraversal.id)?.get(selectedEdge.nodeID)
+				if (edgePlaycount !== undefined) {
+					newPlaycounters.edge.get(curNodeForEdgeTraversal.id)?.set(selectedEdge.nodeID, edgePlaycount + 1)
+				}
+				let nextNode = action.playtree.nodes.get(selectedEdge.nodeID)
+				if (nextNode) {
+					const nextNodePlaycount = newPlaycounters.node.get(nextNode.id)
+					if (nextNodePlaycount !== undefined && nextNodePlaycount >= nextNode.repeat) {
+						curNodeForEdgeTraversal = nextNode
+						continue
 					}
-					let nextNode = action.playtree.nodes.get(selectedEdge.nodeID)
-					if (nextNode) {
-						const count = newPlaycounters.node.get(curNode.id)
-						if (count !== undefined) {
-							newPlaycounters.node.set(curNode.id, Math.min(count + 1, curNode.repeat))
-						}
-						newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex, multIndex: curMultIndex, traversedPlayedge: selectedEdge })
-						newPlayheads[state.playheadIndex].node = nextNode
-						newPlayheads[state.playheadIndex].multIndex = 0
-						if (nextNode.type === "selector") {
-							let selectedNodeIndex = -1
+					newPlayheads[state.playheadIndex].history.push({ nodeID: curNode.id, index: curNodeIndex, multIndex: curMultIndex, traversedPlayedge: selectedEdge })
+					newPlayheads[state.playheadIndex].node = nextNode
+					newPlayheads[state.playheadIndex].multIndex = 0
+					if (nextNode.type === "selector") {
+						let selectedNodeIndex = -1
 
-							const totalShares = nextNode.content.filter(content => {
-								const count = newPlaycounters.content.get(nextNode.id)?.get(content.id)
-								return count === undefined || count < content.repeat
-							}).map(content => content.mult).reduce((a, b) => a + b, 0)
-							const randomDrawFromShares = Math.floor(action.selectorRand * totalShares)
-							let bound = 0
-							nextNode.content.some((content, index) => {
-								const count = newPlaycounters.content.get(nextNode.id)?.get(content.id)
-								if (count !== undefined && count >= content.repeat) {
-									return false
-								}
-								bound += content.mult
-								if (randomDrawFromShares < bound) {
-									selectedNodeIndex = index
-									return true
-								}
+						const totalShares = nextNode.content.filter(content => {
+							const count = newPlaycounters.content.get(nextNode.id)?.get(content.id)
+							return count === undefined || count < content.repeat
+						}).map(content => content.mult).reduce((a, b) => a + b, 0)
+						const randomDrawFromShares = Math.floor(action.selectorRand * totalShares)
+						let bound = 0
+						if (!nextNode.content.some((content, index) => {
+							const count = newPlaycounters.content.get(nextNode.id)?.get(content.id)
+							if (count !== undefined && count >= content.repeat) {
 								return false
-							})
-							newPlayheads[state.playheadIndex].nodeIndex = selectedNodeIndex
-						} else {
-							let initialNodeIndex = 0
-							nextNode.content.every(content => {
-								const count = newPlaycounters.content.get(nextNode.id)?.get(content.id)
-								if (content.mult === 0 || (count !== undefined && count >= content.repeat)) {
-									initialNodeIndex++;
-									return true
-								}
-								return false
-							})
-							newPlayheads[state.playheadIndex].nodeIndex = initialNodeIndex
+							}
+							bound += content.mult
+							if (randomDrawFromShares < bound) {
+								selectedNodeIndex = index
+								return true
+							}
+							return false
+						})) {
+							curNodeForEdgeTraversal = nextNode
+							continue
 						}
+						newPlayheads[state.playheadIndex].nodeIndex = selectedNodeIndex
+					} else { // sequencer
+						let initialNodeIndex = 0
+						if (nextNode.content.every(content => {
+							const count = newPlaycounters.content.get(nextNode.id)?.get(content.id)
+							if (content.mult === 0 || (count !== undefined && count >= content.repeat)) {
+								initialNodeIndex++;
+								return true
+							}
+							return false
+						})) {
+							curNodeForEdgeTraversal = nextNode
+							continue
+						}
+
+						newPlayheads[state.playheadIndex].nodeIndex = initialNodeIndex
 					}
 				}
-
 				newPlayheads[state.playheadIndex].playcountersByScope[0].playcounters = newPlaycounters
-
 				return {
 					...state,
 					playheads: newPlayheads,
