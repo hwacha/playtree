@@ -31,6 +31,7 @@ export type PlayNode = {
 	name: string;
 	type: "sequence" | "selector";
 	repeat: number;
+	scopes: number[];
 	content: Content[];
 	next: PlayEdge[];
 }
@@ -47,35 +48,31 @@ export type PlayheadInfo = {
 	name: string;
 }
 
-export type Playhead = {
+export type Playscope = {
 	name: string;
-	node: PlayNode;
-	nodeIndex: number;
-	multIndex: number;
-	history: HistoryNode[];
-	stopped: boolean;
-	spotifyPlaybackPosition_ms: number;
+	color: string;
 }
 
 export type Playtree = {
 	summary: PlaytreeSummary;
 	nodes: Map<string, PlayNode>;
 	playroots: Map<string, PlayheadInfo>;
+	playscopes: Playscope[];
 }
 
-export const playtreeFromJson = (playtreeWithNodesAsJSObject: { summary: PlaytreeSummary, nodes: { [key: string]: PlayNode }, playroots: { [key: string]: PlayheadInfo } }): Playtree | null => {
+export const playtreeFromJson = (playtreeWithNodesAsJSObject: { summary: PlaytreeSummary, nodes: { [key: string]: PlayNode }, playroots: { [key: string]: PlayheadInfo }, playscopes: Playscope[] }): Playtree | null => {
 	if (playtreeWithNodesAsJSObject) {
 		return {
 			...playtreeWithNodesAsJSObject,
 			nodes: new Map(Object.entries(playtreeWithNodesAsJSObject.nodes)),
-			playroots: new Map(Object.entries(playtreeWithNodesAsJSObject.playroots))
+			playroots: new Map(Object.entries(playtreeWithNodesAsJSObject.playroots)),
 		}
 	}
 
 	return null
 }
 
-export const jsonFromPlaytree = (playtree: Playtree): { summary: PlaytreeSummary, nodes: { [key: string]: PlayNode }, playroots: { [key: string]: PlayheadInfo } } => {
+export const jsonFromPlaytree = (playtree: Playtree): { summary: PlaytreeSummary, nodes: { [key: string]: PlayNode }, playroots: { [key: string]: PlayheadInfo }, playscopes: Playscope[] } => {
 	return {
 		...playtree,
 		nodes: Object.fromEntries(playtree.nodes.entries()),

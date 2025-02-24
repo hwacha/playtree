@@ -11,6 +11,7 @@
 			"name": "any",
 			"type": "selector",
 			"repeat": -1,
+			"scopes": [0, 1],
 			"content": [
 				{
                     "id": "0",
@@ -91,6 +92,7 @@
 			"name": "C",
 			"type": "selector",
 			"repeat": -1,
+			"scopes": [0, 1],
 			"content": [
 				{
                     "id": "0",
@@ -133,6 +135,7 @@
 			"name": "A",
 			"type": "selector",
 			"repeat": -1,
+			"scopes": [0],
 			"content": [
 				{
                     "id": "0",
@@ -169,6 +172,7 @@
 			"name": "F",
 			"type": "selector",
 			"repeat": -1,
+			"scope": [0],
 			"content": [
 				{
                     "id": "0",
@@ -199,6 +203,7 @@
 			"name": "GtoC",
 			"type": "selector",
 			"repeat": -1,
+			"scope": [2],
 			"content": [
 				{
                     "id": "0",
@@ -304,5 +309,10 @@
 			"index": 2,
 			"name": "minor"
 		}
-	}
+	},
+	"playscopes": [
+		{"name":"Scope 1", "color": "blue"},
+		{"name":"Scope 2", "color": "green"},
+		{"name":"Scope 3", "color": "red"}
+	]
 }
