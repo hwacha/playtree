@@ -1,3 +1,5 @@
+import { Playcounters } from "../components/player";
+
 export type SourceInfo = {
 	type: "graft" | "starter"
 	id: string
@@ -41,6 +43,7 @@ export type HistoryNode = {
 	index: number;
 	multIndex: number;
 	traversedPlayedge: PlayEdge | null;
+	clearedPlaycounters: Playcounters | null;
 }
 
 export type PlayheadInfo = {
@@ -51,6 +54,13 @@ export type PlayheadInfo = {
 export type Playscope = {
 	name: string;
 	color: string;
+}
+
+export const makeDefaultPlayscope = () : Playscope => {
+	return {
+		name: "default",
+		color: "white"
+	}
 }
 
 export type Playtree = {
