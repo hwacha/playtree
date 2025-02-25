@@ -172,7 +172,7 @@
 			"name": "F",
 			"type": "selector",
 			"repeat": -1,
-			"scope": [0],
+			"scopes": [0],
 			"content": [
 				{
                     "id": "0",
@@ -203,7 +203,7 @@
 			"name": "GtoC",
 			"type": "selector",
 			"repeat": -1,
-			"scope": [2],
+			"scopes": [2],
 			"content": [
 				{
                     "id": "0",
@@ -227,6 +227,7 @@
 			"id": "5",
 			"name": "GtoA",
 			"type": "selector",
+			"scopes": [],
 			"repeat": -1,
 			"content": [
 				{
@@ -251,6 +252,7 @@
 			"id": "6",
 			"name": "ErunB",
 			"type": "sequence",
+			"scopes": [],
 			"repeat": -1,
 			"content": [
 				{

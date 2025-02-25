@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef } from "react"
 import { Content, HistoryNode, makeDefaultPlayscope, PlayEdge, PlayheadInfo, PlayNode, Playscope, Playtree } from "../types";
 import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk";
 import deepEqual from "deep-equal";
-import { diff, intersection, isSupersetOf } from '@opentf/std';
+import { diff, intersection, isSupersetOf, union } from '@opentf/std';
 
 type PlayerProps = {
 	playtree: Playtree | null
@@ -40,6 +40,7 @@ const zeroPlaycountersAtScope = (playcounters: Playcounters, scopeID: number): P
 	if (newPlaycounters.content.has(scopeID)) {
 		const newContentPlaycounter = new Map<string, Map<string, number>>()
 		const contentKeysIter : MapIterator<string> = playcounters.content.get(scopeID)?.keys() as MapIterator<string>
+		playcounters.content.get(scopeID)
 		for (let key = contentKeysIter.next(); !key.done; key = contentKeysIter.next()) {
 			newContentPlaycounter.set(key.value, zeroCounter(playcounters.content.get(scopeID)?.get(key.value) as Map<string, number>))
 		}
@@ -64,7 +65,7 @@ const zeroPlaycountersAtScope = (playcounters: Playcounters, scopeID: number): P
 }
 
 const zeroPlaycounters = (playcounters: Playcounters): Playcounters => {
-	const relevantScopes : number[] = intersection([
+	const relevantScopes : number[] = union([
 		Array.from(playcounters.content.keys()),
 		Array.from(playcounters.node.keys()),
 		Array.from(playcounters.edge.keys())]) as number[]
@@ -83,6 +84,8 @@ type Playhead = {
 	nodeIndex: number;
 	multIndex: number;
 	history: HistoryNode[];
+	shouldHideNode: boolean;
+	shouldHideSong: boolean;
 	
 	playcounters: Playcounters;
 
@@ -96,6 +99,8 @@ type PlayerState = {
 
 	leastScopeByNode: Map<string, number>;
 	leastScopeByEdge: Map<string, Map<string, number>>;
+
+	messageLog: string[];
 
 	spotifyPlayerReady: boolean;
 	playing: boolean;
@@ -123,6 +128,9 @@ type PlayerAction = {
 } | {
 	type: 'song_progress_received';
 	spotifyPlaybackPosition_ms: number;
+} | {
+	type: 'message_logged';
+	message: string;
 }
 
 const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
@@ -231,6 +239,8 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			})
 
 			// third pass: construct playheads
+			let shouldHideFirstNode : boolean = false
+			let shouldHideFirstSong : boolean = false
 			const newPlayheads: Playhead[] = []
 			action.playtree.playroots.forEach((playroot: PlayheadInfo, nodeID: string) => {
 				const playnode = action.playtree.nodes.get(nodeID)
@@ -245,7 +255,11 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 							return false
 						})
 					} else { // selector
-						const totalShares = playnode.content.filter(content => content.repeat !== 0).map(content => content.mult).reduce((a, b) => a + b, 0)
+						const elligibleSongs = playnode.content.filter(content => content.repeat !== 0).map(content => content.mult)
+						if (elligibleSongs.length > 1) {
+							shouldHideFirstSong = true
+						}
+						const totalShares = elligibleSongs.reduce((a, b) => a + b, 0)
 						const randomDrawFromShares = Math.floor(action.selectorRand * totalShares)
 						let bound = 0
 						playnode.content.some((content, index) => {
@@ -266,10 +280,12 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 						node: playnode,
 						nodeIndex: initialNodeIndex,
 						multIndex: 0,
+						shouldHideNode: shouldHideFirstNode,
+						shouldHideSong: shouldHideFirstSong,
 						history: [],
 						playcounters: initialPlaycounters,
 						stopped: false,
-						spotifyPlaybackPosition_ms: 0
+						spotifyPlaybackPosition_ms: 0,
 					}
 				}
 			})
@@ -280,19 +296,27 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				playheads: newPlayheads,
 				leastScopeByNode: leastScopeByNode,
 				leastScopeByEdge: leastScopeByEdge,
+				messageLog: [`Playtree "${action.playtree.summary.name}" loaded.`],
 				playing: false
 			}
 		}
 		case 'played': {
+			const newPlayheads = [...state.playheads]
+			const currentPlayhead = newPlayheads[state.playheadIndex]
+			if (currentPlayhead) {
+				currentPlayhead.stopped = false
+			}
 			return {
 				...state,
-				playing: true
+				playing: true,
+				playheads: newPlayheads
 			};
 		}
 		case 'paused': {
 			return {
 				...state,
-				playing: false
+				playing: false,
+				messageLog: [...state.messageLog, "Pausing audio."]
 			}
 		}
 		case 'song_ended':
@@ -300,6 +324,8 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			if (state.playheads.length == 0) {
 				return structuredClone(state)
 			}
+
+			const newMessageLog = [...state.messageLog]
 			
 			const newPlayheads = structuredClone(state.playheads)
 			newPlayheads[state.playheadIndex].spotifyPlaybackPosition_ms = 0
@@ -313,12 +339,16 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 
 			let newPlaycounters = structuredClone(curPlayhead.playcounters)
 			
-			if (curNode.content[nextNodeIndex] && newPlaycounters.content.get(curLeastScope)?.has(curNode.id)) {
-				const contentMap = newPlaycounters.content.get(curLeastScope)?.get(curNode.id) as Map<string, number>
-				const contentID = curNode.content[nextNodeIndex].id
-				if (contentMap.has(contentID)) {
-					const count = contentMap.get(contentID) as number
-					newPlaycounters.content.get(curLeastScope)?.get(curNode.id)?.set(contentID, count + 1)
+			if (curNode.content[nextNodeIndex]) {
+				const songName = curNode.content[nextNodeIndex].name
+				newMessageLog.push(action.type === 'skipped_forward' ? `Skipping ${songName}...` : `${songName} ended...`)
+				if (newPlaycounters.content.get(curLeastScope)?.has(curNode.id)) {
+					const contentMap = newPlaycounters.content.get(curLeastScope)?.get(curNode.id) as Map<string, number>
+					const contentID = curNode.content[nextNodeIndex].id
+					if (contentMap.has(contentID)) {
+						const count = contentMap.get(contentID) as number
+						newPlaycounters.content.get(curLeastScope)?.get(curNode.id)?.set(contentID, count + 1)
+					}
 				}
 			}
 
@@ -363,13 +393,13 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 						return {
 							...state,
 							playheads: newPlayheads,
+							messageLog: newMessageLog
 						}
 					}
 				}
 			}
 
 			const resetPlayheadAndIncrementIndex = (): number => {
-				
 				// reset playhead
 				const playheadStartNodeID = newPlayheads[state.playheadIndex].history[0]?.nodeID ?? newPlayheads[state.playheadIndex].node.id
 				const playheadStartNode = action.playtree.nodes.get(playheadStartNodeID)
@@ -421,8 +451,15 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 
 			const LOOP_LIMIT = 10_000 // prevent infinite no-song loops
 			let curNodeForEdgeTraversal = curNode
-			for (let loopCounter = 0; loopCounter < LOOP_LIMIT; loopCounter++) {
+			let loopCounter = 0;
+			while (true) {
+				loopCounter++;
+				if (loopCounter === LOOP_LIMIT) {
+					newMessageLog.push("Too many playnodes have been passed through with no song to play. Resetting playhead.")
+					break;
+				}
 				if (!curNodeForEdgeTraversal.next) {
+					newMessageLog.push(`Playnode ${curNodeForEdgeTraversal.name} has no outgoing edges. Resetting playhead.`)
 					break;
 				}
 
@@ -455,6 +492,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					elligibleEdges.push(curEdge)
 				}
 				if (elligibleEdges.length === 0) {
+					newMessageLog.push(`Playnode ${curNodeForEdgeTraversal.name} has no available outgoing edges. Resetting playhead.`)
 					break;
 				}
 				const scaledRand = Math.floor(action.edgeRand * totalShares)
@@ -479,6 +517,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					const nextNodeLeastScope = state.leastScopeByNode.get(nextNode.id) as number
 					const nextNodePlaycount = newPlaycounters.node.get(nextNodeLeastScope)?.get(nextNode.id)
 					if (nextNodePlaycount !== undefined && nextNodePlaycount >= nextNode.repeat) {
+						newMessageLog.push(`Passing through playnode '${nextNode.name}' whose play count has been exceeded...`)
 						curNodeForEdgeTraversal = nextNode
 						continue
 					}
@@ -503,6 +542,11 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 							}
 							return false
 						})) {
+							if (nextNode.content.length === 0) {
+								newMessageLog.push(`Passing through playnode '${nextNode.name}' with no songs...`)
+							} else {
+								newMessageLog.push(`Passing through playnode '${nextNode.name}' whose songs have all exceeded play count...`)
+							}
 							curNodeForEdgeTraversal = nextNode
 							continue
 						}
@@ -517,6 +561,11 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 							}
 							return false
 						})) {
+							if (nextNode.content.length === 0) {
+								newMessageLog.push(`Passing through playnode '${nextNode.name}' with no songs...`)
+							} else {
+								newMessageLog.push(`Passing through playnode '${nextNode.name}' whose songs have all exceeded play count...`)
+							}
 							curNodeForEdgeTraversal = nextNode
 							continue
 						}
@@ -547,6 +596,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				return {
 					...state,
 					playheads: newPlayheads,
+					messageLog: newMessageLog
 				}
 			}
 			const nextPlayheadIndex = resetPlayheadAndIncrementIndex()
@@ -556,7 +606,8 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				playheadIndex: nextPlayheadIndex,
 				playheads: newPlayheads,
 				playing: playheadShouldPlay,
-				autoplay: playheadShouldPlay
+				autoplay: playheadShouldPlay,
+				messageLog: newMessageLog
 			}
 		}
 		case 'skipped_backward': {
@@ -610,14 +661,6 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					if (oldEdgeRepeatCounterValue !== undefined) {
 						newPlaycounters.edge.get(prevLeastScopeForEdge)?.get(prevPlaynode.id)?.set(traversedPlayedge.nodeID, Math.max(oldEdgeRepeatCounterValue - 1, 0))
 					}
-
-					if (oldContentRepeatCounterValue !== undefined || oldNodeRepeatCounterValue !== undefined || oldEdgeRepeatCounterValue !== undefined) {
-						newPlayheads[state.playheadIndex].playcounters = newPlaycounters
-						return {
-							...state,
-							playheads: newPlayheads
-						}
-					}
 				}
 				newPlayheads[state.playheadIndex].playcounters = newPlaycounters
 				return {
@@ -627,15 +670,19 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			}
 		}
 		case 'decremented_playhead': {
+			const newPlayheadIndex = (state.playheadIndex + state.playheads.length - 1) % state.playheads.length
 			return {
 				...state,
-				playheadIndex: (state.playheadIndex + state.playheads.length - 1) % state.playheads.length
+				playheadIndex: newPlayheadIndex,
+				messageLog: [...state.messageLog, `Moving to playhead ${state.playheads[newPlayheadIndex]}.`]
 			}
 		}
 		case 'incremented_playhead': {
+			const newPlayheadIndex = (state.playheadIndex + 1) % state.playheads.length
 			return {
 				...state,
-				playheadIndex: (state.playheadIndex + 1) % state.playheads.length
+				playheadIndex: newPlayheadIndex,
+				messageLog: [...state.messageLog, `Moving to playhead ${state.playheads[newPlayheadIndex]}.`]
 			}
 		}
 		case 'autoplay_set': {
@@ -658,6 +705,12 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				spotifyPlayerReady: true
 			}
 		}
+		case 'message_logged': {
+			return {
+				...state,
+				messageLog: [...state.messageLog, action.message]
+			}
+		}
 	}
 }
 
@@ -670,6 +723,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		playheadIndex: initialPlayheadIndex,
 		leastScopeByNode: new Map<string, number>(),
 		leastScopeByEdge: new Map<string, Map<string, number>>(),
+		messageLog:[],
 		playing: false,
 		autoplay: autoplay ?? false,
 		spotifyPlayerReady: false,
@@ -782,8 +836,9 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 					const deviceID = playbackState.device.id
 					if (deviceID) {
 						if (state.playing) {
-							const currentSongURI = currentPlayhead.node.content[currentPlayhead.nodeIndex].uri
-							spotify.player.startResumePlayback(deviceID, undefined, [currentSongURI], undefined, currentPlayhead.spotifyPlaybackPosition_ms)
+							const currentSong = currentPlayhead.node.content[currentPlayhead.nodeIndex]
+							spotify.player.startResumePlayback(deviceID, undefined, [currentSong.uri], undefined, currentPlayhead.spotifyPlaybackPosition_ms)
+							dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
 						} else {
 							spotify.player.pausePlayback(deviceID)
 						}
@@ -791,16 +846,17 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 				}
 			})
 		}
-	}, [state.playheads, state.playheadIndex])
+	}, [state.playheadIndex, state.playheads[state.playheadIndex]?.node.id, state.playheads[state.playheadIndex]?.nodeIndex, state.playheads[state.playheadIndex]?.multIndex])
 
 	const handlePlayPauseAudio = useCallback((shouldPlay: boolean) => {
 		const currentPlayhead = state.playheads[state.playheadIndex]
-		const currentSongURI = currentPlayhead.node.content[currentPlayhead.nodeIndex].uri
+		const currentSong = currentPlayhead.node.content[currentPlayhead.nodeIndex]
 		spotify.player.getPlaybackState().then(playbackState => {
 			const deviceID = playbackState.device.id
 			if (deviceID) {
 				if (shouldPlay) {
-					spotify.player.startResumePlayback(deviceID, undefined, [currentSongURI], undefined, currentPlayhead.spotifyPlaybackPosition_ms)
+					spotify.player.startResumePlayback(deviceID, undefined, [currentSong.uri], undefined, currentPlayhead.spotifyPlaybackPosition_ms)
+					dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
 				} else {
 					spotify.player.pausePlayback(deviceID)
 					dispatch({ type: "song_progress_received", spotifyPlaybackPosition_ms: playbackState.progress_ms })
@@ -840,7 +896,18 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		}
 		return (
 			<div className="bg-green-600 fixed flex w-[calc(100vw-12rem)] h-36 left-48 bottom-0">
-				<div className="w-full my-auto">
+				<div className="w-full basis-1/4 my-6 mx-16 max-h-full overflow-hidden flex flex-col-reverse">
+					<ul className="text-white font-markazi">
+						{
+							state.messageLog.map((message, index) => {
+								return (<li key={index}>
+									◽️ {message}
+								</li>)
+							})
+						}
+					</ul>
+				</div>
+				<div className="w-full basis-1/4 my-auto">
 					<div className="w-fit float-right mr-8">
 						<div className="w-fit mx-auto">
 							<button
@@ -885,13 +952,13 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 						</div>
 					</div>
 				</div>
-				<div className="w-full mr-8 my-auto text-white font-lilitaOne">
+				<div className="w-full basis-1/2 mr-8 my-auto text-white font-lilitaOne">
 					<table>
 						<tbody>
 							<tr><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
 							<tr><td>Playhead</td><td>|</td><td>{currentPlayhead ? currentPlayhead.name : "Playhead not available"}</td></tr>
-							<tr><td>Playnode</td><td>|</td><td>{currentPlaynode ? currentPlaynode.name + (currentNodePlaycount !== undefined ? ` (${currentNodePlaycount + 1} / ${currentNodeMaxPlays})` : "") : "Playnode not available"}</td></tr>
-							<tr><td>Song</td><td>|</td><td>{currentContent ? currentContent.name + (currentContentPlaycount !== undefined ? ` (${currentContentPlaycount + 1} / ${currentContentMaxPlays})` : "") : "Song not available"}</td></tr>
+							<tr><td>Playnode</td><td>|</td><td>{(currentPlayhead?.stopped || state.messageLog.length === 1) && currentPlayhead?.shouldHideNode && !state.playing ? "???" : currentPlaynode ? currentPlaynode.name + (currentNodePlaycount !== undefined ? ` (${currentNodePlaycount + 1} / ${currentNodeMaxPlays})` : "") : "Playnode not available"}</td></tr>
+							<tr><td>Song</td><td>|</td><td>{(currentPlayhead?.stopped || state.messageLog.length === 1) && currentPlayhead?.shouldHideSong && !state.playing ? "???" : currentContent ? currentContent.name + (currentContentPlaycount !== undefined ? ` (${currentContentPlaycount + 1} / ${currentContentMaxPlays})` : "") : "Song not available"}</td></tr>
 						</tbody>
 					</table>
 				</div>
