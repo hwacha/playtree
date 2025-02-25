@@ -341,7 +341,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			
 			if (curNode.content[nextNodeIndex]) {
 				const songName = curNode.content[nextNodeIndex].name
-				newMessageLog.push(action.type === 'skipped_forward' ? `Skipping ${songName}...` : `${songName} ended...`)
+				newMessageLog.push(action.type === 'skipped_forward' ? `Skipping forward...` : `${songName} ended...`)
 				if (newPlaycounters.content.get(curLeastScope)?.has(curNode.id)) {
 					const contentMap = newPlaycounters.content.get(curLeastScope)?.get(curNode.id) as Map<string, number>
 					const contentID = curNode.content[nextNodeIndex].id
@@ -383,7 +383,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 							index: curNodeIndex,
 							multIndex: curMultIndex,
 							traversedPlayedge: null,
-							clearedPlaycounters: null
+							cachedPlaycounters: null
 						})
 						newPlayheads[state.playheadIndex].node = curNode
 						newPlayheads[state.playheadIndex].multIndex = nextMultIndex
@@ -449,8 +449,10 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				newPlaycounters.node.get(curLeastScope)?.set(curNode.id, Math.min(curNodePlaycount + 1, curNode.repeat))
 			}
 
+			const cachedPlaycounters = makeNewPlaycounters()
 			const LOOP_LIMIT = 10_000 // prevent infinite no-song loops
 			let curNodeForEdgeTraversal = curNode
+			let exitingScopes : number[] = []
 			let loopCounter = 0;
 			while (true) {
 				loopCounter++;
@@ -463,13 +465,12 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					break;
 				}
 
+				// go through each edge and choose edges by
+				// the lowest available priority group
 				let totalShares = 0
 				const elligibleEdges: PlayEdge[] = []
 				const nextEdgesSortedByPriority = [...curNodeForEdgeTraversal.next].sort((playedge1, playedge2) => playedge1.priority - playedge2.priority)
 				let currentPriority = 0
-
-				// go through each edge and choose edges by
-				// the lowest available priority group
 				for (let i in nextEdgesSortedByPriority) {
 					let curEdge = nextEdgesSortedByPriority[i]
 
@@ -512,8 +513,19 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				if (edgePlaycount !== undefined) {
 					newPlaycounters.edge.get(curLeastScopeForSelectedEdge)?.get(curNodeForEdgeTraversal.id)?.set(selectedEdge.nodeID, edgePlaycount + 1)
 				}
+
+				
 				let nextNode = action.playtree.nodes.get(selectedEdge.nodeID)
 				if (nextNode) {
+					newMessageLog.push(`Traversing playedge '${curNodeForEdgeTraversal.name} => ${nextNode.name}'${edgePlaycount !== undefined ? ` (${edgePlaycount + 1} / ${selectedEdge.repeat})` : ""}`)
+					exitingScopes = union([exitingScopes, diff([curNode.scopes, nextNode.scopes]) as number[]]) as number[]
+					exitingScopes.forEach(scopeID => {
+						cachedPlaycounters.content.set(scopeID, newPlaycounters.content.get(scopeID) as Map<string, Map<string, number>>)
+						cachedPlaycounters.node.set(scopeID, newPlaycounters.node.get(scopeID) as Map<string, number>)
+						cachedPlaycounters.edge.set(scopeID, newPlaycounters.edge.get(scopeID) as Map<string, Map<string, number>>)
+						newPlaycounters = zeroPlaycountersAtScope(newPlaycounters, scopeID)
+					})
+
 					const nextNodeLeastScope = state.leastScopeByNode.get(nextNode.id) as number
 					const nextNodePlaycount = newPlaycounters.node.get(nextNodeLeastScope)?.get(nextNode.id)
 					if (nextNodePlaycount !== undefined && nextNodePlaycount >= nextNode.repeat) {
@@ -574,20 +586,12 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					}
 
 					// zero all exiting scopes
-					const exitingScopes = diff([curNode.scopes, nextNode.scopes]) as number[]
-					const clearedPlaycounters = makeNewPlaycounters()
-					exitingScopes.forEach(scopeID => {
-						clearedPlaycounters.content.set(scopeID, newPlaycounters.content.get(scopeID) as Map<string, Map<string, number>>)
-						clearedPlaycounters.node.set(scopeID, newPlaycounters.node.get(scopeID) as Map<string, number>)
-						clearedPlaycounters.edge.set(scopeID, newPlaycounters.edge.get(scopeID) as Map<string, Map<string, number>>)
-						newPlaycounters = zeroPlaycountersAtScope(newPlaycounters, scopeID)
-					})
 					newPlayheads[state.playheadIndex].history.push({
 						nodeID: curNode.id,
 						index: curNodeIndex,
 						multIndex: curMultIndex,
 						traversedPlayedge: selectedEdge,
-						clearedPlaycounters: clearedPlaycounters
+						cachedPlaycounters: cachedPlaycounters
 					})
 					newPlayheads[state.playheadIndex].node = nextNode
 					newPlayheads[state.playheadIndex].multIndex = 0
@@ -627,14 +631,14 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				const newPlaycounters = structuredClone(newPlayheads[state.playheadIndex].playcounters)
 
 				// restore cleared playcounters
-				if (prevHistoryNode.clearedPlaycounters !== null) {
-					prevHistoryNode.clearedPlaycounters.content.forEach((counter, scopeID) => {
+				if (prevHistoryNode.cachedPlaycounters !== null) {
+					prevHistoryNode.cachedPlaycounters.content.forEach((counter, scopeID) => {
 						newPlaycounters.content.set(scopeID, counter)
 					})
-					prevHistoryNode.clearedPlaycounters.node.forEach((counter, scopeID) => {
+					prevHistoryNode.cachedPlaycounters.node.forEach((counter, scopeID) => {
 						newPlaycounters.node.set(scopeID, counter)
 					})
-					prevHistoryNode.clearedPlaycounters.edge.forEach((counter, scopeID) => {
+					prevHistoryNode.cachedPlaycounters.edge.forEach((counter, scopeID) => {
 						newPlaycounters.edge.set(scopeID, counter)
 					})
 				}
@@ -839,7 +843,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 							const currentSong = currentPlayhead.node.content[currentPlayhead.nodeIndex]
 							spotify.player.startResumePlayback(deviceID, undefined, [currentSong.uri], undefined, currentPlayhead.spotifyPlaybackPosition_ms)
 							dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
-						} else {
+						} else if (playbackState.is_playing) {
 							spotify.player.pausePlayback(deviceID)
 						}
 					}
@@ -847,6 +851,16 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 			})
 		}
 	}, [state.playheadIndex, state.playheads[state.playheadIndex]?.node.id, state.playheads[state.playheadIndex]?.nodeIndex, state.playheads[state.playheadIndex]?.multIndex])
+
+	useEffect(() => {
+		if (state.playheads[state.playheadIndex]?.stopped) {
+			spotify.player.getPlaybackState().then(playbackState => {
+				if (playbackState && playbackState.is_playing && playbackState.device.id) {
+					spotify.player.pausePlayback(playbackState.device.id)
+				}
+			})
+		}
+	}, [state.playheads[state.playheadIndex]?.stopped])
 
 	const handlePlayPauseAudio = useCallback((shouldPlay: boolean) => {
 		const currentPlayhead = state.playheads[state.playheadIndex]

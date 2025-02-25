@@ -43,7 +43,7 @@ export type HistoryNode = {
 	index: number;
 	multIndex: number;
 	traversedPlayedge: PlayEdge | null;
-	clearedPlaycounters: Playcounters | null;
+	cachedPlaycounters: Playcounters | null;
 }
 
 export type PlayheadInfo = {
