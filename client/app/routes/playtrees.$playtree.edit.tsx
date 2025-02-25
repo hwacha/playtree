@@ -739,9 +739,6 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 		case "added_playscope": {
 			const newPlayscopes = [...state.playtree.playscopes]
 			const index = newPlayscopes.length
-			console.log(index & 4)
-			console.log(index & 2)
-			console.log(index & 1)
 			const defaultColor = rgbToHex([255 * ((index & 4) >> 2), 255 * ((index & 2) >> 1), 255 * (index & 1)])
 			newPlayscopes.push({name: "Scope " + (index + 1), color: defaultColor})
 			return {
@@ -797,7 +794,6 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 			const newNodes = structuredClone(state.playtree.nodes)
 			newNodes.get(action.nodeID)?.scopes.push(action.index)
 
-			console.log("adding")
 			return {
 				...state,
 				playtree: {
