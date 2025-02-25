@@ -103,8 +103,9 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 				Access:    psi.Access,
 				Source:    nil,
 			},
-			Nodes:     make(map[string]PlayNodeInfo),
-			Playroots: make(map[string]PlayheadInfo),
+			Nodes:      make(map[string]PlayNodeInfo),
+			Playroots:  make(map[string]PlayheadInfo),
+			Playscopes: []PlayscopeInfo{},
 		}
 
 		// create JSON file <id>.json with body contents, return Created

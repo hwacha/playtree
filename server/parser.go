@@ -31,6 +31,7 @@ type (
 		Name    string         `json:"name" validate:"required"`
 		Type    string         `json:"type" validate:"required,oneof=sequence selector"`
 		Repeat  int            `json:"repeat" validate:"min=-1"`
+		Scopes  []int          `json:"scopes" validate:"required,min=0"`
 		Content []ContentInfo  `json:"content" validate:"required"`
 		Next    []PlayEdgeInfo `json:"next,omitempty"`
 	}
@@ -59,10 +60,16 @@ type (
 		Name  string `json:"name" validate:"required"`
 	}
 
+	PlayscopeInfo struct {
+		Name  string `json:"name" validate:"required"`
+		Color string `json:"color" validate:"required"`
+	}
+
 	PlaytreeInfo struct {
-		Summary   SummaryInfo             `json:"summary" validate:"required"`
-		Nodes     map[string]PlayNodeInfo `json:"nodes" validate:"required"`
-		Playroots map[string]PlayheadInfo `json:"playroots" validate:"required"`
+		Summary    SummaryInfo             `json:"summary" validate:"required"`
+		Nodes      map[string]PlayNodeInfo `json:"nodes" validate:"required"`
+		Playroots  map[string]PlayheadInfo `json:"playroots" validate:"required"`
+		Playscopes []PlayscopeInfo         `json:"playscopes" validate:"required"`
 	}
 )
 
@@ -102,6 +109,7 @@ func (pni *PlayNodeInfo) UnmarshalJSON(data []byte) error {
 		Name    string         `json:"name" validate:"required"`
 		Type    string         `json:"type" validate:"required,oneof=sequence selector"`
 		Repeat  int            `json:"repeat" validate:"min=-1"`
+		Scopes  []int          `json:"scopes" validate:"required,min=0"`
 		Content []ContentInfo  `json:"content" validate:"required"`
 		Next    []PlayEdgeInfo `json:"next,omitempty"`
 	}
@@ -111,6 +119,7 @@ func (pni *PlayNodeInfo) UnmarshalJSON(data []byte) error {
 		Name:    "",
 		Type:    "",
 		Repeat:  -1,
+		Scopes:  []int{},
 		Content: []ContentInfo{},
 		Next:    []PlayEdgeInfo{},
 	}
@@ -124,6 +133,7 @@ func (pni *PlayNodeInfo) UnmarshalJSON(data []byte) error {
 	pni.Name = pni2.Name
 	pni.Type = pni2.Type
 	pni.Repeat = pni2.Repeat
+	pni.Scopes = pni2.Scopes
 	pni.Content = pni2.Content
 	pni.Next = pni2.Next
 
