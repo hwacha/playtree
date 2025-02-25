@@ -52,11 +52,12 @@ const zeroPlaycountersAtScope = (playcounters: Playcounters, scopeID: number): P
 	}
 
 	if (newPlaycounters.edge.has(scopeID)) {
-		const newEdgeCounter = new Map<string, Map<string, number>>()
+		const newEdgePlaycounter = new Map<string, Map<string, number>>()
 		const edgeKeysIter : MapIterator<string> = playcounters.edge.get(scopeID)?.keys() as MapIterator<string>
 		for (let key = edgeKeysIter.next(); !key.done; key = edgeKeysIter.next()) {
-			newEdgeCounter.set(key.value, zeroCounter(playcounters.edge.get(scopeID)?.get(key.value) as Map<string, number>))
+			newEdgePlaycounter.set(key.value, zeroCounter(playcounters.edge.get(scopeID)?.get(key.value) as Map<string, number>))
 		}
+		newPlaycounters.edge.set(scopeID, newEdgePlaycounter)
 	}
 
 	return newPlaycounters
@@ -174,20 +175,22 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			// source ID -> target ID -> scope ID
 			const leastScopeByEdge = new Map<string, Map<string, number>>()
 			playnodesArray.map(sourceNode => {
-				sourceNode.next.forEach(edge => {
-					const targetNode = action.playtree.nodes.get(edge.nodeID) as PlayNode;
-					let leastScope : number = -1; // default scope
-					// an edge's scope is the intersection of the source scopes and target scopes
-					(intersection([sourceNode.scopes, targetNode.scopes]) as number[]).forEach((scopeID : number) => {
-						if (superscopes.get(scopeID)?.has(leastScope)) {
-							leastScope = scopeID
+				if (sourceNode.next) {
+					sourceNode.next.forEach(edge => {
+						const targetNode = action.playtree.nodes.get(edge.nodeID) as PlayNode;
+						let leastScope : number = -1; // default scope
+						// an edge's scope is the intersection of the source scopes and target scopes
+						(intersection([sourceNode.scopes, targetNode.scopes]) as number[]).forEach((scopeID : number) => {
+							if (superscopes.get(scopeID)?.has(leastScope)) {
+								leastScope = scopeID
+							}
+						})
+						if (!leastScopeByEdge.has(sourceNode.id)) {
+							leastScopeByEdge.set(sourceNode.id, new Map<string, number>())
 						}
+						leastScopeByEdge.get(sourceNode.id)?.set(targetNode.id, leastScope)
 					})
-					if (!leastScopeByEdge.has(sourceNode.id)) {
-						leastScopeByEdge.set(sourceNode.id, new Map<string, number>())
-					}
-					leastScopeByEdge.get(sourceNode.id)?.set(targetNode.id, leastScope)
-				})
+				}
 			})
 
 			// second pass: set playcounters according to least-scope
@@ -708,7 +711,6 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 	const prevPlaybackState = useRef<Spotify.PlaybackState | null>(null)
 
 	useEffect(() => {
-		return // DEBUG
 		const script = document.createElement("script");
 		script.src = "https://sdk.scdn.co/spotify-player.js";
 		script.async = true;

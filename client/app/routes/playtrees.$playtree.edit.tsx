@@ -111,12 +111,14 @@ function ContentComponent(props: ContentProps) {
 export type PlayNodeFlow = Node<{
 	playnode: PlayNode;
 	playhead: PlayheadInfo | null;
+	scopes: Playscope[];
 	dispatch: (action: PlaytreeEditorAction) => void;
 	handleDeletePlaynode: (id: string) => void;
 }, 'play'>;
 
 function PlayNodeFlow(props: NodeProps<PlayNodeFlow>) {
 	const [adding, setAdding] = useState<boolean>(false)
+	const [scopeView, setScopeView] = useState<boolean>(false)
 
 	const initialRepeat = props.data.playnode.repeat ?? -1
 
@@ -187,6 +189,10 @@ function PlayNodeFlow(props: NodeProps<PlayNodeFlow>) {
 		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { type: otherType } })
 	}, [playnodeType])
 
+	const handleToggleScope = useCallback(() => {
+		setScopeView(sv => !sv)
+	}, [])
+
 	const handleMoveUp = useCallback((index: number) => () => {
 		if (index <= 0) {
 			return
@@ -233,6 +239,14 @@ function PlayNodeFlow(props: NodeProps<PlayNodeFlow>) {
 		props.data.dispatch({ type: "added_playhead", nodeID: props.data.playnode.id })
 	}
 
+	const handleAddScope : React.FormEventHandler<HTMLFormElement> = event => {
+		event.preventDefault()
+		const form = event.target;
+		const formData = new FormData(form as any);
+
+		props.data.dispatch({type: "added_scope_to_playnode", index: parseInt((formData.get("scope-id") as string).toString()), nodeID: (formData.get("node-id") as string).toString() })
+	}
+
 	return (
 		<React.Fragment key={props.id}>
 			<div>{playhead ? <PlayheadComponent name={playhead.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)} onDeletePlayhead={handleDeletePlayhead} /> : null}</div>
@@ -242,24 +256,53 @@ function PlayNodeFlow(props: NodeProps<PlayNodeFlow>) {
 					<div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-64 p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
 						<div className="mb-5">
 							<button className={`bg-${color}-300 rounded-lg px-2 py-1 absolute top-1 left-1`} onClick={handleTogglePlaynodeType} title={playnodeType}>{isSequence ? <>🔢</> : <>🎲</>}</button>
+							<button className={`bg-blue-300 rounded-lg px-2 py-1 absolute top-1 left-10`} onClick={handleToggleScope} title={scopeView ? "Toggle Song View" : "Toggle Scope View"}>{scopeView ? <>🎶</> : <>🔲</>}</button>
 							<button className={`bg-red-300 rounded-lg px-2 py-1 absolute top-1 right-1`} onClick={handleDeleteSelf} title="Delete Playnode">🗑️</button>
 						</div>
 						<input id="text" name="text" value={playnodeName} onChange={handleChangeName} className={`w-full bg-${color}-100 text-center`} />
-						<div className="font-markazi">
-							<span className="mr-1">Repeat:</span>
-							<input id="repeat" name="repeat" value={playnodeRepeat} onChange={handleChangeRepeat} className={`w-12 bg-${color}-100`}></input>
-						</div>
-						<div className="flex font-markazi"><div className="ml-14">Name</div><div className="ml-[3.75rem]">M</div><div className="ml-3">R</div></div>
 						<ul className="my-3">
 							{
-								contentList.map((content: Content, index: number) => {
-									return <ContentComponent key={content.id} nodeID={props.id} index={index} color={color} contentList={contentList}
-										onMoveUp={index > 0 ? handleMoveUp(index) : undefined}
-										onMoveDown={index + 1 < contentList.length ? handleMoveDown(index) : undefined}
-										onDeleteSelf={handleDeleteContent}
-										onUpdateContentList={setContentList}
-										dispatch={props.data.dispatch} />
-								})
+								scopeView ?
+								<>
+									{
+										props.data.playnode.scopes.map((scopeIndex, index) => {
+											const scope = props.data.scopes[scopeIndex]
+											return <li key={index} className={`font-markazi`} style={{color: scope.color}}>{scope.name}</li>
+										})
+									}
+									{
+										<form method="post" onSubmit={handleAddScope}>
+											<input type="hidden" name={"node-id"} value={props.data.playnode.id}></input>
+											<select name={"scope-id"} className="font-markazi">
+												{
+													props.data.scopes.map((scope, index) =>
+														props.data.playnode.scopes.includes(index) ? null
+														: <option key={index} value={index}>{scope.name}</option>
+													)
+												}
+											</select>
+											<button type="submit" className="border-black border-2 px-1 font-markazi">Add</button>
+										</form>
+									}
+								</>
+								 :
+								 <>
+								 	<div className="font-markazi">
+										<span className="mr-1">Repeat:</span>
+										<input id="repeat" name="repeat" value={playnodeRepeat} onChange={handleChangeRepeat} className={`w-12 bg-${color}-100`}></input>
+									</div>
+									<div className="flex font-markazi"><div className="ml-14">Name</div><div className="ml-[3.75rem]">M</div><div className="ml-3">R</div></div>
+									{
+										contentList.map((content: Content, index: number) => {
+											return <ContentComponent key={content.id} nodeID={props.id} index={index} color={color} contentList={contentList}
+												onMoveUp={index > 0 ? handleMoveUp(index) : undefined}
+												onMoveDown={index + 1 < contentList.length ? handleMoveDown(index) : undefined}
+												onDeleteSelf={handleDeleteContent}
+												onUpdateContentList={setContentList}
+												dispatch={props.data.dispatch} />
+										})
+									}
+								 </>
 							}
 						</ul>
 						{
@@ -489,6 +532,10 @@ type PlaytreeEditorAction = {
 } | {
 	type: "deleted_playscope",
 	index: number
+} | {
+	type: "added_scope_to_playnode",
+	index: number,
+	nodeID: string
 }
 
 const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorAction): PlaytreeEditorState => {
@@ -733,7 +780,31 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playscopes: newPlayscopes,
 					nodes: newNodes
-				}
+				},
+				unsavedChangesExist: unsavedChangeOccurred
+			}
+		}
+		case "added_scope_to_playnode": {
+			const nodesByScope = new Map<number, string>()
+			state.playtree.nodes.forEach(node => {
+				node.scopes.forEach(scopeID => {
+					if (!nodesByScope.has(scopeID)) {
+						nodesByScope.set(scopeID, node.id)
+					}
+				})
+			})
+
+			const newNodes = structuredClone(state.playtree.nodes)
+			newNodes.get(action.nodeID)?.scopes.push(action.index)
+
+			console.log("adding")
+			return {
+				...state,
+				playtree: {
+					...state.playtree,
+					nodes: newNodes
+				},
+				unsavedChangesExist: unsavedChangeOccurred
 			}
 		}
 	}
@@ -832,6 +903,7 @@ export default function PlaytreeEditor() {
 				label: playnode.id,
 				playnode: playnode,
 				playhead: initialPlaytree.playroots.get(playnode.id) ?? null,
+				scopes: initialPlaytree.playscopes,
 				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
 				handleDeletePlaynode: handleDeletePlaynode
 			}
@@ -937,6 +1009,7 @@ export default function PlaytreeEditor() {
 					content: [],
 					next: []
 				},
+				scopes: state.playtree.playscopes,
 				playhead: null,
 				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
 				handleDeletePlaynode: handleDeletePlaynode
