@@ -2,8 +2,9 @@ import { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useLocation, useNavigate } from "@remix-run/react";
 import { Background, Controls, Handle, MarkerType, Position, ReactFlow, Node, NodeProps, EdgeProps, getBezierPath, Edge, BaseEdge, addEdge, OnConnect, useNodesState, useEdgesState, ConnectionLineComponent, EdgeLabelRenderer } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
+import NaturalNumberInputField from "~/components/NaturalNumberInputField"
 import SearchField, { queryString, SearchResult } from "~/components/SearchField";
 import { Content, jsonFromPlaytree, PlayEdge, PlayheadInfo, PlayNode, Playscope, Playtree, playtreeFromJson } from "../types";
 import React from "react";
@@ -20,7 +21,6 @@ type PlayheadProps = {
 	name: string;
 	nodeID: string;
 	dispatch: (action: PlaytreeEditorAction) => void;
-	onDeletePlayhead: () => void
 }
 
 function PlayheadComponent(props: PlayheadProps) {
@@ -41,7 +41,6 @@ function PlayheadComponent(props: PlayheadProps) {
 			type: "deleted_playhead",
 			nodeID: props.nodeID
 		})
-		props.onDeletePlayhead()
 	}
 
 	return (
@@ -120,14 +119,7 @@ function PlayNodeFlow(props: NodeProps<PlayNodeFlow>) {
 	const [adding, setAdding] = useState<boolean>(false)
 	const [scopeView, setScopeView] = useState<boolean>(false)
 
-	const initialRepeat = props.data.playnode.repeat ?? -1
-
-	const [playnodeName, setPlaynodeName] = useState<string>(props.data.playnode.name)
-	const [playnodeType, setPlaynodeType] = useState<PlayNode["type"]>(props.data.playnode.type)
-	const [playnodeRepeat, setPlaynodeRepeat] = useState<string>(initialRepeat.toString())
 	const [contentList, setContentList] = useState<Content[]>(props.data.playnode.content)
-
-	const [playhead, setPlayhead] = useState<PlayheadInfo | null>(props.data.playhead)
 
 	const highestID = props.data.playnode.content.map(content => parseInt(content.id)).reduce((id1, id2) => Math.max(id1, id2), -1)
 	const [contentID, setContentID] = useState<number>(highestID + 1)
@@ -159,14 +151,12 @@ function PlayNodeFlow(props: NodeProps<PlayNodeFlow>) {
 	}, [])
 
 	const handleChangeName = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-		setPlaynodeName(event.target.value)
 		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { name: event.target.value } })
-	}, [playnodeName]);
+	}, [props.data.playnode.name]);
 
 	const handleChangeRepeat = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
 		let inputAsNumber = Number(event.target.value)
 		if (event.target.value === "" || event.target.value === "-" || (Number.isInteger(inputAsNumber) && inputAsNumber >= -1)) {
-			setPlaynodeRepeat(event.target.value)
 			if (event.target.value === "") {
 				inputAsNumber = 1
 			}
@@ -174,20 +164,15 @@ function PlayNodeFlow(props: NodeProps<PlayNodeFlow>) {
 				inputAsNumber = -1
 			}
 			if (props.data) {
-				props.data.dispatch({
-					type: "updated_playnode", nodeID: props.data.playnode.id, patch: {
-						repeat: inputAsNumber
-					}
-				})
+				
 			}
 		}
-	}, [playnodeRepeat])
+	}, [props.data.playnode.repeat])
 
 	const handleTogglePlaynodeType = useCallback(() => {
-		const otherType: PlayNode["type"] = playnodeType === "sequence" ? "selector" : "sequence"
-		setPlaynodeType(otherType)
+		const otherType: PlayNode["type"] = props.data.playnode.type === "sequence" ? "selector" : "sequence"
 		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { type: otherType } })
-	}, [playnodeType])
+	}, [props.data.playnode.type])
 
 	const handleToggleScope = useCallback(() => {
 		setScopeView(sv => !sv)
@@ -221,21 +206,15 @@ function PlayNodeFlow(props: NodeProps<PlayNodeFlow>) {
 		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { content: newContentList } })
 	}, [contentList])
 
-	const handleDeletePlayhead = useCallback(() => {
-		setPlayhead(null)
-	}, [playhead])
-
 	const handleDeleteSelf = useCallback(() => {
 		props.data.handleDeletePlaynode(props.data.playnode.id)
 	}, [])
 
-	const isSequence = playnodeType === "sequence"
+	const isSequence = props.data.playnode.type === "sequence"
 	const color = isSequence ? "green" : "amber"
 
 	const handleDrop = (event: any) => {
 		event.preventDefault();
-		var index: number = Number.parseInt(event.dataTransfer.getData("index"));
-		setPlayhead({ name: "Playhead", index: index })
 		props.data.dispatch({ type: "added_playhead", nodeID: props.data.playnode.id })
 	}
 
@@ -249,17 +228,17 @@ function PlayNodeFlow(props: NodeProps<PlayNodeFlow>) {
 
 	return (
 		<React.Fragment key={props.id}>
-			<div>{playhead ? <PlayheadComponent name={playhead.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)} onDeletePlayhead={handleDeletePlayhead} /> : null}</div>
+			<div>{props.data.playhead ? <PlayheadComponent name={props.data.playhead.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)} /> : null}</div>
 			<Handle type="target" isConnectableStart={false} position={Position.Top} style={{ width: 12, height: 12 }} />
 			{
 				props.selected ?
 					<div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-64 p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
 						<div className="mb-5">
-							<button className={`bg-${color}-300 rounded-lg px-2 py-1 absolute top-1 left-1`} onClick={handleTogglePlaynodeType} title={playnodeType}>{isSequence ? <>🔢</> : <>🎲</>}</button>
+							<button className={`bg-${color}-300 rounded-lg px-2 py-1 absolute top-1 left-1`} onClick={handleTogglePlaynodeType} title={props.data.playnode.type}>{isSequence ? <>🔢</> : <>🎲</>}</button>
 							<button className={`bg-blue-300 rounded-lg px-2 py-1 absolute top-1 left-10`} onClick={handleToggleScope} title={scopeView ? "Toggle Song View" : "Toggle Scope View"}>{scopeView ? <>🎶</> : <>🔲</>}</button>
 							<button className={`bg-red-300 rounded-lg px-2 py-1 absolute top-1 right-1`} onClick={handleDeleteSelf} title="Delete Playnode">🗑️</button>
 						</div>
-						<input id="text" name="text" value={playnodeName} onChange={handleChangeName} className={`w-full bg-${color}-100 text-center`} />
+						<input id="text" name="text" value={props.data.playnode.name} onChange={handleChangeName} className={`w-full bg-${color}-100 text-center`} />
 						<ul className="my-3">
 							{
 								scopeView ?
@@ -289,7 +268,7 @@ function PlayNodeFlow(props: NodeProps<PlayNodeFlow>) {
 								 <>
 								 	<div className="font-markazi">
 										<span className="mr-1">Repeat:</span>
-										<input id="repeat" name="repeat" value={playnodeRepeat} onChange={handleChangeRepeat} className={`w-12 bg-${color}-100`}></input>
+										<NaturalNumberInputField canBeInfinite={true} defaultValue={1} value={props.data.playnode.repeat} onChange={(n : number) => props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { repeat: n } })}/>
 									</div>
 									<div className="flex font-markazi"><div className="ml-14">Name</div><div className="ml-[3.75rem]">M</div><div className="ml-3">R</div></div>
 									{
@@ -311,7 +290,7 @@ function PlayNodeFlow(props: NodeProps<PlayNodeFlow>) {
 								<div className="flex"><button title="Add Content" className={`border-${color}-600 bg-${color}-400 border-2 rounded-full px-2 py-1 m-auto`} onClick={handleAddBegin}>➕</button></div>
 						}
 					</div> :
-					<div className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-64 h-16 py-4 text-center`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>{playnodeName}</div>
+					<div className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-64 h-16 py-4 text-center`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>{props.data.playnode.name}</div>
 			}
 			<Handle type="source" position={Position.Bottom} id="a" style={{ width: 12, height: 12 }} />
 		</React.Fragment>
@@ -321,7 +300,6 @@ function PlayNodeFlow(props: NodeProps<PlayNodeFlow>) {
 type PlayEdgeFlow = Edge<{
 	playedge: PlayEdge;
 	dispatch: (action: PlaytreeEditorAction) => void;
-	onDeletePlayedge: (id: string, sourceID: string, targetID: string) => void;
 }, 'play'>;
 
 function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
@@ -329,41 +307,9 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
 		return null
 	}
 
-	const initialShares = props.data.playedge.shares ?? 1
-	const initialPriority = props.data.playedge.priority ?? 0
 	const initialRepeat = props.data.playedge.repeat ?? -1
 
-	const [sharesInputText, setSharesInputText] = useState<string>(initialShares.toString())
-	const [priorityInputText, setPriorityInputText] = useState<string>(initialPriority.toString())
 	const [repeatInputText, setRepeatInputText] = useState<string>(initialRepeat.toString())
-
-	const handleSharesChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-		const inputAsNumber = Number(event.target.value)
-		if (event.target.value == "" || (Number.isInteger(inputAsNumber) && inputAsNumber >= 0)) {
-			setSharesInputText(event.target.value)
-			if (props.data) {
-				props.data.dispatch({
-					type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {
-						shares: event.target.value === "" ? 1 : inputAsNumber
-					}
-				})
-			}
-		}
-	}, [sharesInputText])
-
-	const handlePriorityChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-		const inputAsNumber = Number(event.target.value)
-		if (event.target.value == "" || (Number.isInteger(inputAsNumber) && inputAsNumber >= 0)) {
-			setPriorityInputText(event.target.value)
-			if (props.data) {
-				props.data.dispatch({
-					type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {
-						priority: event.target.value === "" ? 0 : inputAsNumber
-					}
-				})
-			}
-		}
-	}, [priorityInputText])
 
 	const handleRepeatChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
 		let inputAsNumber = Number(event.target.value)
@@ -375,20 +321,16 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
 			if (event.target.value === "-") {
 				inputAsNumber = -1
 			}
-			if (props.data) {
-				props.data.dispatch({
-					type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {
-						repeat: inputAsNumber
-					}
-				})
-			}
+			props.data?.dispatch({
+				type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {
+					repeat: inputAsNumber
+				}
+			})
 		}
 	}, [repeatInputText])
 
 	const handleDeleteSelf = useCallback(() => {
-		if (props.data) {
-			props.data.onDeletePlayedge(props.id, props.source, props.target)
-		}
+		props.data?.dispatch({type: "deleted_playedge", sourceID: props.source, targetID: props.target})
 	}, [])
 
 	const { sourceX, sourceY, targetX, targetY, markerEnd } = props;
@@ -456,24 +398,30 @@ function PlayEdgeFlow(props: EdgeProps<PlayEdgeFlow>) {
 						<div className="w-24 flex">
 							<div className="w-full h-fit">Shares</div>
 							<div className="w-fit">|</div>
-							<input value={sharesInputText} className="bg-neutral-200 w-full text-right" onChange={handleSharesChange} />
+							<NaturalNumberInputField onChange={n => {
+								props.data?.dispatch({ type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {shares: n}})
+							}} canBeInfinite={false} defaultValue={1} value={props.data.playedge.shares} />
 						</div>
 						<div className="w-24 flex">
 							<div className="w-full h-fit">Priority</div>
 							<div className="w-fit">|</div>
-							<input value={priorityInputText} className="bg-neutral-200 w-full text-right" onChange={handlePriorityChange} />
+							<NaturalNumberInputField onChange={n =>
+								props.data?.dispatch({type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {priority: n} })
+							} canBeInfinite={false} defaultValue={0} value={props.data.playedge.priority} />
 						</div>
 						<div className="w-24 flex">
 							<div className="w-full h-fit">Repeat</div>
 							<div className="w-fit">|</div>
-							<input value={repeatInputText} className="bg-neutral-200 w-full text-right" onChange={handleRepeatChange} />
+							<NaturalNumberInputField onChange={n =>
+								props.data?.dispatch({type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {repeat: n} })
+							} canBeInfinite={true} defaultValue={1} value={props.data.playedge.repeat} />
 						</div>
 					</div> :
 					<div className="bg-neutral-200 rounded-md px-1 font-markazi" style={{
 						position: 'absolute',
 						transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
 						pointerEvents: 'all'
-					}}>S={sharesInputText}, P={priorityInputText}, R={repeatInputText === "-1" ? "∞" : repeatInputText}</div>
+					}}>S={props.data.playedge.shares}, P={props.data.playedge.priority}, R={repeatInputText === "-1" ? "∞" : repeatInputText}</div>
 			}
 			</EdgeLabelRenderer>
 		</React.Fragment>
@@ -864,26 +812,14 @@ export default function PlaytreeEditor() {
 		unsavedChangesExist: false,
 		messageLog: []
 	})
-
 	const [scopeManagerVisible, setScopeManagerVisible] = useState<boolean>(false)
 
 	const handleDeletePlaynode = (nodeID: string) => {
-		setFlownodes(prevFlownodes => {
-			return prevFlownodes.filter(flownode => flownode.data.playnode.id !== nodeID)
-		})
-
-		setFlowedges(prevFlowedges => {
-			return prevFlowedges.filter(flowedge => flowedge.source !== nodeID && flowedge.target !== nodeID)
-		})
-
 		dispatch({ type: "deleted_playnode", nodeID: nodeID })
 		dispatch({ type: "deleted_playhead", nodeID: nodeID })
 	}
 
-	const handleDeletePlayedge = (edgeID: string, sourceID: string, targetID: string) => {
-		setFlowedges(prevFlowedges => {
-			return prevFlowedges.filter(flowedge => flowedge.id !== edgeID)
-		})
+	const handleDeletePlayedge = (sourceID: string, targetID: string) => {
 		dispatch({ type: "deleted_playedge", sourceID: sourceID, targetID: targetID })
 	}
 
@@ -906,9 +842,7 @@ export default function PlaytreeEditor() {
 		}
 	})
 
-	let initialFlowedges: PlayEdgeFlow[] = []
-
-	const makePlayedgeFlow = (playnode: PlayNode, playedge: PlayEdge): PlayEdgeFlow => {
+	const makeNewFlowedge = useCallback((playnode: PlayNode, playedge: PlayEdge): PlayEdgeFlow => {
 		return {
 			id: playnode.id + "-" + playedge.nodeID,
 			type: "play",
@@ -925,16 +859,16 @@ export default function PlaytreeEditor() {
 			},
 			data: {
 				playedge: playedge,
-				dispatch: dispatch,
-				onDeletePlayedge: handleDeletePlayedge
+				dispatch: dispatch
 			}
 		}
-	}
+	}, [])
 
+	let initialFlowedges: PlayEdgeFlow[] = []
 	initialPlaytree.nodes.forEach(playnode => {
 		if (playnode.next) {
 			playnode.next.forEach(playedge => {
-				initialFlowedges.push(makePlayedgeFlow(playnode, playedge))
+				initialFlowedges.push(makeNewFlowedge(playnode, playedge))
 			})
 		}
 	})
@@ -972,32 +906,20 @@ export default function PlaytreeEditor() {
 		const sourcePlaynode = state.playtree.nodes.get(connection.source)
 		if (sourcePlaynode) {
 			const playedge = { nodeID: connection.target, shares: 1, priority: 0, repeat: -1 }
-			setFlowedges((eds) => addEdge(makePlayedgeFlow(sourcePlaynode, playedge), eds))
+			setFlowedges((eds) => addEdge(makeNewFlowedge(sourcePlaynode, playedge), eds))
 			dispatch({ type: "added_playedge", sourceID: connection.source, targetID: connection.target })
 		}
 	}, [state.playtree.nodes]);
 
-	const handleAddPlaynode = useCallback(() => {
-		let maxValue = -1
-		state.playtree.nodes.forEach((_, id) => {
-			const x = parseInt(id)
-			if (maxValue < x) {
-				maxValue = x
-			}
-		})
-
-		const newID = (maxValue + 1).toString()
-
-		const newFlownodes = [...flownodes]
-
-		newFlownodes.push({
-			id: newID,
+	const makeNewFlownode = useCallback((id: string) : PlayNodeFlow => {
+		return {
+			id: id,
 			type: "play",
 			position: { x: 0, y: 0 },
-			zIndex: 100 - maxValue,
+			zIndex: 100 - parseInt(id),
 			data: {
 				playnode: {
-					id: newID,
+					id: id,
 					name: "Playnode",
 					type: "sequence",
 					repeat: -1,
@@ -1010,10 +932,62 @@ export default function PlaytreeEditor() {
 				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
 				handleDeletePlaynode: handleDeletePlaynode
 			}
-		})
-		setFlownodes(newFlownodes)
+		}
+	}, [])
+
+	const handleAddPlaynode = useCallback(() => {
 		dispatch({ type: "added_playnode" })
-	}, [flownodes])
+	}, [])
+
+	useEffect(() => { // sync react flow components with playtree state
+		// synchronize flownodes
+		setFlownodes(oldFlownodes => {
+			// next, upsert flownodes w/r/t the now-existing playnodes
+			const upsertedAndFilteredFlownodes : PlayNodeFlow[] = []
+			// Note: this procedure is O(n^2) whose performance could be improved if necessary
+			state.playtree.nodes.forEach(playnode => {
+				let flownodeToUpsert = oldFlownodes.find(flownode => {
+					return flownode.id === playnode.id
+				}) ?? makeNewFlownode(playnode.id)
+
+				flownodeToUpsert = {
+					...flownodeToUpsert,
+					data: {
+						...flownodeToUpsert.data,
+						playnode: {...playnode},
+						scopes: state.playtree.playscopes,
+						playhead: state.playtree.playroots.get(playnode.id) ?? null
+					}
+				}
+
+				upsertedAndFilteredFlownodes.push(flownodeToUpsert)
+			})
+			return upsertedAndFilteredFlownodes
+		})
+
+		// synchronize flowedges
+		setFlowedges(oldFlowedges => {
+			// upsert
+			const upsertedAndFilteredFlowedges : PlayEdgeFlow[] = []
+			state.playtree.nodes.forEach(playnode => {
+				playnode.next?.forEach(playedge => {
+					const flowedgeToUpsert : PlayEdgeFlow = oldFlowedges.find(flowedge => {
+						return flowedge.id === `${playnode.id}-${playedge.nodeID}`
+					}) ?? makeNewFlowedge(playnode, playedge)
+
+					if (flowedgeToUpsert.data) { // checking for typescript compiler
+						flowedgeToUpsert.data = {
+							...flowedgeToUpsert.data,
+							playedge: playedge
+						}
+					}
+
+					upsertedAndFilteredFlowedges.push(flowedgeToUpsert)
+				})
+			})
+			return upsertedAndFilteredFlowedges
+		})
+	}, [state.playtree])
 
 	const handleManageScopes = useCallback(() => {
 		setScopeManagerVisible(!scopeManagerVisible)
