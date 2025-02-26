@@ -1,63 +1,73 @@
-import React, { useCallback, useState } from "react"
+import React, { useCallback, useMemo, useState } from "react"
 
 type NaturalNumberInputFieldProps = {
 	onChange: (n: number) => void;
 	canBeInfinite: boolean;
-	defaultValue: 0 | 1;
+	defaultValue: -1 | 0 | 1;
 	value: number;
 }
 
 const NaturalNumberInputField = (props: NaturalNumberInputFieldProps) => {
-	const [text, setText] = useState<string | undefined>(undefined)
+	const [text, setText] = useState<string | null>(null)
 	const [errorText, setErrorText] = useState<string | null>(null)
 
-	const handleTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+	const [specialOptionsToValues, specialValuesToOptions] : [Map<string, number>, Map<Number, string>] = useMemo(() => {
+		const optionsToValues = new Map<string, number>()
+		const valuesToOptions = new Map<number, string>()
+		optionsToValues.set("", props.defaultValue)
+
+		if (props.canBeInfinite) {
+			optionsToValues.set("-1", -1)
+			valuesToOptions.set(-1, "-1")
+		}
+		return [optionsToValues, valuesToOptions]
+	}, [])
+
+	const handleTextChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
 		setText(event.target.value)
-		const newTextAsNumber = Number(event.target.value)
-		if (Number.isInteger(newTextAsNumber) && newTextAsNumber > 0) {
-			props.onChange(newTextAsNumber)
-			if (errorText !== null) {
-				setErrorText(null)
+
+		let newValue = specialOptionsToValues.get(event.target.value)
+
+		if (newValue === undefined) {
+			const newTextAsNumber = Number(event.target.value)
+			if (Number.isInteger(newTextAsNumber) && newTextAsNumber > 0) {
+				newValue = newTextAsNumber
 			}
-		} else if (event.target.value !== "") {
+		}
+
+		if (newValue === undefined) {
 			setErrorText("Please enter a natural number (positive integer or 0).")
+		} else {
+			props.onChange(newValue)
+			setErrorText(null)
 		}
-	}
+	}, [text, errorText])
 
-	const handleLimitCheckboxChange = (event : React.ChangeEvent<HTMLInputElement>) => {
-		switch (event.target.value) {
-			case "off": {
-				if (text === undefined || errorText !== null) {
-					props.onChange(props.defaultValue)
-				} else {
-					props.onChange(Number(text))
-				}
-				return
-			}
-			case "on": {
-				props.onChange(-1)
-				return
-			}
-			default: {
-				return
-			}
-		}
-	}
-
-	const isUnlimited : boolean = props.value === -1
 	return (
 		<div className="flex w-full">
-			{
-				props.canBeInfinite ?
-				<div className="flex items-start">
-					<input id="is-limited" type="checkbox" value={isUnlimited ? "off" : "on"} checked={!isUnlimited} onChange={handleLimitCheckboxChange} />
-					<label htmlFor={"is-limited"}>Limit</label>
-				</div> : null
-			}
-			<div hidden={isUnlimited}>
-				<input id="n" type="text" disabled={isUnlimited} value={text ?? props.value} defaultValue={props.defaultValue} onChange={handleTextChange} className="w-full text-right bg-inherit" />
-				{errorText ? <label htmlFor="n" className="text-red-600">{errorText}</label> : null}
-			</div>
+			{/* <select>
+				{
+					Array.from(specialOptionsToValues.keys()).filter(key => key !== "").map(option => {
+						return <option key={option}>{option}</option>
+					})
+				}
+			</select> */}
+			<input
+				id="n"
+				type="text"
+				list="options"
+				value={text ?? specialValuesToOptions.get(props.value) ?? props.value}
+				onChange={handleTextChange}
+				className="w-full text-right bg-inherit"
+			/>
+			{/* <datalist id="options">
+				{
+					Array.from(specialOptionsToValues.keys()).filter(key => key !== "").map(option => {
+						return <option key={option}>{option}</option>
+					})
+				}
+			</datalist> */}
+			{errorText ? <label htmlFor="n" className="text-red-600 text-[6px]">{errorText}</label> : null}
 		</div>
 
 	)
