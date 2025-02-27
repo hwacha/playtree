@@ -34,7 +34,7 @@ export default function Create() {
                 "user-read-private"
             ])
         const profile = await spotify.currentUser.profile()
-        return profile.display_name
+        return profile.id
     }, [])
 
     return (
