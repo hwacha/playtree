@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react"
 import { Content, HistoryNode, makeDefaultPlayscope, PlayEdge, PlayheadInfo, PlayNode, Playscope, Playtree } from "../types";
-import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk";
 import deepEqual from "deep-equal";
 import { diff, intersection, isSupersetOf, union } from '@opentf/std';
+import { clientFetchWithToken } from "../fetch-with-token";
 
 type PlayerProps = {
 	playtree: Playtree | null
@@ -733,17 +733,6 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		spotifyPlayerReady: false,
 	})
 
-	const spotify = useMemo(() =>
-		SpotifyApi.withUserAuthorization(import.meta.env.VITE_SPOTIFY_CLIENT_ID,
-			"http://localhost:5173",
-			[
-				"streaming",
-				"user-read-playback-state",
-				"user-modify-playback-state",
-				"user-read-email",
-				"user-read-private"
-			]), [])
-
 	const suggestDeviceName = useCallback(() => {
 		const userAgent = navigator.userAgent;
 
@@ -778,43 +767,42 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		let newPlayer: Spotify.Player | null = null;
 
 		window.onSpotifyWebPlaybackSDKReady = () => {
-			spotify.getAccessToken().then(async token => {
-				let accessToken: AccessToken | null = token
-				if (!accessToken) {
-					const response = await spotify.authenticate()
-					accessToken = response.accessToken
-				}
-				if (accessToken) {
-					newPlayer = new window.Spotify.Player({
-						name: 'Playtree Web Player: ' + deviceName,
-						getOAuthToken: (cb: any) => { cb(accessToken?.access_token); },
-						volume: 1
-					});
+			const accessToken = localStorage.getItem("spotify_access_token")
+			// TODO do refresh and login logic if necessary
 
-					newPlayer.activateElement()
+			if (accessToken) {
+				newPlayer = new window.Spotify.Player({
+					name: 'Playtree Web Player: ' + deviceName,
+					getOAuthToken: (cb: any) => { cb(accessToken); },
+					volume: 1
+				});
 
-					newPlayer.addListener('ready', ({ device_id }: any) => {
-						spotify.player.getAvailableDevices().then(({ devices }) => {
-							const webPlayerDevice = devices.find(device => device.id === device_id)
-							if (webPlayerDevice && webPlayerDevice.id && !webPlayerDevice.is_active) {
-								spotify.player.transferPlayback([webPlayerDevice.id], false)
-								dispatch({ type: 'spotify_player_ready' })
-							}
-						})
-					});
+				newPlayer.activateElement()
 
-					newPlayer.addListener('player_state_changed', playbackState => {
-						if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
-							if (playtree) {
-								dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
-							}
+				newPlayer.addListener('ready', ({ device_id }: any) => {
+					clientFetchWithToken("https://api.spotify.com/v1/me/player", {
+						method: "PUT",
+						body: JSON.stringify({ device_ids: [device_id], play: false })
+					}).then(response => {
+						if (response.ok) {
+							dispatch({ type: 'spotify_player_ready'})
 						}
-						prevPlaybackState.current = playbackState
 					})
+				});
 
-					newPlayer.connect()
-				}
-			})
+				// TODO error handling if the device isn't ready to play
+
+				newPlayer.addListener('player_state_changed', playbackState => {
+					if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
+						if (playtree) {
+							dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
+						}
+					}
+					prevPlaybackState.current = playbackState
+				})
+
+				newPlayer.connect()
+			}
 		}
 
 		return () => {
@@ -835,18 +823,30 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 	useEffect(() => {
 		const currentPlayhead = state.playheads[state.playheadIndex]
 		if (currentPlayhead) {
-			spotify.player.getPlaybackState().then(playbackState => {
-				if (playbackState) {
-					const deviceID = playbackState.device.id
-					if (deviceID) {
-						if (state.playing) {
-							const currentSong = currentPlayhead.node.content[currentPlayhead.nodeIndex]
-							spotify.player.startResumePlayback(deviceID, undefined, [currentSong.uri], undefined, currentPlayhead.spotifyPlaybackPosition_ms)
-							dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
-						} else if (playbackState.is_playing) {
-							spotify.player.pausePlayback(deviceID)
+			clientFetchWithToken("https://api.spotify.com/v1/me/player").then(response => {
+				if (response.ok) {
+					response.json().then(playbackState => {
+						const deviceID = playbackState.device.id
+						if (deviceID) {
+							if (state.playing) {
+								const currentSong = currentPlayhead.node.content[currentPlayhead.nodeIndex]
+								clientFetchWithToken("https://api.spotify.com/v1/me/player/play", {
+									method: "PUT",
+									body: JSON.stringify({
+										device_id: deviceID,
+										uris: [currentSong.uri],
+										position_ms: currentPlayhead.spotifyPlaybackPosition_ms
+									})
+								})
+								dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
+							} else if (playbackState.is_playing) {
+								clientFetchWithToken("https://api.spotify.com/v1/me/player/pause", {
+									method: "PUT",
+									body: JSON.stringify({ device_id: deviceID })
+								})
+							}
 						}
-					}
+					})
 				}
 			})
 		}
@@ -854,9 +854,16 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 
 	useEffect(() => {
 		if (state.playheads[state.playheadIndex]?.stopped) {
-			spotify.player.getPlaybackState().then(playbackState => {
-				if (playbackState && playbackState.is_playing && playbackState.device.id) {
-					spotify.player.pausePlayback(playbackState.device.id)
+			clientFetchWithToken("https://api.spotify.com/v1/me/player").then(response => {
+				if (response.ok) {
+					response.json().then(playbackState => {
+						if (playbackState && playbackState.is_playing && playbackState.device.id) {
+							clientFetchWithToken("https://api.spotify.com/v1/me/player/pause", {
+								method: "PUT",
+								body: JSON.stringify({ device_id: playbackState.device.id})
+							})
+						}
+					})
 				}
 			})
 		}
@@ -865,16 +872,32 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 	const handlePlayPauseAudio = useCallback((shouldPlay: boolean) => {
 		const currentPlayhead = state.playheads[state.playheadIndex]
 		const currentSong = currentPlayhead.node.content[currentPlayhead.nodeIndex]
-		spotify.player.getPlaybackState().then(playbackState => {
-			const deviceID = playbackState.device.id
-			if (deviceID) {
-				if (shouldPlay) {
-					spotify.player.startResumePlayback(deviceID, undefined, [currentSong.uri], undefined, currentPlayhead.spotifyPlaybackPosition_ms)
-					dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
-				} else {
-					spotify.player.pausePlayback(deviceID)
-					dispatch({ type: "song_progress_received", spotifyPlaybackPosition_ms: playbackState.progress_ms })
-				}
+
+		clientFetchWithToken("https://api.spotify.com/v1/me/player").then(response => {
+			if (response.ok) {
+				response.json().then(playbackState => {
+					const deviceID = playbackState.device.id
+					if (deviceID) {
+						if (shouldPlay) {
+							clientFetchWithToken("https://api.spotify.com/v1/me/player/play", {
+								method: "PUT",
+								body: JSON.stringify({
+									device_id: deviceID,
+									uris: [currentSong.uri],
+									position_ms: currentPlayhead.spotifyPlaybackPosition_ms
+								})
+							})
+							dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
+						} else {
+							clientFetchWithToken("https://api.spotify.com/v1/me/player/pause", {
+								method: "PUT",
+								body: JSON.stringify({ device_id: playbackState.device.id})
+							})
+							dispatch({ type: "song_progress_received", spotifyPlaybackPosition_ms: playbackState.progress_ms })
+							dispatch({ type: "message_logged", message: "Paused." })
+						}
+					}
+				})
 			}
 		})
 		dispatch({ type: shouldPlay ? "played" : "paused" })

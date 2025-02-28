@@ -17,6 +17,8 @@ import UserSidebar from "./components/UserSidebar";
 import Banner from "./components/Banner";
 import { playtreeFromJson } from "./types";
 import { getSession } from "./sessions";
+import { clientFetchWithToken } from "./fetch-with-token";
+import { useEffect } from "react";
 
 export const links: LinksFunction = () => [
 	{ rel: "stylesheet", href: styles },
@@ -37,7 +39,9 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 	}).then(response => response.json())
 	return {
 		playerPlaytree: playerPlaytreeJson,
-		userPlaytreeSummaries: userPlaytreeSummariesJson
+		userPlaytreeSummaries: userPlaytreeSummariesJson,
+		accessToken: session.get("accessToken"),
+		refreshToken: session.get("refreshToken")
 	}
 }
 
@@ -65,8 +69,17 @@ export default function App() {
 	const playerActionData = useFetcher<typeof action>({ key: "player" })
 	const playerPlaytree = playtreeFromJson(data.playerPlaytree)
 	const userPlaytreeSummaries = data.userPlaytreeSummaries
+	const location = useLocation() // used for React resolution keys
 
-	const location = useLocation()
+	useEffect(() => {
+		if (data.accessToken) {
+			localStorage.setItem("spotify_access_token", data.accessToken)
+		}
+		if (data.refreshToken) {
+			localStorage.setItem("spotify_refresh_token", data.refreshToken)
+		}
+	}, [])
+
 	return (
 		<html lang="en">
 			<head>

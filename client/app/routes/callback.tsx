@@ -35,6 +35,7 @@ export async function loader({
 			);
 
 			session.set("accessToken", accessToken.access_token)
+			session.set("refreshToken", accessToken.refresh_token)
 
 			return redirect("/", {
 				headers: {
