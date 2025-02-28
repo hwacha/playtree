@@ -48,19 +48,41 @@ func getAllPlaytreeSummaries() ([]SummaryInfo, error) {
 var handlers = map[string]func(http.ResponseWriter, *http.Request){
 	"GET /playtrees": func(w http.ResponseWriter, r *http.Request) {
 		summaries, err := getAllPlaytreeSummaries()
+		publicSummaries := []SummaryInfo{}
+
+		for _, summary := range summaries {
+			if summary.Access == "public" {
+				publicSummaries = append(publicSummaries, summary)
+			}
+		}
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		encoder := json.NewEncoder(w)
-		err = encoder.Encode(summaries)
+		err = encoder.Encode(publicSummaries)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	},
 	"GET /playtrees/me": func(w http.ResponseWriter, r *http.Request) {
+		spotifyRequest, _ := http.NewRequest("GET", "https://api.spotify.com/v1/me", nil)
+		spotifyRequest.Header.Set("Authorization", r.Header.Get("Authorization"))
+		client := &http.Client{}
+		spotifyResponse, _ := client.Do(spotifyRequest)
+		defer spotifyResponse.Body.Close()
+		decoder := json.NewDecoder(spotifyResponse.Body)
+
+		type SpotifyUserInfo struct {
+			ID string `json:"id"`
+		}
+
+		var userInfo SpotifyUserInfo
+
+		decoder.Decode(&userInfo)
+
 		summaries, err := getAllPlaytreeSummaries()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -69,7 +91,7 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 
 		summariesByUser := []SummaryInfo{}
 		for _, summary := range summaries {
-			if summary.CreatedBy == "h_wacha" { // TODO auth
+			if summary.CreatedBy == userInfo.ID {
 				summariesByUser = append(summariesByUser, summary)
 			}
 		}

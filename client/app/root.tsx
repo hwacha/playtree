@@ -1,4 +1,4 @@
-import type { ActionFunctionArgs, LinksFunction } from "@remix-run/node";
+import type { ActionFunctionArgs, LinksFunction, LoaderFunctionArgs } from "@remix-run/node";
 import {
 	Links,
 	Meta,
@@ -16,17 +16,32 @@ import styles from "./tailwind.css?url";
 import UserSidebar from "./components/UserSidebar";
 import Banner from "./components/Banner";
 import { playtreeFromJson } from "./types";
+import { getSession } from "./sessions";
+import { clientFetchWithToken } from "./fetch-with-token";
+import { useEffect } from "react";
 
 export const links: LinksFunction = () => [
 	{ rel: "stylesheet", href: styles },
 ];
 
-export const loader = async () => {
-	const playerPlaytreeJson = await fetch("http://localhost:8080/me/player").then(response => response.json())
-	const userPlaytreeSummariesJson = await fetch("http://localhost:8080/playtrees/me").then(response => response.json())
+export const loader = async ({request} : LoaderFunctionArgs) => {
+	const session = await getSession(request.headers.get("Cookie"))
+
+	const playerPlaytreeJson = await fetch("http://localhost:8080/me/player", {
+		headers: {
+			Authorization: "Bearer " + session.get("accessToken")
+		}
+	}).then(response => response.json())
+	const userPlaytreeSummariesJson = await fetch("http://localhost:8080/playtrees/me", {
+		headers: {
+			Authorization: "Bearer " + session.get("accessToken")
+		}
+	}).then(response => response.json())
 	return {
 		playerPlaytree: playerPlaytreeJson,
-		userPlaytreeSummaries: userPlaytreeSummariesJson
+		userPlaytreeSummaries: userPlaytreeSummariesJson,
+		accessToken: session.get("accessToken"),
+		refreshToken: session.get("refreshToken")
 	}
 }
 
@@ -54,8 +69,17 @@ export default function App() {
 	const playerActionData = useFetcher<typeof action>({ key: "player" })
 	const playerPlaytree = playtreeFromJson(data.playerPlaytree)
 	const userPlaytreeSummaries = data.userPlaytreeSummaries
+	const location = useLocation() // used for React resolution keys
 
-	const location = useLocation()
+	useEffect(() => {
+		if (data.accessToken) {
+			localStorage.setItem("spotify_access_token", data.accessToken)
+		}
+		if (data.refreshToken) {
+			localStorage.setItem("spotify_refresh_token", data.refreshToken)
+		}
+	}, [])
+
 	return (
 		<html lang="en">
 			<head>
