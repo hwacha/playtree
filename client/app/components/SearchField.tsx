@@ -1,5 +1,6 @@
 import { FormEventHandler, useEffect, useRef, useState } from "react";
 import { SPOTIFY_SEARCH_API_PATH } from "../api_endpoints";
+import { clientFetchWithToken } from "../fetch-with-token";
 
 type SearchFieldProps = {
 	onContentSelect: (content: SearchResult) => boolean;
@@ -59,11 +60,7 @@ export default function SearchField(props: SearchFieldProps) {
 	useEffect(() => {
 		if (query.track.length >= 2) {
 			(async () => {
-				const data = await fetch(SPOTIFY_SEARCH_API_PATH(query.track), {
-					headers: {
-						Authorization: "Bearer " + JSON.parse(localStorage.getItem("spotify-sdk:AuthorizationCodeWithPKCEStrategy:token") as string).access_token
-					}
-				})
+				const data = await clientFetchWithToken(SPOTIFY_SEARCH_API_PATH(query.track))
 				const dataAsJSON = await data.json()
 				const searchResultsJSON: SearchResult[] = dataAsJSON.tracks.items.map((item: any) => { return { track: item.name, artist: item.artists[0].name, uri: item.uri } })
 				setSearchResults(searchResultsJSON)
