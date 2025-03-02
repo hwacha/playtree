@@ -10,7 +10,7 @@
 			"id": "0",
 			"type": "selector",
 			"name": "Early 2010s Indie Shuffle",
-			"limit": -1,
+			"limit": 1,
 			"playscopes": [
 				0
 			],
@@ -263,7 +263,7 @@
 			"id": "4",
 			"type": "sequencer",
 			"name": "Playnode",
-			"limit": -1,
+			"limit": 9999,
 			"playscopes": [],
 			"playitems": [
 				{

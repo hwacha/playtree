@@ -3,7 +3,7 @@ import { PlaytreeEditorAction } from "../reducers/editor";
 
 type PlayheadProps = {
 	name: string;
-	nodeID: string;
+	playnodeID: string;
 	dispatch: (action: PlaytreeEditorAction) => void;
 }
 
@@ -13,7 +13,7 @@ export default function PlayheadComponent(props: PlayheadProps) {
 		setName(evt.target.value)
 		props.dispatch({
 			type: "updated_playhead",
-			nodeID: props.nodeID,
+			playnodeID: props.playnodeID,
 			patch: {
 				name: evt.target.value,
 			}
@@ -23,7 +23,7 @@ export default function PlayheadComponent(props: PlayheadProps) {
 	const handleDeleteSelf = () => {
 		props.dispatch({
 			type: "deleted_playhead",
-			nodeID: props.nodeID
+			playnodeID: props.playnodeID
 		})
 	}
 

@@ -6,7 +6,7 @@ import SearchField, { queryString, SearchResult } from "./SearchField";
 import React from "react";
 import NaturalNumberInputField from "./NaturalNumberInputField";
 import PlayitemComponent from "./PlayitemComponent";
-import PlayheadComponent from "./PlayrootComponent";
+import PlayrootComponent from "./PlayrootComponent";
 
 export type PlaynodeFlowData = Node<{
 	playnode: Playnode;
@@ -20,77 +20,52 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 	const [adding, setAdding] = useState<boolean>(false)
 	const [scopeView, setScopeView] = useState<boolean>(false)
 
-	const [playitems, setPlayitems] = useState<Playitem[]>(props.data.playnode.playitems)
-
-	const highestID = props.data.playnode.playitems.map(playitem => parseInt(playitem.id)).reduce((id1, id2) => Math.max(id1, id2), -1)
-	const [playitemID, setContentID] = useState<number>(highestID + 1)
-
-	const getNextID = useCallback(() => {
-		const nextID = playitemID
-		setContentID(c => c + 1)
-		return nextID
-	}, [playitemID])
-
 	const handleAddBegin = useCallback((_: any) => {
 		setAdding(true)
 	}, [])
 
-	const handleContentSelect = useCallback((newContent: SearchResult): boolean => {
-		if (newContent.uri === null) {
+	const handleContentSelect = useCallback((newPlayitemAsSearchResult: SearchResult): boolean => {
+		if (newPlayitemAsSearchResult.uri === null) {
 			return false
 		}
-		const newPlayitems = structuredClone(playitems)
-		newPlayitems.push({ id: getNextID().toString(), type: {source: "spotify", plurality: "single"}, name: queryString(newContent), uri: newContent.uri, multiplier: 1, limit: -1 })
-		setPlayitems(newPlayitems)
-		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { playitems: newPlayitems } })
+		props.data.dispatch({
+			type: "added_playitem_to_playnode",
+			playnodeID: props.data.playnode.id,
+			playitem: {
+				type: { source: "spotify", plurality: "single" },
+				uri: newPlayitemAsSearchResult.uri,
+				name: queryString(newPlayitemAsSearchResult),
+				multiplier: 1,
+				limit: -1
+			}})
 		setAdding(false)
-		return false
-	}, [adding, playitems])
+		return true
+	}, [])
 
 	const handleSearchFocusOut = useCallback((event: FocusEvent) => {
 		setAdding(false)
 	}, [])
 
-	const handleChangeName = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { name: event.target.value } })
-	}, [props.data.playnode.name]);
-
-	const handleTogglePlaynodeType = useCallback(() => {
-		const otherType: Playnode["type"] = props.data.playnode.type === "sequencer" ? "selector" : "sequencer"
-		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { type: otherType } })
-	}, [props.data.playnode.type])
-
 	const handleToggleScope = useCallback(() => {
 		setScopeView(sv => !sv)
 	}, [])
 
+	const handleChangeName = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { name: event.target.value } })
+	}, [props.data.playnode.name]);
+
+	const handleTogglePlaynodeType = useCallback(() => {
+		const otherType: Playnode["type"] = props.data.playnode.type === "sequencer" ? "selector" : "sequencer"
+		props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { type: otherType } })
+	}, [props.data.playnode.type])
+
 	const handleMoveUp = useCallback((index: number) => () => {
-		if (index <= 0) {
-			return
-		}
-		const newPlayitems = structuredClone(playitems)
-		newPlayitems[index - 1] = playitems[index]
-		newPlayitems[index] = playitems[index - 1]
-		setPlayitems(newPlayitems)
-		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { playitems: newPlayitems } })
-	}, [playitems])
+		props.data.dispatch({ type: "moved_playitem_up", playnodeID: props.data.playnode.id, index: index })
+	}, [])
 
 	const handleMoveDown = useCallback((index: number) => () => {
-		if (index + 1 >= playitems.length) {
-			return
-		}
-		const newPlayitems = structuredClone(playitems)
-		newPlayitems[index + 1] = playitems[index]
-		newPlayitems[index] = playitems[index + 1]
-		setPlayitems(newPlayitems)
-	}, [playitems])
-
-	const handleDeleteContent = useCallback((index: number) => () => {
-		const newPlayitems = structuredClone(playitems)
-		newPlayitems.splice(index, 1)
-		setPlayitems(newPlayitems)
-		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { playitems: newPlayitems } })
-	}, [playitems])
+		props.data.dispatch({ type: "moved_playitem_down", playnodeID: props.data.playnode.id, index: index })
+	}, [])
 
 	const handleDeleteSelf = useCallback(() => {
 		props.data.handleDeletePlaynode(props.data.playnode.id)
@@ -101,7 +76,7 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 
 	const handleDrop = (event: any) => {
 		event.preventDefault();
-		props.data.dispatch({ type: "added_playhead", nodeID: props.data.playnode.id })
+		props.data.dispatch({ type: "added_playhead", playnodeID: props.data.playnode.id })
 	}
 
 	const handleAddScope : React.FormEventHandler<HTMLFormElement> = event => {
@@ -109,12 +84,12 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 		const form = event.target;
 		const formData = new FormData(form as any);
 
-		props.data.dispatch({type: "added_scope_to_playnode", index: parseInt((formData.get("scope-id") as string).toString()), nodeID: (formData.get("node-id") as string).toString() })
+		props.data.dispatch({type: "added_scope_to_playnode", index: parseInt((formData.get("scope-id") as string).toString()), playnodeID: (formData.get("node-id") as string).toString() })
 	}
 
 	return (
 		<React.Fragment key={props.id}>
-			<div>{props.data.playroot ? <PlayheadComponent name={props.data.playroot.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)} /> : null}</div>
+			<div>{props.data.playroot ? <PlayrootComponent name={props.data.playroot.name} playnodeID={props.id} dispatch={(x) => props.data.dispatch(x)} /> : null}</div>
 			<Handle type="target" isConnectableStart={false} position={Position.Top} style={{ width: 12, height: 12 }} />
 			{
 				props.selected ?
@@ -152,18 +127,27 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 								</>
 								 :
 								 <>
-								 	<div className="font-markazi">
-										<span className="mr-1">Repeat:</span>
-										<NaturalNumberInputField canBeInfinite={true} defaultValue={1} value={props.data.playnode.limit} onChange={(n : number) => props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { limit: n } })}/>
+								 	<div className="font-markazi flex w-fit">
+										<span className="mr-1">Limit:</span>
+										<div className="w-8">
+											<NaturalNumberInputField
+												canBeInfinite={true}
+												defaultValue={1}
+												value={props.data.playnode.limit}
+												onChange={(n : number) => props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { limit: n } })}/>
+										</div>
 									</div>
 									<div className="flex font-markazi"><div className="ml-14">Name</div><div className="ml-[3.75rem]">M</div><div className="ml-3">R</div></div>
 									{
-										playitems.map((playitem: Playitem, index: number) => {
-											return <PlayitemComponent key={playitem.id} nodeID={props.id} index={index} color={color} playitems={playitems}
-												onMoveUp={index > 0 ? handleMoveUp(index) : undefined}
-												onMoveDown={index + 1 < playitems.length ? handleMoveDown(index) : undefined}
-												onDeleteSelf={handleDeleteContent}
-												onUpdatePlayitems={setPlayitems}
+										props.data.playnode.playitems.map((playitem: Playitem, index: number) => {
+											return <PlayitemComponent
+												key={playitem.id}
+												playnodeID={props.id}
+												playitem={playitem}
+												index={index}
+												color={color}
+												shouldHaveMoveUpButton={index > 0}
+												shouldHaveMoveDownButton={index + 1 < props.data.playnode.playitems.length}
 												dispatch={props.data.dispatch} />
 										})
 									}

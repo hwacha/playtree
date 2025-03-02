@@ -62,8 +62,8 @@ export default function PlaytreeEditor() {
 	const [scopeManagerVisible, setScopeManagerVisible] = useState<boolean>(false)
 
 	const handleDeletePlaynode = (nodeID: string) => {
-		dispatch({ type: "deleted_playnode", nodeID: nodeID })
-		dispatch({ type: "deleted_playhead", nodeID: nodeID })
+		dispatch({ type: "deleted_playnode", playnodeID: nodeID })
+		dispatch({ type: "deleted_playhead", playnodeID: nodeID })
 	}
 
 	const handleDeletePlayedge = (sourceID: string, targetID: string) => {
