@@ -10,6 +10,7 @@ import { PlaytreeEditorAction, playtreeReducer } from "../reducers/editor";
 import PlaynodeComponent, { PlaynodeFlowData } from "../components/PlaynodeComponent";
 import PlayedgeComponent, { PlayedgeFlowData } from "../components/PlayedgeComponent";
 import { PlayConnectionLine } from "../components/PlayConnectionLine";
+import { intersection, isSubsetOf, isSupersetOf } from "@opentf/std";
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
 	invariant(params.playtree)
@@ -61,14 +62,30 @@ export default function PlaytreeEditor() {
 	})
 	const [scopeManagerVisible, setScopeManagerVisible] = useState<boolean>(false)
 
-	const handleDeletePlaynode = (nodeID: string) => {
-		dispatch({ type: "deleted_playnode", playnodeID: nodeID })
-		dispatch({ type: "deleted_playhead", playnodeID: nodeID })
-	}
+	const playscopeComparator = useMemo(() => {
+		const playnodesByPlayscope = state.playtree.playscopes.map(_ => new Set<string>())
+		state.playtree.playnodes.forEach((playnode) => {
+			playnode.playscopes.forEach(playscopeID => {
+				playnodesByPlayscope[playscopeID].add(playnode.id)
+			})
+		})
 
-	const handleDeletePlayedge = (sourceID: string, targetID: string) => {
-		dispatch({ type: "deleted_playedge", sourceID: sourceID, targetID: targetID })
-	}
+		return (i : number, j : number) : number => {
+			const iSubsetOfJ = isSubsetOf(playnodesByPlayscope[i], playnodesByPlayscope[j])
+			const jSubsetOfI = isSubsetOf(playnodesByPlayscope[j], playnodesByPlayscope[i])
+			if (iSubsetOfJ && jSubsetOfI) {
+				return 0
+			}
+			if (iSubsetOfJ) {
+				return -1
+			}
+			if (jSubsetOfI) {
+				return 1
+			}
+
+			return 0
+		}
+	}, [state.playtree.playscopes, state.playtree.playnodes])
 
 	const initialFlownodeData: PlaynodeFlowData[] = Array.from(initialPlaytree.playnodes.values()).map((playnode, index) => {
 		return {
@@ -84,7 +101,7 @@ export default function PlaytreeEditor() {
 				playroot: initialPlaytree.playroots.get(playnode.id) ?? null,
 				playscopes: initialPlaytree.playscopes,
 				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
-				handleDeletePlaynode: handleDeletePlaynode
+				playscopeComparator: playscopeComparator,
 			}
 		}
 	})
@@ -177,7 +194,7 @@ export default function PlaytreeEditor() {
 				playscopes: state.playtree.playscopes,
 				playroot: null,
 				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
-				handleDeletePlaynode: handleDeletePlaynode
+				playscopeComparator: playscopeComparator
 			}
 		}
 	}, [])

@@ -16,7 +16,7 @@ export type PlaytreeEditorAction = {
 	type: "loaded_playtree",
 	playtree: Playtree
 } | {
-	type: "added_playnode" | "saved_playtree" | "added_playscope",
+	type: "added_playnode" | "added_playscope" | "saved_playtree",
 } | {
 	type: "updated_playnode",
 	playnodeID: string,
@@ -51,7 +51,7 @@ export type PlaytreeEditorAction = {
 	type: "deleted_playscope",
 	index: number
 } | {
-	type: "added_scope_to_playnode",
+	type: "toggled_playscope_in_playnode",
 	index: number,
 	playnodeID: string
 } | {
@@ -315,18 +315,19 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 				unsavedChangesExist: unsavedChangeOccurred
 			}
 		}
-		case "added_scope_to_playnode": {
-			const nodesByScope = new Map<number, string>()
-			state.playtree.playnodes.forEach(node => {
-				node.playscopes.forEach(scopeID => {
-					if (!nodesByScope.has(scopeID)) {
-						nodesByScope.set(scopeID, node.id)
-					}
-				})
-			})
-
+		case "toggled_playscope_in_playnode": {
 			const newNodes = structuredClone(state.playtree.playnodes)
-			newNodes.get(action.playnodeID)?.playscopes.push(action.index)
+			const newPlayscopes = newNodes.get(action.playnodeID)?.playscopes
+			if (newPlayscopes) {
+				const indexInPlayscopes = newPlayscopes.findIndex(playscope => playscope === action.index)
+				if (indexInPlayscopes === -1) { // node doesn't have playscope yet
+					// add to playscopes
+					newPlayscopes.push(action.index)
+				} else {
+					// remove from playscopes
+					newPlayscopes.splice(indexInPlayscopes, 1)
+				}
+			}
 
 			return {
 				...state,
@@ -355,7 +356,8 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 				playtree: {
 					...state.playtree,
 					playnodes: newPlaynodes
-				}
+				},
+				unsavedChangesExist: unsavedChangeOccurred
 			}
 		}
 		case "updated_playitem": {
@@ -370,7 +372,8 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 				playtree: {
 					...state.playtree,
 					playnodes: newPlaynodes
-				}
+				},
+				unsavedChangesExist: unsavedChangeOccurred
 			}
 		}
 		case "deleted_playitem_from_playnode": {
@@ -385,7 +388,8 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 				playtree: {
 					...state.playtree,
 					playnodes: newPlaynodes
-				}
+				},
+				unsavedChangesExist: unsavedChangeOccurred
 			}
 		}
 		case "moved_playitem_down": {
@@ -405,7 +409,8 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 				playtree: {
 					...state.playtree,
 					playnodes: newPlaynodes
-				}
+				},
+				unsavedChangesExist: unsavedChangeOccurred
 			}
 		}
 		case "moved_playitem_up": {
@@ -425,7 +430,8 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 				playtree: {
 					...state.playtree,
 					playnodes: newPlaynodes
-				}
+				},
+				unsavedChangesExist: unsavedChangeOccurred
 			}
 		}
 	}
