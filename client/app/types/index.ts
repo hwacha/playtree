@@ -1,52 +1,50 @@
-import { Playcounters } from "../components/player";
-
-export type SourceInfo = {
-	type: "graft" | "starter"
-	id: string
-}
-
 export type PlaytreeSummary = {
 	id: string;
 	name: string;
 	createdBy: string;
-	SourceInfo: SourceInfo | null;
+	access: "public" | "private"
 }
 
-export type Content = {
+export type PlayitemType = {
+	source: "local" | "spotify" | "youtube",
+	plurality: "single" | "collection"
+}
+
+export type Playitem = {
 	id: string;
-	type: "local-audio" | "spotify-track" | "spotify-playlist";
-	name: string;
+	type: PlayitemType;
 	uri: string;
-	mult: number;
-	repeat: number;
-}
-
-export type PlayEdge = {
-	nodeID: string;
-	shares: number;
-	priority: number;
-	repeat: number;
-}
-
-export type PlayNode = {
-	id: string;
 	name: string;
-	type: "sequence" | "selector";
-	repeat: number;
-	scopes: number[];
-	content: Content[];
-	next: PlayEdge[];
+	multiplier: number;
+	limit: number;
+}
+
+export type Playedge = {
+	targetID: string;
+	priority: number;
+	shares: number;
+	limit: number;
+}
+
+export type Playnode = {
+	id: string;
+	type: "sequencer" | "selector" | "simulplexer";
+	name: string;
+	limit: number;
+	playscopes: number[];
+	playitems: Playitem[];
+	next: Playedge[];
 }
 
 export type HistoryNode = {
-	nodeID: string;
+	playnodeID: string;
 	index: number;
 	multIndex: number;
-	traversedPlayedge: PlayEdge | null;
+	traversedPlayedge: Playedge | null;
 	cachedPlaycounters: Playcounters | null;
 }
 
-export type PlayheadInfo = {
+export type Playroot = {
 	index: number;
 	name: string;
 }
@@ -65,16 +63,16 @@ export const makeDefaultPlayscope = () : Playscope => {
 
 export type Playtree = {
 	summary: PlaytreeSummary;
-	nodes: Map<string, PlayNode>;
-	playroots: Map<string, PlayheadInfo>;
+	playnodes: Map<string, Playnode>;
+	playroots: Map<string, Playroot>;
 	playscopes: Playscope[];
 }
 
-export const playtreeFromJson = (playtreeWithNodesAsJSObject: { summary: PlaytreeSummary, nodes: { [key: string]: PlayNode }, playroots: { [key: string]: PlayheadInfo }, playscopes: Playscope[] }): Playtree | null => {
+export const playtreeFromJson = (playtreeWithNodesAsJSObject: { summary: PlaytreeSummary, playnodes: { [key: string]: Playnode }, playroots: { [key: string]: Playroot }, playscopes: Playscope[] }): Playtree | null => {
 	if (playtreeWithNodesAsJSObject) {
 		return {
 			...playtreeWithNodesAsJSObject,
-			nodes: new Map(Object.entries(playtreeWithNodesAsJSObject.nodes)),
+			playnodes: new Map(Object.entries(playtreeWithNodesAsJSObject.playnodes)),
 			playroots: new Map(Object.entries(playtreeWithNodesAsJSObject.playroots)),
 		}
 	}
@@ -82,10 +80,10 @@ export const playtreeFromJson = (playtreeWithNodesAsJSObject: { summary: Playtre
 	return null
 }
 
-export const jsonFromPlaytree = (playtree: Playtree): { summary: PlaytreeSummary, nodes: { [key: string]: PlayNode }, playroots: { [key: string]: PlayheadInfo }, playscopes: Playscope[] } => {
+export const jsonFromPlaytree = (playtree: Playtree): { summary: PlaytreeSummary, playnodes: { [key: string]: Playnode }, playroots: { [key: string]: Playroot }, playscopes: Playscope[] } => {
 	return {
 		...playtree,
-		nodes: Object.fromEntries(playtree.nodes.entries()),
+		playnodes: Object.fromEntries(playtree.playnodes.entries()),
 		playroots: Object.fromEntries(playtree.playroots.entries())
 	}
 }

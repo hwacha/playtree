@@ -14,7 +14,7 @@ import (
 
 var currentlyPlaying *string = nil
 
-func getAllPlaytreeSummaries() ([]SummaryInfo, error) {
+func getAllPlaytreeSummaries() ([]Summary, error) {
 	dirPath := "playtrees/"
 
 	files, err := os.ReadDir(dirPath)
@@ -22,7 +22,7 @@ func getAllPlaytreeSummaries() ([]SummaryInfo, error) {
 		return nil, err
 	}
 
-	summaries := []SummaryInfo{}
+	summaries := []Summary{}
 	for _, dirEntry := range files {
 		if !strings.HasSuffix(dirEntry.Name(), ".json") {
 			continue
@@ -33,7 +33,7 @@ func getAllPlaytreeSummaries() ([]SummaryInfo, error) {
 		}
 		defer file.Close()
 
-		var pti PlaytreeInfo
+		var pti Playtree
 		decoder := json.NewDecoder(file)
 		err = decoder.Decode(&pti)
 		if err != nil {
@@ -48,7 +48,7 @@ func getAllPlaytreeSummaries() ([]SummaryInfo, error) {
 var handlers = map[string]func(http.ResponseWriter, *http.Request){
 	"GET /playtrees": func(w http.ResponseWriter, r *http.Request) {
 		summaries, err := getAllPlaytreeSummaries()
-		publicSummaries := []SummaryInfo{}
+		publicSummaries := []Summary{}
 
 		for _, summary := range summaries {
 			if summary.Access == "public" {
@@ -89,7 +89,7 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 			return
 		}
 
-		summariesByUser := []SummaryInfo{}
+		summariesByUser := []Summary{}
 		for _, summary := range summaries {
 			if summary.CreatedBy == userInfo.ID {
 				summariesByUser = append(summariesByUser, summary)
@@ -117,17 +117,16 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		// generate ID
 		newPlaytreeId := uuid.New().String()
 
-		pti := PlaytreeInfo{
-			Summary: SummaryInfo{
+		pti := Playtree{
+			Summary: Summary{
 				ID:        newPlaytreeId,
 				Name:      psi.Name,
 				CreatedBy: psi.CreatedBy,
 				Access:    psi.Access,
-				Source:    nil,
 			},
-			Nodes:      make(map[string]PlayNodeInfo),
-			Playroots:  make(map[string]PlayheadInfo),
-			Playscopes: []PlayscopeInfo{},
+			Playnodes:  make(map[string]Playnode),
+			Playroots:  make(map[string]Playhead),
+			Playscopes: []Playscope{},
 		}
 
 		// create JSON file <id>.json with body contents, return Created
@@ -180,10 +179,9 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 			return
 		}
 
-		_, playtreeErr := playtreeFromPlaytreeInfo(*pti)
-		if playtreeErr != nil {
+		if invalidPlaytreeSemanticErr := validatePlaytreeInfo(pti); invalidPlaytreeSemanticErr != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, playtreeErr)
+			fmt.Fprint(w, invalidPlaytreeSemanticErr)
 			return
 		}
 
