@@ -17,7 +17,6 @@ import UserSidebar from "./components/UserSidebar";
 import Banner from "./components/Banner";
 import { playtreeFromJson } from "./types";
 import { getSession } from "./sessions";
-import { clientFetchWithToken } from "./utils/fetch-with-token";
 import { useEffect } from "react";
 
 export const links: LinksFunction = () => [
@@ -90,7 +89,6 @@ export default function App() {
 			</head>
 			<body className="bg-amber-100">
 				<Scripts />
-
 				<UserSidebar userPlaytreeSummaries={userPlaytreeSummaries} />
 				<div className="absolute left-48 w-[calc(100vw-12rem)] h-full">
 					<Banner />

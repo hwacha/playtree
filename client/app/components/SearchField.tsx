@@ -1,6 +1,6 @@
 import { FormEventHandler, useEffect, useRef, useState } from "react";
 import { SPOTIFY_SEARCH_API_PATH } from "../api_endpoints";
-import { clientFetchWithToken } from "../utils/fetch-with-token";
+import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 
 type SearchFieldProps = {
 	onContentSelect: (content: SearchResult) => boolean;

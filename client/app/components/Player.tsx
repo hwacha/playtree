@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react"
 import { Playitem, Playnode, Playtree } from "../types";
 import deepEqual from "deep-equal";
-import { clientFetchWithToken } from "../utils/fetch-with-token";
+import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import reducer, { Playhead } from "../reducers/player";
 
 type PlayerProps = {
