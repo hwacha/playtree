@@ -220,7 +220,8 @@ export default function PlaytreeEditor() {
 						...playnodeFlowDataToUpsert.data,
 						playnode: {...playnode},
 						playscopes: state.playtree.playscopes,
-						playroot: state.playtree.playroots.get(playnode.id) ?? null
+						playroot: state.playtree.playroots.get(playnode.id) ?? null,
+						playscopeComparator: playscopeComparator
 					}
 				}
 
@@ -251,7 +252,7 @@ export default function PlaytreeEditor() {
 			})
 			return upsertedAndFilteredPlayedgeFlowData
 		})
-	}, [state.playtree])
+	}, [state.playtree, playscopeComparator])
 
 	const handleManageScopes = useCallback(() => {
 		setScopeManagerVisible(!scopeManagerVisible)

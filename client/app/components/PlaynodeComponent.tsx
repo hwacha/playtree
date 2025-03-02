@@ -83,14 +83,13 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 		return [...props.data.playscopes].map((p, i) => {
 			return {playscope: p, index: i}
 		}).sort(({playscope: p1, index: i1}, {playscope: p2, index: i2}) => {
-			console.log(p1, p2, props.data.playscopeComparator(i1, i2))
 			return props.data.playscopeComparator(i1, i2)
 		}).filter(({index}) => props.data.playnode.playscopes.includes(index))
 	}, [props.data.playscopes, props.data.playnode.playscopes])
 
 	const numScopes = playscopesOnPlaynode.length
 
-	let component = <>
+	let component = <div className="opacity-100" style={{zIndex: props.zIndex}}>
 		<Handle type="target" isConnectableStart={false} position={Position.Top} style={{ width: 12, height: 12, top: 2 + 4 * numScopes }} />
 		{
 			props.selected ?
@@ -158,10 +157,12 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 				<div className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-64 h-16 py-4 text-center`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>{props.data.playnode.name}</div>
 		}
 		<Handle type="source" position={Position.Bottom} id="a" style={{ width: 12, height: 12, bottom: 2 + 4 * numScopes }} />
-	</>
+	</div>
 
-	playscopesOnPlaynode.forEach(({playscope, index}) => {
-		component = <div key={index} className={`w-fit h-fit p-1 rounded-xl bg-opacity-50`} style={{backgroundColor: playscope.color}}>{component}</div>
+	playscopesOnPlaynode.forEach(({playscope, index}, depth) => {
+		const [r, g, b] = hexToRGB(playscope.color);
+		const rgba = `rgba(${r}, ${g}, ${b}, ${0.5})`
+		component = <div key={index} className={`w-fit h-fit border-4`} style={{borderColor: rgba, borderRadius: 4 * (4 + depth), zIndex: -200 - depth - 1}}>{component}</div>
 	})
 
 	return (
