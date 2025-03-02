@@ -4,7 +4,7 @@ import { Background, Controls, MarkerType, ReactFlow, getBezierPath, addEdge, On
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
-import { jsonFromPlaytree, PlayEdge, PlayNode, Playscope, Playtree, playtreeFromJson } from "../types";
+import { jsonFromPlaytree, Playedge, Playnode, Playscope, Playtree, playtreeFromJson } from "../types";
 import Dagre from '@dagrejs/dagre';
 import { PlaytreeEditorAction, playtreeReducer } from "../reducers/playtree-editor";
 import PlaynodeComponent, { PlaynodeFlowData } from "../components/PlaynodeComponent";
@@ -70,7 +70,7 @@ export default function PlaytreeEditor() {
 		dispatch({ type: "deleted_playedge", sourceID: sourceID, targetID: targetID })
 	}
 
-	const initialFlownodeData: PlaynodeFlowData[] = Array.from(initialPlaytree.nodes.values()).map((playnode, index) => {
+	const initialFlownodeData: PlaynodeFlowData[] = Array.from(initialPlaytree.playnodes.values()).map((playnode, index) => {
 		return {
 			key: playnode.id,
 			type: "play",
@@ -81,21 +81,21 @@ export default function PlaytreeEditor() {
 			data: {
 				label: playnode.id,
 				playnode: playnode,
-				playhead: initialPlaytree.playroots.get(playnode.id) ?? null,
-				scopes: initialPlaytree.playscopes,
+				playroot: initialPlaytree.playroots.get(playnode.id) ?? null,
+				playscopes: initialPlaytree.playscopes,
 				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
 				handleDeletePlaynode: handleDeletePlaynode
 			}
 		}
 	})
 
-	const makeNewPlayedgeFlowData = useCallback((playnode: PlayNode, playedge: PlayEdge): PlayedgeFlowData => {
+	const makeNewPlayedgeFlowData = useCallback((playnode: Playnode, playedge: Playedge): PlayedgeFlowData => {
 		return {
-			id: playnode.id + "-" + playedge.nodeID,
+			id: playnode.id + "-" + playedge.targetID,
 			type: "play",
-			label: playnode.id + "-" + playedge.nodeID,
+			label: playnode.id + "-" + playedge.targetID,
 			source: playnode.id,
-			target: playedge.nodeID,
+			target: playedge.targetID,
 			markerEnd: {
 				type: MarkerType.Arrow,
 				color: "brown",
@@ -112,7 +112,7 @@ export default function PlaytreeEditor() {
 	}, [])
 
 	let initialFlowedgeData: PlayedgeFlowData[] = []
-	initialPlaytree.nodes.forEach(playnode => {
+	initialPlaytree.playnodes.forEach(playnode => {
 		if (playnode.next) {
 			playnode.next.forEach(playedge => {
 				initialFlowedgeData.push(makeNewPlayedgeFlowData(playnode, playedge))
@@ -150,13 +150,13 @@ export default function PlaytreeEditor() {
 	}, [])
 
 	const onConnect: OnConnect = useCallback(connection => {
-		const sourcePlaynode = state.playtree.nodes.get(connection.source)
+		const sourcePlaynode = state.playtree.playnodes.get(connection.source)
 		if (sourcePlaynode) {
-			const playedge = { nodeID: connection.target, shares: 1, priority: 0, repeat: -1 }
+			const playedge = { targetID: connection.target, priority: 0, shares: 1, limit: -1 }
 			setFlowedges((eds) => addEdge(makeNewPlayedgeFlowData(sourcePlaynode, playedge), eds))
 			dispatch({ type: "added_playedge", sourceID: connection.source, targetID: connection.target })
 		}
-	}, [state.playtree.nodes]);
+	}, [state.playtree.playnodes]);
 
 	const makeNewPlaynodeFlowData = useCallback((id: string) : PlaynodeFlowData => {
 		return {
@@ -168,14 +168,14 @@ export default function PlaytreeEditor() {
 				playnode: {
 					id: id,
 					name: "Playnode",
-					type: "sequence",
-					repeat: -1,
-					scopes: [],
-					content: [],
+					type: "sequencer",
+					limit: -1,
+					playscopes: [],
+					playitems: [],
 					next: []
 				},
-				scopes: state.playtree.playscopes,
-				playhead: null,
+				playscopes: state.playtree.playscopes,
+				playroot: null,
 				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
 				handleDeletePlaynode: handleDeletePlaynode
 			}
@@ -192,7 +192,7 @@ export default function PlaytreeEditor() {
 			// next, upsert flownodes w/r/t the now-existing playnodes
 			const upsertedAndFilteredPlaynodeFlowData : PlaynodeFlowData[] = []
 			// Note: this procedure is O(n^2) whose performance could be improved if necessary
-			state.playtree.nodes.forEach(playnode => {
+			state.playtree.playnodes.forEach(playnode => {
 				let playnodeFlowDataToUpsert = oldFlownodes.find(flownode => {
 					return flownode.id === playnode.id
 				}) ?? makeNewPlaynodeFlowData(playnode.id)
@@ -202,8 +202,8 @@ export default function PlaytreeEditor() {
 					data: {
 						...playnodeFlowDataToUpsert.data,
 						playnode: {...playnode},
-						scopes: state.playtree.playscopes,
-						playhead: state.playtree.playroots.get(playnode.id) ?? null
+						playscopes: state.playtree.playscopes,
+						playroot: state.playtree.playroots.get(playnode.id) ?? null
 					}
 				}
 
@@ -216,10 +216,10 @@ export default function PlaytreeEditor() {
 		setFlowedges(oldFlowedges => {
 			// upsert
 			const upsertedAndFilteredPlayedgeFlowData : PlayedgeFlowData[] = []
-			state.playtree.nodes.forEach(playnode => {
+			state.playtree.playnodes.forEach(playnode => {
 				playnode.next?.forEach(playedge => {
 					const playedgeFlowDataToUpsert : PlayedgeFlowData = oldFlowedges.find(flowedge => {
-						return flowedge.id === `${playnode.id}-${playedge.nodeID}`
+						return flowedge.id === `${playnode.id}-${playedge.targetID}`
 					}) ?? makeNewPlayedgeFlowData(playnode, playedge)
 
 					if (playedgeFlowDataToUpsert.data) { // checking for typescript compiler
@@ -251,6 +251,7 @@ export default function PlaytreeEditor() {
 	const handleSave = useCallback(() => {
 		(async () => {
 			try {
+				console.log(jsonFromPlaytree(state.playtree))
 				const response = await fetch(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
 					method: "PUT",
 					body: JSON.stringify(jsonFromPlaytree(state.playtree))

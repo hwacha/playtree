@@ -1,5 +1,5 @@
 import { rgbToHex } from "@opentf/std";
-import { PlayEdge, PlayheadInfo, PlayNode, Playscope, Playtree } from "../types"
+import { Playedge, Playroot, Playnode, Playscope, Playtree } from "../types"
 
 export type LogMessage = {
 	type: "error" | "warning" | "success";
@@ -20,7 +20,7 @@ export type PlaytreeEditorAction = {
 } | {
     type: "updated_playnode",
     nodeID: string,
-    patch: Partial<Omit<PlayNode, 'id' | 'next'>>
+    patch: Partial<Omit<Playnode, 'id' | 'next'>>
 } | {
     type: "deleted_playnode",
     nodeID: string
@@ -32,14 +32,14 @@ export type PlaytreeEditorAction = {
     type: "updated_playedge",
     sourceID: string,
     targetID: string,
-    patch: Partial<Omit<PlayEdge, 'nodeID'>>
+    patch: Partial<Omit<Playedge, 'nodeID'>>
 } | {
     type: "added_playhead",
     nodeID: string
 } | {
     type: "updated_playhead",
     nodeID: string,
-    patch: Partial<Omit<PlayheadInfo, 'nodeID'>>
+    patch: Partial<Omit<Playroot, 'nodeID'>>
 } | {
     type: "deleted_playhead",
     nodeID: string,
@@ -77,34 +77,34 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
         }
         case "added_playnode": {
             let maxValue = -1
-            state.playtree.nodes.forEach((_, id) => {
+            state.playtree.playnodes.forEach((_, id) => {
                 const x = parseInt(id)
                 if (maxValue < x) {
                     maxValue = x
                 }
             })
-            const newPlaynode: PlayNode = {
+            const newPlaynode: Playnode = {
                 id: (maxValue + 1).toString(),
                 name: "Playnode",
-                type: "sequence",
-                repeat: -1,
-                scopes: [],
-                content: [],
+                type: "sequencer",
+                limit: -1,
+                playscopes: [],
+                playitems: [],
                 next: []
             }
-            const newPlaynodes = structuredClone(state.playtree.nodes)
+            const newPlaynodes = structuredClone(state.playtree.playnodes)
             newPlaynodes.set(newPlaynode.id, newPlaynode)
             return {
                 ...state,
                 playtree: {
                     ...state.playtree,
-                    nodes: newPlaynodes
+                    playnodes: newPlaynodes
                 },
                 unsavedChangesExist: unsavedChangeOccurred
             }
         }
         case "updated_playnode": {
-            const newNodes = structuredClone(state.playtree.nodes)
+            const newNodes = structuredClone(state.playtree.playnodes)
             let newPlaynode = newNodes.get(action.nodeID)
             if (newPlaynode) {
                 newPlaynode = Object.assign(newPlaynode, action.patch)
@@ -114,31 +114,31 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
                 ...state,
                 playtree: {
                     ...state.playtree,
-                    nodes: newNodes
+                    playnodes: newNodes
                 },
                 unsavedChangesExist: unsavedChangeOccurred
             }
         }
         case "deleted_playnode": {
-            let newNodes = structuredClone(state.playtree.nodes)
+            let newNodes = structuredClone(state.playtree.playnodes)
             newNodes.delete(action.nodeID)
-            Array.from(newNodes.values()).forEach(node => {
-                newNodes.set(node.id, {
-                    ...node,
-                    next: node.next.filter(playedge => playedge.nodeID !== action.nodeID)
+            Array.from(newNodes.values()).forEach(playnode => {
+                newNodes.set(playnode.id, {
+                    ...playnode,
+                    next: playnode.next?.filter(playedge => playedge.targetID !== action.nodeID) ?? []
                 })
             })
             return {
                 ...state,
                 playtree: {
                     ...state.playtree,
-                    nodes: newNodes
+                    playnodes: newNodes
                 },
                 unsavedChangesExist: unsavedChangeOccurred
             }
         }
         case "added_playedge": {
-            const newNodes = structuredClone(state.playtree.nodes)
+            const newNodes = structuredClone(state.playtree.playnodes)
             const sourceNode = newNodes.get(action.sourceID)
 
             if (sourceNode) {
@@ -146,16 +146,16 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
                     sourceNode.next = []
                 }
                 sourceNode.next.push({
-                    nodeID: action.targetID,
+                    targetID: action.targetID,
                     shares: 1,
                     priority: 0,
-                    repeat: -1,
+                    limit: -1,
                 })
                 return {
                     ...state,
                     playtree: {
                         ...state.playtree,
-                        nodes: newNodes
+                        playnodes: newNodes
                     },
                     unsavedChangesExist: unsavedChangeOccurred,
                 }
@@ -164,11 +164,11 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
             return state
         }
         case "updated_playedge": {
-            const newNodes = structuredClone(state.playtree.nodes)
+            const newNodes = structuredClone(state.playtree.playnodes)
             const sourceNode = newNodes.get(action.sourceID)
 
             if (sourceNode && sourceNode.next) {
-                const playedgeIndex = sourceNode.next.findIndex(playedge => playedge.nodeID === action.targetID)
+                const playedgeIndex = sourceNode.next.findIndex(playedge => playedge.targetID === action.targetID)
                 const playedge = sourceNode.next[playedgeIndex]
                 if (playedgeIndex !== -1) {
                     sourceNode.next.splice(playedgeIndex, 1, Object.assign(playedge, action.patch))
@@ -176,7 +176,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
                         ...state,
                         playtree: {
                             ...state.playtree,
-                            nodes: newNodes
+                            playnodes: newNodes
                         },
                         unsavedChangesExist: unsavedChangeOccurred
                     }
@@ -185,18 +185,18 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
             return state
         }
         case "deleted_playedge": {
-            const newNodes = structuredClone(state.playtree.nodes)
+            const newNodes = structuredClone(state.playtree.playnodes)
             const sourceNode = newNodes.get(action.sourceID)
 
             if (sourceNode && sourceNode.next) {
-                const playedgeIndex = sourceNode.next.findIndex(playedge => playedge.nodeID === action.targetID)
+                const playedgeIndex = sourceNode.next.findIndex(playedge => playedge.targetID === action.targetID)
                 if (playedgeIndex !== -1) {
                     sourceNode.next.splice(playedgeIndex, 1)
                     return {
                         ...state,
                         playtree: {
                             ...state.playtree,
-                            nodes: newNodes
+                            playnodes: newNodes
                         },
                         unsavedChangesExist: unsavedChangeOccurred
                     }
@@ -206,7 +206,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
         }
         case "added_playhead": {
             const newPlayroots = structuredClone(state.playtree.playroots)
-            const newPlayhead: PlayheadInfo = {
+            const newPlayhead: Playroot = {
                 index: state.playtree.playroots.size,
                 name: "Playhead",
             }
@@ -286,10 +286,10 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
         case "deleted_playscope": {
             const newPlayscopes = [...state.playtree.playscopes]
             newPlayscopes.splice(action.index, 1)
-            const newNodes = structuredClone(state.playtree.nodes)
+            const newNodes = structuredClone(state.playtree.playnodes)
             newNodes.forEach(node => {
-                node.scopes = node.scopes.filter(scope => scope !== action.index).map(scope => {
-                    return scope >= action.index ? scope + 1 : scope
+                node.playscopes = node.playscopes.filter(scopeID => scopeID !== action.index).map(scopeID => {
+                    return scopeID >= action.index ? scopeID + 1 : scopeID
                 })
             })
             return {
@@ -297,29 +297,29 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
                 playtree: {
                     ...state.playtree,
                     playscopes: newPlayscopes,
-                    nodes: newNodes
+                    playnodes: newNodes
                 },
                 unsavedChangesExist: unsavedChangeOccurred
             }
         }
         case "added_scope_to_playnode": {
             const nodesByScope = new Map<number, string>()
-            state.playtree.nodes.forEach(node => {
-                node.scopes.forEach(scopeID => {
+            state.playtree.playnodes.forEach(node => {
+                node.playscopes.forEach(scopeID => {
                     if (!nodesByScope.has(scopeID)) {
                         nodesByScope.set(scopeID, node.id)
                     }
                 })
             })
 
-            const newNodes = structuredClone(state.playtree.nodes)
-            newNodes.get(action.nodeID)?.scopes.push(action.index)
+            const newNodes = structuredClone(state.playtree.playnodes)
+            newNodes.get(action.nodeID)?.playscopes.push(action.index)
 
             return {
                 ...state,
                 playtree: {
                     ...state.playtree,
-                    nodes: newNodes
+                    playnodes: newNodes
                 },
                 unsavedChangesExist: unsavedChangeOccurred
             }

@@ -1,11 +1,11 @@
 import { BaseEdge, Edge, EdgeLabelRenderer, EdgeProps, getBezierPath } from "@xyflow/react";
 import React from "react";
 import NaturalNumberInputField from "./NaturalNumberInputField";
-import { PlayEdge } from "../types";
+import { Playedge } from "../types";
 import { PlaytreeEditorAction } from "../reducers/playtree-editor";
 
 export type PlayedgeFlowData = Edge<{
-    playedge: PlayEdge;
+    playedge: Playedge;
     dispatch: (action: PlaytreeEditorAction) => void;
 }, 'play'>;
 
@@ -80,13 +80,6 @@ export default function PlayedgeComponent(props: EdgeProps<PlayedgeFlowData>) {
                         </div>
                         <hr></hr>
                         <div className="w-24 flex">
-                            <div className="w-full h-fit">Shares</div>
-                            <div className="w-fit">|</div>
-                            <NaturalNumberInputField onChange={n => {
-                                props.data?.dispatch({ type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {shares: n}})
-                            }} canBeInfinite={false} defaultValue={1} value={props.data.playedge.shares} />
-                        </div>
-                        <div className="w-24 flex">
                             <div className="w-full h-fit">Priority</div>
                             <div className="w-fit">|</div>
                             <NaturalNumberInputField onChange={n =>
@@ -94,18 +87,25 @@ export default function PlayedgeComponent(props: EdgeProps<PlayedgeFlowData>) {
                             } canBeInfinite={false} defaultValue={0} value={props.data.playedge.priority} />
                         </div>
                         <div className="w-24 flex">
-                            <div className="w-full h-fit">Repeat</div>
+                            <div className="w-full h-fit">Shares</div>
+                            <div className="w-fit">|</div>
+                            <NaturalNumberInputField onChange={n => {
+                                props.data?.dispatch({ type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {shares: n}})
+                            }} canBeInfinite={false} defaultValue={1} value={props.data.playedge.shares} />
+                        </div>
+                        <div className="w-24 flex">
+                            <div className="w-full h-fit">Limit</div>
                             <div className="w-fit">|</div>
                             <NaturalNumberInputField onChange={n =>
-                                props.data?.dispatch({type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {repeat: n} })
-                            } canBeInfinite={true} defaultValue={1} value={props.data.playedge.repeat} />
+                                props.data?.dispatch({type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {limit: n} })
+                            } canBeInfinite={true} defaultValue={1} value={props.data.playedge.limit} />
                         </div>
                     </div> :
                     <div className="bg-neutral-200 rounded-md px-1 font-markazi" style={{
                         position: 'absolute',
                         transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
                         pointerEvents: 'all'
-                    }}>S={props.data.playedge.shares}, P={props.data.playedge.priority}, R={props.data?.playedge.repeat === -1 ? "∞" : props.data?.playedge.repeat}</div>
+                    }}>P={props.data.playedge.priority}, S={props.data.playedge.shares}, L={props.data?.playedge.limit === -1 ? "∞" : props.data?.playedge.limit}</div>
             }
             </EdgeLabelRenderer>
         </React.Fragment>

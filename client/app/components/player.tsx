@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react"
-import { Content, HistoryNode, makeDefaultPlayscope, PlayEdge, PlayheadInfo, PlayNode, Playscope, Playtree } from "../types";
+import { Playitem, HistoryNode, makeDefaultPlayscope, Playedge, Playroot, Playnode, Playscope, Playtree } from "../types";
 import deepEqual from "deep-equal";
 import { diff, intersection, isSupersetOf, union } from '@opentf/std';
 import { clientFetchWithToken } from "../fetch-with-token";
@@ -11,18 +11,18 @@ type PlayerProps = {
 
 export type Playcounters = {
 	// scope ID -> node ID -> content ID -> playcount
-	content: Map<number, Map<string, Map<string, number>>>;
+	playitems: Map<number, Map<string, Map<string, number>>>;
 	// scope ID -> node ID -> playcount
-	node: Map<number, Map<string, number>>;
+	playnodes: Map<number, Map<string, number>>;
 	// scope ID -> source node ID -> target node ID -> playcount
-	edge: Map<number, Map<string, Map<string, number>>>;
+	playedges: Map<number, Map<string, Map<string, number>>>;
 }
 
 const makeNewPlaycounters = () : Playcounters => {
 	return {
-		content: new Map<number, Map<string, Map<string, number>>>(),
-		node: new Map<number, Map<string, number>>(),
-		edge: new Map<number, Map<string, Map<string, number>>>()
+		playitems: new Map<number, Map<string, Map<string, number>>>(),
+		playnodes: new Map<number, Map<string, number>>(),
+		playedges: new Map<number, Map<string, Map<string, number>>>()
 	}
 }
 
@@ -37,28 +37,28 @@ const zeroCounter = (counter: Map<string, number>) : Map<string, number> => {
 
 const zeroPlaycountersAtScope = (playcounters: Playcounters, scopeID: number): Playcounters => {
 	const newPlaycounters = structuredClone(playcounters)
-	if (newPlaycounters.content.has(scopeID)) {
+	if (newPlaycounters.playitems.has(scopeID)) {
 		const newContentPlaycounter = new Map<string, Map<string, number>>()
-		const contentKeysIter : MapIterator<string> = playcounters.content.get(scopeID)?.keys() as MapIterator<string>
-		playcounters.content.get(scopeID)
+		const contentKeysIter : MapIterator<string> = playcounters.playitems.get(scopeID)?.keys() as MapIterator<string>
+		playcounters.playitems.get(scopeID)
 		for (let key = contentKeysIter.next(); !key.done; key = contentKeysIter.next()) {
-			newContentPlaycounter.set(key.value, zeroCounter(playcounters.content.get(scopeID)?.get(key.value) as Map<string, number>))
+			newContentPlaycounter.set(key.value, zeroCounter(playcounters.playitems.get(scopeID)?.get(key.value) as Map<string, number>))
 		}
-		newPlaycounters.content.set(scopeID, newContentPlaycounter)
+		newPlaycounters.playitems.set(scopeID, newContentPlaycounter)
 	}
 
-	if (newPlaycounters.node.has(scopeID)) {
-		const newNodePlaycounter = zeroCounter(newPlaycounters.node.get(scopeID) as Map<string, number>)
-		newPlaycounters.node.set(scopeID, newNodePlaycounter)
+	if (newPlaycounters.playnodes.has(scopeID)) {
+		const newNodePlaycounter = zeroCounter(newPlaycounters.playnodes.get(scopeID) as Map<string, number>)
+		newPlaycounters.playnodes.set(scopeID, newNodePlaycounter)
 	}
 
-	if (newPlaycounters.edge.has(scopeID)) {
+	if (newPlaycounters.playedges.has(scopeID)) {
 		const newEdgePlaycounter = new Map<string, Map<string, number>>()
-		const edgeKeysIter : MapIterator<string> = playcounters.edge.get(scopeID)?.keys() as MapIterator<string>
+		const edgeKeysIter : MapIterator<string> = playcounters.playedges.get(scopeID)?.keys() as MapIterator<string>
 		for (let key = edgeKeysIter.next(); !key.done; key = edgeKeysIter.next()) {
-			newEdgePlaycounter.set(key.value, zeroCounter(playcounters.edge.get(scopeID)?.get(key.value) as Map<string, number>))
+			newEdgePlaycounter.set(key.value, zeroCounter(playcounters.playedges.get(scopeID)?.get(key.value) as Map<string, number>))
 		}
-		newPlaycounters.edge.set(scopeID, newEdgePlaycounter)
+		newPlaycounters.playedges.set(scopeID, newEdgePlaycounter)
 	}
 
 	return newPlaycounters
@@ -66,9 +66,9 @@ const zeroPlaycountersAtScope = (playcounters: Playcounters, scopeID: number): P
 
 const zeroPlaycounters = (playcounters: Playcounters): Playcounters => {
 	const relevantScopes : number[] = union([
-		Array.from(playcounters.content.keys()),
-		Array.from(playcounters.node.keys()),
-		Array.from(playcounters.edge.keys())]) as number[]
+		Array.from(playcounters.playitems.keys()),
+		Array.from(playcounters.playnodes.keys()),
+		Array.from(playcounters.playedges.keys())]) as number[]
 
 	let newPlaycounters = playcounters
 	relevantScopes.forEach(scopeID => {
@@ -80,7 +80,7 @@ const zeroPlaycounters = (playcounters: Playcounters): Playcounters => {
 
 type Playhead = {
 	name: string;
-	node: PlayNode;
+	node: Playnode;
 	nodeIndex: number;
 	multIndex: number;
 	history: HistoryNode[];
@@ -136,13 +136,13 @@ type PlayerAction = {
 const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 	switch (action.type) {
 		case 'playtree_loaded': {
-			const playnodesArray = Array.from(action.playtree.nodes.values())
+			const playnodesArray = Array.from(action.playtree.playnodes.values())
 			// first pass: make a set of the superscopes
 
 			// scope ID -> {node IDs}
 			const nodesByScope = new Map<number, Set<string>>()
-			playnodesArray.forEach((node : PlayNode) => {
-				node.scopes.forEach(scopeID => {
+			playnodesArray.forEach((node : Playnode) => {
+				node.playscopes.forEach(scopeID => {
 					if (!nodesByScope.has(scopeID)) {
 						nodesByScope.set(scopeID, new Set<string>())
 					}
@@ -170,7 +170,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			const leastScopeByNode = new Map<string, number>()
 			playnodesArray.map(playnode => {
 				let leastScope : number = -1 // default scope
-				playnode.scopes.forEach(scopeID => {
+				playnode.playscopes.forEach(scopeID => {
 					// S1 < S2 is subset relation
 					// this is asking if scopeID < leastScope
 					if (superscopes.get(scopeID)?.has(leastScope)) {
@@ -185,10 +185,10 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			playnodesArray.map(sourceNode => {
 				if (sourceNode.next) {
 					sourceNode.next.forEach(edge => {
-						const targetNode = action.playtree.nodes.get(edge.nodeID) as PlayNode;
+						const targetNode = action.playtree.playnodes.get(edge.targetID) as Playnode;
 						let leastScope : number = -1; // default scope
 						// an edge's scope is the intersection of the source scopes and target scopes
-						(intersection([sourceNode.scopes, targetNode.scopes]) as number[]).forEach((scopeID : number) => {
+						(intersection([sourceNode.playscopes, targetNode.playscopes]) as number[]).forEach((scopeID : number) => {
 							if (superscopes.get(scopeID)?.has(leastScope)) {
 								leastScope = scopeID
 							}
@@ -204,35 +204,35 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			// second pass: set playcounters according to least-scope
 			const initialPlaycounters = makeNewPlaycounters()
 			
-			playnodesArray.forEach((node: PlayNode) => {
+			playnodesArray.forEach((node: Playnode) => {
 				const leastScope : number = leastScopeByNode.get(node.id) as number
-				if (node.repeat >= 0) {
-					if (!initialPlaycounters.node.has(leastScope)) {
-						initialPlaycounters.node.set(leastScope, new Map<string, number>())
+				if (node.limit >= 0) {
+					if (!initialPlaycounters.playnodes.has(leastScope)) {
+						initialPlaycounters.playnodes.set(leastScope, new Map<string, number>())
 					}
-					initialPlaycounters.node.get(leastScope)?.set(node.id, 0)
+					initialPlaycounters.playnodes.get(leastScope)?.set(node.id, 0)
 				}
-				const limitedContentList = node.content.filter(content => content.repeat >= 0)
-				if (limitedContentList.length > 0) {
-					if (!initialPlaycounters.content.has(leastScope)) {
-						initialPlaycounters.content.set(leastScope, new Map<string, Map<string, number>>())
+				const limitedPlayitems = node.playitems.filter(playitem => playitem.limit >= 0)
+				if (limitedPlayitems.length > 0) {
+					if (!initialPlaycounters.playitems.has(leastScope)) {
+						initialPlaycounters.playitems.set(leastScope, new Map<string, Map<string, number>>())
 					}
-					initialPlaycounters.content.get(leastScope)?.set(node.id, new Map<string, number>())
-					limitedContentList.forEach(content => {
-						initialPlaycounters.content.get(leastScope)?.get(node.id)?.set(content.id, 0)
+					initialPlaycounters.playitems.get(leastScope)?.set(node.id, new Map<string, number>())
+					limitedPlayitems.forEach(content => {
+						initialPlaycounters.playitems.get(leastScope)?.get(node.id)?.set(content.id, 0)
 					})
 				}
 				if (node.next) {
-					node.next.forEach((edge: PlayEdge) => {
-						const leastScope : number = leastScopeByEdge.get(node.id)?.get(edge.nodeID) as number
-						if (edge.repeat >= 0) {
-							if (!initialPlaycounters.edge.has(leastScope)) {
-								initialPlaycounters.edge.set(leastScope, new Map<string, Map<string, number>>())
+					node.next.forEach((edge: Playedge) => {
+						const leastScope : number = leastScopeByEdge.get(node.id)?.get(edge.targetID) as number
+						if (edge.limit >= 0) {
+							if (!initialPlaycounters.playedges.has(leastScope)) {
+								initialPlaycounters.playedges.set(leastScope, new Map<string, Map<string, number>>())
 							}
-							if (!initialPlaycounters.edge.get(leastScope)?.has(node.id)) {
-								initialPlaycounters.edge.get(leastScope)?.set(node.id, new Map<string, number>())	
+							if (!initialPlaycounters.playedges.get(leastScope)?.has(node.id)) {
+								initialPlaycounters.playedges.get(leastScope)?.set(node.id, new Map<string, number>())	
 							}
-							initialPlaycounters.edge.get(leastScope)?.get(node.id)?.set(edge.nodeID, 0)
+							initialPlaycounters.playedges.get(leastScope)?.get(node.id)?.set(edge.targetID, 0)
 						}
 					})
 				}
@@ -242,31 +242,31 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			let shouldHideFirstNode : boolean = false
 			let shouldHideFirstSong : boolean = false
 			const newPlayheads: Playhead[] = []
-			action.playtree.playroots.forEach((playroot: PlayheadInfo, nodeID: string) => {
-				const playnode = action.playtree.nodes.get(nodeID)
+			action.playtree.playroots.forEach((playroot: Playroot, nodeID: string) => {
+				const playnode = action.playtree.playnodes.get(nodeID)
 				if (playnode !== undefined) {
 					let initialNodeIndex = 0
-					if (playnode.type === "sequence") {
-						playnode.content.every(content => {
-							if (content.mult === 0 || content.repeat === 0) {
+					if (playnode.type === "sequencer") {
+						playnode.playitems.every(playitem => {
+							if (playitem.multiplier === 0 || playitem.limit === 0) {
 								initialNodeIndex++;
 								return true
 							}
 							return false
 						})
 					} else { // selector
-						const elligibleSongs = playnode.content.filter(content => content.repeat !== 0).map(content => content.mult)
+						const elligibleSongs = playnode.playitems.filter(playitem => playitem.limit !== 0).map(content => content.multiplier)
 						if (elligibleSongs.length > 1) {
 							shouldHideFirstSong = true
 						}
 						const totalShares = elligibleSongs.reduce((a, b) => a + b, 0)
 						const randomDrawFromShares = Math.floor(action.selectorRand * totalShares)
 						let bound = 0
-						playnode.content.some((content, index) => {
-							if (content.repeat === 0) {
+						playnode.playitems.some((playitem, index) => {
+							if (playitem.limit === 0) {
 								return false
 							}
-							bound += content.mult
+							bound += playitem.multiplier
 							if (randomDrawFromShares < bound) {
 								initialNodeIndex = index
 								return true
@@ -339,31 +339,31 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 
 			let newPlaycounters = structuredClone(curPlayhead.playcounters)
 			
-			if (curNode.content[nextNodeIndex]) {
-				const songName = curNode.content[nextNodeIndex].name
+			if (curNode.playitems[nextNodeIndex]) {
+				const songName = curNode.playitems[nextNodeIndex].name
 				newMessageLog.push(action.type === 'skipped_forward' ? `Skipping forward...` : `${songName} ended...`)
-				if (newPlaycounters.content.get(curLeastScope)?.has(curNode.id)) {
-					const contentMap = newPlaycounters.content.get(curLeastScope)?.get(curNode.id) as Map<string, number>
-					const contentID = curNode.content[nextNodeIndex].id
-					if (contentMap.has(contentID)) {
-						const count = contentMap.get(contentID) as number
-						newPlaycounters.content.get(curLeastScope)?.get(curNode.id)?.set(contentID, count + 1)
+				if (newPlaycounters.playitems.get(curLeastScope)?.has(curNode.id)) {
+					const contentMap = newPlaycounters.playitems.get(curLeastScope)?.get(curNode.id) as Map<string, number>
+					const playitemID = curNode.playitems[nextNodeIndex].id
+					if (contentMap.has(playitemID)) {
+						const count = contentMap.get(playitemID) as number
+						newPlaycounters.playitems.get(curLeastScope)?.get(curNode.id)?.set(playitemID, count + 1)
 					}
 				}
 			}
 
 			// I'm in a sequence node
-			if (curNode.type === "sequence") {
+			if (curNode.type === "sequencer") {
 				// If we've hit mult or repeat limit, then we skip forward.
 				// case 1/2: either repeat limit is reached, or mult limit is reached.
 				//   - in either case, we skip forward to the next content available.
 				let movedOnce = false
 				nextMultIndex++
-				while (nextNodeIndex < curNode.content.length) {
-					const curContent = curNode.content[nextNodeIndex]
-					const contentPlays: number = newPlaycounters.content.get(curLeastScope)?.get(curNode.id)?.get(curContent.id) ?? -1
+				while (nextNodeIndex < curNode.playitems.length) {
+					const curPlayitem = curNode.playitems[nextNodeIndex]
+					const contentPlays: number = newPlaycounters.playitems.get(curLeastScope)?.get(curNode.id)?.get(curPlayitem.id) ?? -1
 
-					if ((contentPlays >= 0 && contentPlays >= curContent.repeat) || nextMultIndex >= curContent.mult) {
+					if ((contentPlays >= 0 && contentPlays >= curPlayitem.limit) || nextMultIndex >= curPlayitem.multiplier) {
 						nextNodeIndex++
 						nextMultIndex = 0
 						movedOnce = true
@@ -372,14 +372,14 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					}
 				}
 
-				if (nextNodeIndex < curNode.content.length) {
-					if (!movedOnce && nextMultIndex < curNode.content[nextNodeIndex].mult) {
+				if (nextNodeIndex < curNode.playitems.length) {
+					if (!movedOnce && nextMultIndex < curNode.playitems[nextNodeIndex].multiplier) {
 						movedOnce = true
 					}
 
 					if (movedOnce) {
 						newPlayheads[state.playheadIndex].history.push({
-							nodeID: curNode.id,
+							playnodeID: curNode.id,
 							index: curNodeIndex,
 							multIndex: curMultIndex,
 							traversedPlayedge: null,
@@ -401,25 +401,25 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 
 			const resetPlayheadAndIncrementIndex = (): number => {
 				// reset playhead
-				const playheadStartNodeID = newPlayheads[state.playheadIndex].history[0]?.nodeID ?? newPlayheads[state.playheadIndex].node.id
-				const playheadStartNode = action.playtree.nodes.get(playheadStartNodeID)
+				const playheadStartNodeID = newPlayheads[state.playheadIndex].history[0]?.playnodeID ?? newPlayheads[state.playheadIndex].node.id
+				const playheadStartNode = action.playtree.playnodes.get(playheadStartNodeID)
 				if (playheadStartNode) {
 					let initialNodeIndex = 0
-					if (playheadStartNode.type === "sequence") {
-						playheadStartNode.content.forEach(content => {
-							if (content.mult === 0 || content.repeat === 0) {
+					if (playheadStartNode.type === "sequencer") {
+						playheadStartNode.playitems.forEach(playitem => {
+							if (playitem.multiplier === 0 || playitem.limit === 0) {
 								initialNodeIndex++;
 							}
 						})
 					} else { // selector
-						const totalShares = playheadStartNode.content.filter(content => content.repeat !== 0).map(content => content.mult).reduce((a, b) => a + b, 0)
+						const totalShares = playheadStartNode.playitems.filter(playitem => playitem.limit !== 0).map(playitem => playitem.multiplier).reduce((a, b) => a + b, 0)
 						const randomDrawFromShares = Math.floor(action.selectorRand * totalShares)
 						let bound = 0
-						playheadStartNode.content.some((content, index) => {
-							if (content.repeat === 0) {
+						playheadStartNode.playitems.some((playitem, index) => {
+							if (playitem.limit === 0) {
 								return false
 							}
-							bound += content.mult
+							bound += playitem.multiplier
 							if (randomDrawFromShares < bound) {
 								initialNodeIndex = index
 								return true
@@ -444,9 +444,9 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				return (state.playheadIndex + 1) % newPlayheads.length
 			}
 
-			const curNodePlaycount = newPlaycounters.node.get(curLeastScope)?.get(curNode.id)
+			const curNodePlaycount = newPlaycounters.playnodes.get(curLeastScope)?.get(curNode.id)
 			if (curNodePlaycount !== undefined) {
-				newPlaycounters.node.get(curLeastScope)?.set(curNode.id, Math.min(curNodePlaycount + 1, curNode.repeat))
+				newPlaycounters.playnodes.get(curLeastScope)?.set(curNode.id, Math.min(curNodePlaycount + 1, curNode.limit))
 			}
 
 			const cachedPlaycounters = makeNewPlaycounters()
@@ -468,7 +468,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				// go through each edge and choose edges by
 				// the lowest available priority group
 				let totalShares = 0
-				const elligibleEdges: PlayEdge[] = []
+				const elligibleEdges: Playedge[] = []
 				const nextEdgesSortedByPriority = [...curNodeForEdgeTraversal.next].sort((playedge1, playedge2) => playedge1.priority - playedge2.priority)
 				let currentPriority = 0
 				for (let i in nextEdgesSortedByPriority) {
@@ -478,10 +478,10 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 						break
 					}
 
-					let curLeastScopeForEdge : number = state.leastScopeByEdge.get(curNode.id)?.get(curEdge.nodeID) as number
+					let curLeastScopeForEdge : number = state.leastScopeByEdge.get(curNode.id)?.get(curEdge.targetID) as number
 
-					const counter = newPlaycounters.edge.get(curLeastScopeForEdge)?.get(curNodeForEdgeTraversal.id)?.get(curEdge.nodeID)
-					if (counter !== undefined && curEdge.repeat >= 0 && counter >= curEdge.repeat) {
+					const counter = newPlaycounters.playedges.get(curLeastScopeForEdge)?.get(curNodeForEdgeTraversal.id)?.get(curEdge.targetID)
+					if (counter !== undefined && curEdge.limit >= 0 && counter >= curEdge.limit) {
 						continue
 					}
 
@@ -498,7 +498,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				}
 				const scaledRand = Math.floor(action.edgeRand * totalShares)
 				let bound: number = 0
-				let selectedEdge: PlayEdge = elligibleEdges[0]
+				let selectedEdge: Playedge = elligibleEdges[0]
 				for (let i in elligibleEdges) {
 					const curEdge = elligibleEdges[i]
 					const curShares = curEdge.shares ? curEdge.shares : 1
@@ -508,27 +508,27 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 						break
 					}
 				}
-				const curLeastScopeForSelectedEdge : number = state.leastScopeByEdge.get(curNodeForEdgeTraversal.id)?.get(selectedEdge.nodeID) as number
-				const edgePlaycount = newPlaycounters.edge.get(curLeastScopeForSelectedEdge)?.get(curNodeForEdgeTraversal.id)?.get(selectedEdge.nodeID)
+				const curLeastScopeForSelectedEdge : number = state.leastScopeByEdge.get(curNodeForEdgeTraversal.id)?.get(selectedEdge.targetID) as number
+				const edgePlaycount = newPlaycounters.playedges.get(curLeastScopeForSelectedEdge)?.get(curNodeForEdgeTraversal.id)?.get(selectedEdge.targetID)
 				if (edgePlaycount !== undefined) {
-					newPlaycounters.edge.get(curLeastScopeForSelectedEdge)?.get(curNodeForEdgeTraversal.id)?.set(selectedEdge.nodeID, edgePlaycount + 1)
+					newPlaycounters.playedges.get(curLeastScopeForSelectedEdge)?.get(curNodeForEdgeTraversal.id)?.set(selectedEdge.targetID, edgePlaycount + 1)
 				}
 
 				
-				let nextNode = action.playtree.nodes.get(selectedEdge.nodeID)
+				let nextNode = action.playtree.playnodes.get(selectedEdge.targetID)
 				if (nextNode) {
-					newMessageLog.push(`Traversing playedge '${curNodeForEdgeTraversal.name} => ${nextNode.name}'${edgePlaycount !== undefined ? ` (${edgePlaycount + 1} / ${selectedEdge.repeat})` : ""}`)
-					exitingScopes = union([exitingScopes, diff([curNode.scopes, nextNode.scopes]) as number[]]) as number[]
+					newMessageLog.push(`Traversing playedge '${curNodeForEdgeTraversal.name} => ${nextNode.name}'${edgePlaycount !== undefined ? ` (${edgePlaycount + 1} / ${selectedEdge.limit})` : ""}`)
+					exitingScopes = union([exitingScopes, diff([curNode.playscopes, nextNode.playscopes]) as number[]]) as number[]
 					exitingScopes.forEach(scopeID => {
-						cachedPlaycounters.content.set(scopeID, newPlaycounters.content.get(scopeID) as Map<string, Map<string, number>>)
-						cachedPlaycounters.node.set(scopeID, newPlaycounters.node.get(scopeID) as Map<string, number>)
-						cachedPlaycounters.edge.set(scopeID, newPlaycounters.edge.get(scopeID) as Map<string, Map<string, number>>)
+						cachedPlaycounters.playitems.set(scopeID, newPlaycounters.playitems.get(scopeID) as Map<string, Map<string, number>>)
+						cachedPlaycounters.playnodes.set(scopeID, newPlaycounters.playnodes.get(scopeID) as Map<string, number>)
+						cachedPlaycounters.playedges.set(scopeID, newPlaycounters.playedges.get(scopeID) as Map<string, Map<string, number>>)
 						newPlaycounters = zeroPlaycountersAtScope(newPlaycounters, scopeID)
 					})
 
 					const nextNodeLeastScope = state.leastScopeByNode.get(nextNode.id) as number
-					const nextNodePlaycount = newPlaycounters.node.get(nextNodeLeastScope)?.get(nextNode.id)
-					if (nextNodePlaycount !== undefined && nextNodePlaycount >= nextNode.repeat) {
+					const nextNodePlaycount = newPlaycounters.playnodes.get(nextNodeLeastScope)?.get(nextNode.id)
+					if (nextNodePlaycount !== undefined && nextNodePlaycount >= nextNode.limit) {
 						newMessageLog.push(`Passing through playnode '${nextNode.name}' whose play count has been exceeded...`)
 						curNodeForEdgeTraversal = nextNode
 						continue
@@ -536,25 +536,25 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					if (nextNode.type === "selector") {
 						let selectedNodeIndex = -1
 
-						const totalShares = nextNode.content.filter(content => {
-							const count = newPlaycounters.content.get(nextNodeLeastScope)?.get(nextNode.id)?.get(content.id)
-							return count === undefined || count < content.repeat
-						}).map(content => content.mult).reduce((a, b) => a + b, 0)
+						const totalShares = nextNode.playitems.filter(playitem => {
+							const count = newPlaycounters.playitems.get(nextNodeLeastScope)?.get(nextNode.id)?.get(playitem.id)
+							return count === undefined || count < playitem.limit
+						}).map(playitem => playitem.multiplier).reduce((a, b) => a + b, 0)
 						const randomDrawFromShares = Math.floor(action.selectorRand * totalShares)
 						let bound = 0
-						if (!nextNode.content.some((content, index) => {
-							const count = newPlaycounters.content.get(nextNodeLeastScope)?.get(nextNode.id)?.get(content.id)
-							if (count !== undefined && count >= content.repeat) {
+						if (!nextNode.playitems.some((playitem, index) => {
+							const count = newPlaycounters.playitems.get(nextNodeLeastScope)?.get(nextNode.id)?.get(playitem.id)
+							if (count !== undefined && count >= playitem.limit) {
 								return false
 							}
-							bound += content.mult
+							bound += playitem.multiplier
 							if (randomDrawFromShares < bound) {
 								selectedNodeIndex = index
 								return true
 							}
 							return false
 						})) {
-							if (nextNode.content.length === 0) {
+							if (nextNode.playitems.length === 0) {
 								newMessageLog.push(`Passing through playnode '${nextNode.name}' with no songs...`)
 							} else {
 								newMessageLog.push(`Passing through playnode '${nextNode.name}' whose songs have all exceeded play count...`)
@@ -565,15 +565,15 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 						newPlayheads[state.playheadIndex].nodeIndex = selectedNodeIndex
 					} else { // sequencer
 						let initialNodeIndex = 0
-						if (nextNode.content.every(content => {
-							const count = newPlaycounters.content.get(nextNodeLeastScope)?.get(nextNode.id)?.get(content.id)
-							if (content.mult === 0 || (count !== undefined && count >= content.repeat)) {
+						if (nextNode.playitems.every(playitem => {
+							const count = newPlaycounters.playitems.get(nextNodeLeastScope)?.get(nextNode.id)?.get(playitem.id)
+							if (playitem.multiplier === 0 || (count !== undefined && count >= playitem.limit)) {
 								initialNodeIndex++;
 								return true
 							}
 							return false
 						})) {
-							if (nextNode.content.length === 0) {
+							if (nextNode.playitems.length === 0) {
 								newMessageLog.push(`Passing through playnode '${nextNode.name}' with no songs...`)
 							} else {
 								newMessageLog.push(`Passing through playnode '${nextNode.name}' whose songs have all exceeded play count...`)
@@ -587,7 +587,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 
 					// zero all exiting scopes
 					newPlayheads[state.playheadIndex].history.push({
-						nodeID: curNode.id,
+						playnodeID: curNode.id,
 						index: curNodeIndex,
 						multIndex: curMultIndex,
 						traversedPlayedge: selectedEdge,
@@ -621,7 +621,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			if (prevHistoryNode === undefined) {
 				return structuredClone(state)
 			} else {
-				const prevPlaynode = action.playtree.nodes.get(prevHistoryNode.nodeID)
+				const prevPlaynode = action.playtree.playnodes.get(prevHistoryNode.playnodeID)
 				if (prevPlaynode === undefined) {
 					return structuredClone(state)
 				}
@@ -632,38 +632,38 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 
 				// restore cleared playcounters
 				if (prevHistoryNode.cachedPlaycounters !== null) {
-					prevHistoryNode.cachedPlaycounters.content.forEach((counter, scopeID) => {
-						newPlaycounters.content.set(scopeID, counter)
+					prevHistoryNode.cachedPlaycounters.playitems.forEach((counter, scopeID) => {
+						newPlaycounters.playitems.set(scopeID, counter)
 					})
-					prevHistoryNode.cachedPlaycounters.node.forEach((counter, scopeID) => {
-						newPlaycounters.node.set(scopeID, counter)
+					prevHistoryNode.cachedPlaycounters.playnodes.forEach((counter, scopeID) => {
+						newPlaycounters.playnodes.set(scopeID, counter)
 					})
-					prevHistoryNode.cachedPlaycounters.edge.forEach((counter, scopeID) => {
-						newPlaycounters.edge.set(scopeID, counter)
+					prevHistoryNode.cachedPlaycounters.playedges.forEach((counter, scopeID) => {
+						newPlaycounters.playedges.set(scopeID, counter)
 					})
 				}
 
 				const prevLeastScope = state.leastScopeByNode.get(prevPlaynode.id) as number
 
-				const prevContent = prevPlaynode.content[prevHistoryNode.index]
+				const prevPlayitem = prevPlaynode.playitems[prevHistoryNode.index]
 				let oldContentRepeatCounterValue: number | undefined = undefined
-				if (prevContent) {
-					oldContentRepeatCounterValue = newPlaycounters.content.get(prevLeastScope)?.get(prevPlaynode.id)?.get(prevContent.id)
+				if (prevPlayitem) {
+					oldContentRepeatCounterValue = newPlaycounters.playitems.get(prevLeastScope)?.get(prevPlaynode.id)?.get(prevPlayitem.id)
 				}
 				if (oldContentRepeatCounterValue !== undefined) {
-					newPlaycounters.content.get(prevLeastScope)?.get(prevPlaynode.id)?.set(prevContent.id, oldContentRepeatCounterValue - 1)
+					newPlaycounters.playitems.get(prevLeastScope)?.get(prevPlaynode.id)?.set(prevPlayitem.id, oldContentRepeatCounterValue - 1)
 				}
 
 				const traversedPlayedge = prevHistoryNode.traversedPlayedge
-				if (traversedPlayedge && traversedPlayedge.repeat >= 0) {
-					const oldNodeRepeatCounterValue = newPlaycounters.node.get(prevLeastScope)?.get(prevPlaynode.id)
+				if (traversedPlayedge && traversedPlayedge.limit >= 0) {
+					const oldNodeRepeatCounterValue = newPlaycounters.playnodes.get(prevLeastScope)?.get(prevPlaynode.id)
 					if (oldNodeRepeatCounterValue !== undefined) {
-						newPlaycounters.node.get(prevLeastScope)?.set(prevPlaynode.id, Math.max(oldNodeRepeatCounterValue - 1, 0))
+						newPlaycounters.playnodes.get(prevLeastScope)?.set(prevPlaynode.id, Math.max(oldNodeRepeatCounterValue - 1, 0))
 					}
-					const prevLeastScopeForEdge = state.leastScopeByEdge.get(prevPlaynode.id)?.get(traversedPlayedge.nodeID) as number
-					const oldEdgeRepeatCounterValue = newPlaycounters.edge.get(prevLeastScopeForEdge)?.get(prevPlaynode.id)?.get(traversedPlayedge.nodeID)
+					const prevLeastScopeForEdge = state.leastScopeByEdge.get(prevPlaynode.id)?.get(traversedPlayedge.targetID) as number
+					const oldEdgeRepeatCounterValue = newPlaycounters.playedges.get(prevLeastScopeForEdge)?.get(prevPlaynode.id)?.get(traversedPlayedge.targetID)
 					if (oldEdgeRepeatCounterValue !== undefined) {
-						newPlaycounters.edge.get(prevLeastScopeForEdge)?.get(prevPlaynode.id)?.set(traversedPlayedge.nodeID, Math.max(oldEdgeRepeatCounterValue - 1, 0))
+						newPlaycounters.playedges.get(prevLeastScopeForEdge)?.get(prevPlaynode.id)?.set(traversedPlayedge.targetID, Math.max(oldEdgeRepeatCounterValue - 1, 0))
 					}
 				}
 				newPlayheads[state.playheadIndex].playcounters = newPlaycounters
@@ -678,7 +678,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			return {
 				...state,
 				playheadIndex: newPlayheadIndex,
-				messageLog: [...state.messageLog, `Moving to playhead ${state.playheads[newPlayheadIndex]}.`]
+				messageLog: [...state.messageLog, `Moving to playhead ${state.playheads[newPlayheadIndex].name}.`]
 			}
 		}
 		case 'incremented_playhead': {
@@ -686,7 +686,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			return {
 				...state,
 				playheadIndex: newPlayheadIndex,
-				messageLog: [...state.messageLog, `Moving to playhead ${state.playheads[newPlayheadIndex]}.`]
+				messageLog: [...state.messageLog, `Moving to playhead ${state.playheads[newPlayheadIndex].name}.`]
 			}
 		}
 		case 'autoplay_set': {
@@ -767,42 +767,42 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		let newPlayer: Spotify.Player | null = null;
 
 		window.onSpotifyWebPlaybackSDKReady = () => {
-			const accessToken = localStorage.getItem("spotify_access_token")
-			// TODO do refresh and login logic if necessary
-
-			if (accessToken) {
-				newPlayer = new window.Spotify.Player({
-					name: 'Playtree Web Player: ' + deviceName,
-					getOAuthToken: (cb: any) => { cb(accessToken); },
-					volume: 1
-				});
-
-				newPlayer.activateElement()
-
-				newPlayer.addListener('ready', ({ device_id }: any) => {
-					clientFetchWithToken("https://api.spotify.com/v1/me/player", {
-						method: "PUT",
-						body: JSON.stringify({ device_ids: [device_id], play: false })
-					}).then(response => {
-						if (response.ok) {
-							dispatch({ type: 'spotify_player_ready'})
+			clientFetchWithToken("https://api.spotify.com/v1/me/").then(response => {
+				if (response.ok) {
+					const accessToken = localStorage.getItem("spotify_access_token")
+					newPlayer = new window.Spotify.Player({
+						name: 'Playtree Web Player: ' + deviceName,
+						getOAuthToken: (cb: any) => { cb(accessToken); },
+						volume: 1
+					});
+	
+					newPlayer.activateElement()
+	
+					newPlayer.addListener('ready', ({ device_id }: any) => {
+						clientFetchWithToken("https://api.spotify.com/v1/me/player", {
+							method: "PUT",
+							body: JSON.stringify({ device_ids: [device_id], play: false })
+						}).then(response => {
+							if (response.ok) {
+								dispatch({ type: 'spotify_player_ready'})
+							}
+						})
+					});
+	
+					// TODO error handling if the device isn't ready to play
+	
+					newPlayer.addListener('player_state_changed', playbackState => {
+						if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
+							if (playtree) {
+								dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
+							}
 						}
+						prevPlaybackState.current = playbackState
 					})
-				});
-
-				// TODO error handling if the device isn't ready to play
-
-				newPlayer.addListener('player_state_changed', playbackState => {
-					if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
-						if (playtree) {
-							dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
-						}
-					}
-					prevPlaybackState.current = playbackState
-				})
-
-				newPlayer.connect()
-			}
+	
+					newPlayer.connect()
+				}
+			})
 		}
 
 		return () => {
@@ -829,7 +829,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 						const deviceID = playbackState.device.id
 						if (deviceID) {
 							if (state.playing) {
-								const currentSong = currentPlayhead.node.content[currentPlayhead.nodeIndex]
+								const currentSong = currentPlayhead.node.playitems[currentPlayhead.nodeIndex]
 								clientFetchWithToken("https://api.spotify.com/v1/me/player/play", {
 									method: "PUT",
 									body: JSON.stringify({
@@ -871,7 +871,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 
 	const handlePlayPauseAudio = useCallback((shouldPlay: boolean) => {
 		const currentPlayhead = state.playheads[state.playheadIndex]
-		const currentSong = currentPlayhead.node.content[currentPlayhead.nodeIndex]
+		const currentSong = currentPlayhead.node.playitems[currentPlayhead.nodeIndex]
 
 		clientFetchWithToken("https://api.spotify.com/v1/me/player").then(response => {
 			if (response.ok) {
@@ -908,26 +908,26 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		return (<div className="bg-green-600 fixed flex w-full h-36 left-48 bottom-0"><div className="text-white mx-auto my-16 w-fit font-lilitaOne">No playtrees.</div></div>)
 	} else {
 		let currentPlayhead: Playhead | null | undefined = null
-		let currentPlaynode: PlayNode | null | undefined = null
+		let currentPlaynode: Playnode | null | undefined = null
 		
-		let currentContent: Content | null | undefined = null
+		let currentPlayitem: Playitem | null | undefined = null
 
 		let currentNodePlaycount: number | undefined = undefined
 		let currentNodeMaxPlays: number | undefined = undefined
-		let currentContentPlaycount: number | undefined = undefined
-		let currentContentMaxPlays: number | undefined = undefined
+		let currentPlayitemPlaycount: number | undefined = undefined
+		let currentPlayitemMaxPlays: number | undefined = undefined
 
 		if (state && state.playheads) {
 			currentPlayhead = state.playheads[state.playheadIndex]
 			if (currentPlayhead && currentPlayhead.node) {
 				currentPlaynode = currentPlayhead.node
 				const currentScope : number = state.leastScopeByNode.get(currentPlaynode.id) as number
-				currentNodePlaycount = currentPlayhead.playcounters.node.get(currentScope)?.get(currentPlaynode.id)
-				currentNodeMaxPlays = currentPlaynode.repeat
-				if (currentPlaynode.content) {
-					currentContent = currentPlaynode.content[currentPlayhead.nodeIndex]
-					currentContentPlaycount = currentPlayhead.playcounters.content.get(currentScope)?.get(currentPlaynode.id)?.get(currentContent.id)
-					currentContentMaxPlays = currentContent.repeat
+				currentNodePlaycount = currentPlayhead.playcounters.playnodes.get(currentScope)?.get(currentPlaynode.id)
+				currentNodeMaxPlays = currentPlaynode.limit
+				if (currentPlaynode.playitems) {
+					currentPlayitem = currentPlaynode.playitems[currentPlayhead.nodeIndex]
+					currentPlayitemPlaycount = currentPlayhead.playcounters.playitems.get(currentScope)?.get(currentPlaynode.id)?.get(currentPlayitem.id)
+					currentPlayitemMaxPlays = currentPlayitem.limit
 				}
 			}
 		}
@@ -995,7 +995,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 							<tr><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
 							<tr><td>Playhead</td><td>|</td><td>{currentPlayhead ? currentPlayhead.name : "Playhead not available"}</td></tr>
 							<tr><td>Playnode</td><td>|</td><td>{(currentPlayhead?.stopped || state.messageLog.length === 1) && currentPlayhead?.shouldHideNode && !state.playing ? "???" : currentPlaynode ? currentPlaynode.name + (currentNodePlaycount !== undefined ? ` (${currentNodePlaycount + 1} / ${currentNodeMaxPlays})` : "") : "Playnode not available"}</td></tr>
-							<tr><td>Song</td><td>|</td><td>{(currentPlayhead?.stopped || state.messageLog.length === 1) && currentPlayhead?.shouldHideSong && !state.playing ? "???" : currentContent ? currentContent.name + (currentContentPlaycount !== undefined ? ` (${currentContentPlaycount + 1} / ${currentContentMaxPlays})` : "") : "Song not available"}</td></tr>
+							<tr><td>Song</td><td>|</td><td>{(currentPlayhead?.stopped || state.messageLog.length === 1) && currentPlayhead?.shouldHideSong && !state.playing ? "???" : currentPlayitem ? currentPlayitem.name + (currentPlayitemPlaycount !== undefined ? ` (${currentPlayitemPlaycount + 1} / ${currentPlayitemMaxPlays})` : "") : "Song not available"}</td></tr>
 						</tbody>
 					</table>
 				</div>

@@ -1,17 +1,17 @@
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
 import { PlaytreeEditorAction } from "../reducers/playtree-editor";
-import { Content, PlayheadInfo, PlayNode, Playscope } from "../types";
+import { Playitem, Playroot, Playnode, Playscope } from "../types";
 import { useCallback, useState } from "react";
 import SearchField, { queryString, SearchResult } from "./SearchField";
 import React from "react";
 import NaturalNumberInputField from "./NaturalNumberInputField";
-import ContentComponent from "./ContentComponent";
-import PlayheadComponent from "./PlayheadComponent";
+import PlayitemComponent from "./PlayitemComponent";
+import PlayheadComponent from "./PlayrootComponent";
 
 export type PlaynodeFlowData = Node<{
-	playnode: PlayNode;
-	playhead: PlayheadInfo | null;
-	scopes: Playscope[];
+	playnode: Playnode;
+	playroot: Playroot | null;
+	playscopes: Playscope[];
 	dispatch: (action: PlaytreeEditorAction) => void;
 	handleDeletePlaynode: (id: string) => void;
 }, 'play'>;
@@ -20,16 +20,16 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 	const [adding, setAdding] = useState<boolean>(false)
 	const [scopeView, setScopeView] = useState<boolean>(false)
 
-	const [contentList, setContentList] = useState<Content[]>(props.data.playnode.content)
+	const [playitems, setPlayitems] = useState<Playitem[]>(props.data.playnode.playitems)
 
-	const highestID = props.data.playnode.content.map(content => parseInt(content.id)).reduce((id1, id2) => Math.max(id1, id2), -1)
-	const [contentID, setContentID] = useState<number>(highestID + 1)
+	const highestID = props.data.playnode.playitems.map(playitem => parseInt(playitem.id)).reduce((id1, id2) => Math.max(id1, id2), -1)
+	const [playitemID, setContentID] = useState<number>(highestID + 1)
 
 	const getNextID = useCallback(() => {
-		const nextID = contentID
+		const nextID = playitemID
 		setContentID(c => c + 1)
 		return nextID
-	}, [contentID])
+	}, [playitemID])
 
 	const handleAddBegin = useCallback((_: any) => {
 		setAdding(true)
@@ -39,13 +39,13 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 		if (newContent.uri === null) {
 			return false
 		}
-		const newContentList = structuredClone(contentList)
-		newContentList.push({ id: getNextID().toString(), type: "spotify-track", name: queryString(newContent), uri: newContent.uri, mult: 1, repeat: -1 })
-		setContentList(newContentList)
-		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { content: newContentList } })
+		const newPlayitems = structuredClone(playitems)
+		newPlayitems.push({ id: getNextID().toString(), type: {source: "spotify", plurality: "single"}, name: queryString(newContent), uri: newContent.uri, multiplier: 1, limit: -1 })
+		setPlayitems(newPlayitems)
+		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { playitems: newPlayitems } })
 		setAdding(false)
 		return false
-	}, [adding, contentList])
+	}, [adding, playitems])
 
 	const handleSearchFocusOut = useCallback((event: FocusEvent) => {
 		setAdding(false)
@@ -56,7 +56,7 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 	}, [props.data.playnode.name]);
 
 	const handleTogglePlaynodeType = useCallback(() => {
-		const otherType: PlayNode["type"] = props.data.playnode.type === "sequence" ? "selector" : "sequence"
+		const otherType: Playnode["type"] = props.data.playnode.type === "sequencer" ? "selector" : "sequencer"
 		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { type: otherType } })
 	}, [props.data.playnode.type])
 
@@ -68,35 +68,35 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 		if (index <= 0) {
 			return
 		}
-		const newContentList = structuredClone(contentList)
-		newContentList[index - 1] = contentList[index]
-		newContentList[index] = contentList[index - 1]
-		setContentList(newContentList)
-		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { content: newContentList } })
-	}, [contentList])
+		const newPlayitems = structuredClone(playitems)
+		newPlayitems[index - 1] = playitems[index]
+		newPlayitems[index] = playitems[index - 1]
+		setPlayitems(newPlayitems)
+		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { playitems: newPlayitems } })
+	}, [playitems])
 
 	const handleMoveDown = useCallback((index: number) => () => {
-		if (index + 1 >= contentList.length) {
+		if (index + 1 >= playitems.length) {
 			return
 		}
-		const newContentList = structuredClone(contentList)
-		newContentList[index + 1] = contentList[index]
-		newContentList[index] = contentList[index + 1]
-		setContentList(newContentList)
-	}, [contentList])
+		const newPlayitems = structuredClone(playitems)
+		newPlayitems[index + 1] = playitems[index]
+		newPlayitems[index] = playitems[index + 1]
+		setPlayitems(newPlayitems)
+	}, [playitems])
 
 	const handleDeleteContent = useCallback((index: number) => () => {
-		const newContentList = structuredClone(contentList)
-		newContentList.splice(index, 1)
-		setContentList(newContentList)
-		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { content: newContentList } })
-	}, [contentList])
+		const newPlayitems = structuredClone(playitems)
+		newPlayitems.splice(index, 1)
+		setPlayitems(newPlayitems)
+		props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { playitems: newPlayitems } })
+	}, [playitems])
 
 	const handleDeleteSelf = useCallback(() => {
 		props.data.handleDeletePlaynode(props.data.playnode.id)
 	}, [])
 
-	const isSequence = props.data.playnode.type === "sequence"
+	const isSequence = props.data.playnode.type === "sequencer"
 	const color = isSequence ? "green" : "amber"
 
 	const handleDrop = (event: any) => {
@@ -114,7 +114,7 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 
 	return (
 		<React.Fragment key={props.id}>
-			<div>{props.data.playhead ? <PlayheadComponent name={props.data.playhead.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)} /> : null}</div>
+			<div>{props.data.playroot ? <PlayheadComponent name={props.data.playroot.name} nodeID={props.id} dispatch={(x) => props.data.dispatch(x)} /> : null}</div>
 			<Handle type="target" isConnectableStart={false} position={Position.Top} style={{ width: 12, height: 12 }} />
 			{
 				props.selected ?
@@ -130,8 +130,8 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 								scopeView ?
 								<>
 									{
-										props.data.playnode.scopes.map((scopeIndex, index) => {
-											const scope = props.data.scopes[scopeIndex]
+										props.data.playnode.playscopes.map((scopeIndex, index) => {
+											const scope = props.data.playscopes[scopeIndex]
 											return <li key={index} className={`font-markazi`} style={{color: scope.color}}>{scope.name}</li>
 										})
 									}
@@ -140,8 +140,8 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 											<input type="hidden" name={"node-id"} value={props.data.playnode.id}></input>
 											<select name={"scope-id"} className="font-markazi">
 												{
-													props.data.scopes.map((scope, index) =>
-														props.data.playnode.scopes.includes(index) ? null
+													props.data.playscopes.map((scope, index) =>
+														props.data.playnode.playscopes.includes(index) ? null
 														: <option key={index} value={index}>{scope.name}</option>
 													)
 												}
@@ -154,16 +154,16 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 								 <>
 								 	<div className="font-markazi">
 										<span className="mr-1">Repeat:</span>
-										<NaturalNumberInputField canBeInfinite={true} defaultValue={1} value={props.data.playnode.repeat} onChange={(n : number) => props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { repeat: n } })}/>
+										<NaturalNumberInputField canBeInfinite={true} defaultValue={1} value={props.data.playnode.limit} onChange={(n : number) => props.data.dispatch({ type: "updated_playnode", nodeID: props.data.playnode.id, patch: { limit: n } })}/>
 									</div>
 									<div className="flex font-markazi"><div className="ml-14">Name</div><div className="ml-[3.75rem]">M</div><div className="ml-3">R</div></div>
 									{
-										contentList.map((content: Content, index: number) => {
-											return <ContentComponent key={content.id} nodeID={props.id} index={index} color={color} contentList={contentList}
+										playitems.map((playitem: Playitem, index: number) => {
+											return <PlayitemComponent key={playitem.id} nodeID={props.id} index={index} color={color} playitems={playitems}
 												onMoveUp={index > 0 ? handleMoveUp(index) : undefined}
-												onMoveDown={index + 1 < contentList.length ? handleMoveDown(index) : undefined}
+												onMoveDown={index + 1 < playitems.length ? handleMoveDown(index) : undefined}
 												onDeleteSelf={handleDeleteContent}
-												onUpdateContentList={setContentList}
+												onUpdatePlayitems={setPlayitems}
 												dispatch={props.data.dispatch} />
 										})
 									}
