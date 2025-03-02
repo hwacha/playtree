@@ -2,7 +2,7 @@ import { BaseEdge, Edge, EdgeLabelRenderer, EdgeProps, getBezierPath } from "@xy
 import React from "react";
 import NaturalNumberInputField from "./NaturalNumberInputField";
 import { Playedge } from "../types";
-import { PlaytreeEditorAction } from "../reducers/playtree-editor";
+import { PlaytreeEditorAction } from "../reducers/editor";
 
 export type PlayedgeFlowData = Edge<{
     playedge: Playedge;

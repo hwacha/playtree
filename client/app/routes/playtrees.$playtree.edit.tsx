@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
 import { jsonFromPlaytree, Playedge, Playnode, Playscope, Playtree, playtreeFromJson } from "../types";
 import Dagre from '@dagrejs/dagre';
-import { PlaytreeEditorAction, playtreeReducer } from "../reducers/playtree-editor";
+import { PlaytreeEditorAction, playtreeReducer } from "../reducers/editor";
 import PlaynodeComponent, { PlaynodeFlowData } from "../components/PlaynodeComponent";
 import PlayedgeComponent, { PlayedgeFlowData } from "../components/PlayedgeComponent";
 import { PlayConnectionLine } from "../components/PlayConnectionLine";

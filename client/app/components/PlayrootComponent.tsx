@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { PlaytreeEditorAction } from "../reducers/playtree-editor";
+import { PlaytreeEditorAction } from "../reducers/editor";
 
 type PlayheadProps = {
 	name: string;

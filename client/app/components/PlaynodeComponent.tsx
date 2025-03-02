@@ -1,5 +1,5 @@
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
-import { PlaytreeEditorAction } from "../reducers/playtree-editor";
+import { PlaytreeEditorAction } from "../reducers/editor";
 import { Playitem, Playroot, Playnode, Playscope } from "../types";
 import { useCallback, useState } from "react";
 import SearchField, { queryString, SearchResult } from "./SearchField";

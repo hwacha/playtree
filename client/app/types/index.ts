@@ -1,5 +1,3 @@
-import { Playcounters } from "../components/Player";
-
 export type PlaytreeSummary = {
 	id: string;
 	name: string;

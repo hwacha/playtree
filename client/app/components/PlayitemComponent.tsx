@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PlaytreeEditorAction } from "../reducers/playtree-editor";
+import { PlaytreeEditorAction } from "../reducers/editor";
 import { Playitem } from "../types";
 
 type PlayitemComponentProps = {
