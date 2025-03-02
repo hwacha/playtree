@@ -1,9 +1,25 @@
 import { Link } from "@remix-run/react";
+import { clientFetchWithToken } from "../utils/client-fetch-with-token";
+import { SPOTIFY_CURRENT_USER_PATH } from "../api_endpoints";
+import { Suspense, useMemo } from "react";
 
-export default function Banner() {
+type BannerProps = {
+	isAuthenticated: boolean;
+	displayName: string | null;
+}
+
+export default function Banner(props: BannerProps) {
 	return (
-		<div className="bg-green-600 fixed w-full h-16 p-3 left-48 top-0">
-			<Link to="/" replace><h1 className='font-lilitaOne text-white text-4xl underline'>Playtree</h1></Link>
+		<div className="bg-green-600 text-white font-lilitaOne fixed w-[calc(100vw-12rem)] -h-16 p-3 left-48 top-0 flex justify-between">
+			<div className="w-fit">
+				<Link to="/" replace><h1 className='text-4xl underline'>Playtree</h1></Link>
+			</div>
+			<div className="w-fit my-auto">
+				{
+					props.isAuthenticated ? <h4 className="text-xl">{props.displayName}</h4> :
+					<Link to="/login" replace><h3 className='text-2xl'>Login</h3></Link>
+				}
+			</div>
 		</div>
 	)
 }

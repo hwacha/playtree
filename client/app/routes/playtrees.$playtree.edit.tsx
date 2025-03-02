@@ -267,7 +267,6 @@ export default function PlaytreeEditor() {
 	const handleSave = useCallback(() => {
 		(async () => {
 			try {
-				console.log(jsonFromPlaytree(state.playtree))
 				const response = await fetch(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
 					method: "PUT",
 					body: JSON.stringify(jsonFromPlaytree(state.playtree))

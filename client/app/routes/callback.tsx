@@ -12,7 +12,7 @@ export async function loader({
 	const state = searchParams.get("state");
 
 	if (state === null) {
-		return redirect('/#' + queryString.stringify({ error: 'state_mismatch' }));
+		redirect("/?authentication-success=false")
 	} else {
 		const query = queryString.stringify({
 			code: code,
@@ -37,13 +37,13 @@ export async function loader({
 			session.set("accessToken", accessToken.access_token)
 			session.set("refreshToken", accessToken.refresh_token)
 
-			return redirect("/", {
+			return redirect("/?authentication-success=true", {
 				headers: {
 					"Set-Cookie": await commitSession(session),
 				},
 			})
 		} else {
-			return "/#" + queryString.stringify({ error: 'could not retreive access token' })
+			return redirect("/?authentication-success=false")
 		}
 	}
 }

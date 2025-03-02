@@ -18,25 +18,69 @@ import Banner from "./components/Banner";
 import { playtreeFromJson } from "./types";
 import { getSession } from "./sessions";
 import { useEffect } from "react";
+import { serverFetchWithToken } from "./utils/server-fetch-with-token.server";
+import { PLAYTREE_SERVER_PLAYER_PATH, PLAYTREE_SERVER_USER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "./api_endpoints";
 
 export const links: LinksFunction = () => [
 	{ rel: "stylesheet", href: styles },
 ];
 
+type AuthenticationStatus = "NOT_TRIED" | "SUCCESS" | "FAILURE"
+
 export const loader = async ({request} : LoaderFunctionArgs) => {
+	const url = new URL(request.url)
+	const authenticationSuccess = url.searchParams.get("authentication-success")
+
+	let authenticationStatus : AuthenticationStatus = "NOT_TRIED"
+	if (authenticationSuccess !== undefined) {
+		if (authenticationSuccess === "true") {
+			authenticationStatus = "SUCCESS"
+		} else if (authenticationSuccess === "false") {
+			authenticationStatus = "FAILURE"
+		}
+	}
+
+	// we tried to (re)authenticate, and it failed.
+	if (authenticationStatus === "FAILURE") {
+		return {
+			authenticationStatus: authenticationStatus,
+			displayName: null,
+			playerPlaytree: null,
+			userPlaytreeSummaries: null,
+			accessToken: null,
+			refreshToken: null
+		}
+	}
+
 	const session = await getSession(request.headers.get("Cookie"))
 
-	const playerPlaytreeJson = await fetch("http://localhost:8080/me/player", {
-		headers: {
-			Authorization: "Bearer " + session.get("accessToken")
+	if (authenticationStatus === "NOT_TRIED") {
+		// check there's no access token stored as a cookie
+		
+		if (!session.get("accessToken")) {
+			return {
+				authenticationStatus: authenticationStatus,
+				displayName: null,
+				playerPlaytree: null,
+				userPlaytreeSummaries: null,
+				accessToken: null,
+				refreshToken: null
+			}
 		}
-	}).then(response => response.json())
-	const userPlaytreeSummariesJson = await fetch("http://localhost:8080/playtrees/me", {
-		headers: {
-			Authorization: "Bearer " + session.get("accessToken")
-		}
-	}).then(response => response.json())
+	}
+
+	const profileRequest = await serverFetchWithToken(request, SPOTIFY_CURRENT_USER_PATH)
+	const profileJson = await profileRequest.json()
+
+	const playerRequest = await serverFetchWithToken(request, PLAYTREE_SERVER_PLAYER_PATH)
+	const playerPlaytreeJson = await playerRequest.json()
+
+	const userPlaytreeSummariesRequest = await serverFetchWithToken(request, PLAYTREE_SERVER_USER_PLAYTREES_PATH)
+	const userPlaytreeSummariesJson = await userPlaytreeSummariesRequest.json()
+
 	return {
+		authenticationStatus: "SUCCESS",
+		displayName: profileJson.display_name,
 		playerPlaytree: playerPlaytreeJson,
 		userPlaytreeSummaries: userPlaytreeSummariesJson,
 		accessToken: session.get("accessToken"),
@@ -91,7 +135,7 @@ export default function App() {
 				<Scripts />
 				<UserSidebar userPlaytreeSummaries={userPlaytreeSummaries} />
 				<div className="absolute left-48 w-[calc(100vw-12rem)] h-full">
-					<Banner />
+					<Banner isAuthenticated={data.authenticationStatus === "SUCCESS"} displayName={data.displayName}/>
 					<div className="absolute w-full h-[calc(100%-13rem)] top-16 -bottom-64">
 						<Outlet key={location.pathname} />
 					</div>

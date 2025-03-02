@@ -71,7 +71,15 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		spotifyRequest, _ := http.NewRequest("GET", "https://api.spotify.com/v1/me", nil)
 		spotifyRequest.Header.Set("Authorization", r.Header.Get("Authorization"))
 		client := &http.Client{}
-		spotifyResponse, _ := client.Do(spotifyRequest)
+		spotifyResponse, spotifyErr := client.Do(spotifyRequest)
+		if spotifyErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if spotifyResponse.StatusCode != 200 {
+			w.WriteHeader(spotifyResponse.StatusCode)
+			return
+		}
 		defer spotifyResponse.Body.Close()
 		decoder := json.NewDecoder(spotifyResponse.Body)
 
