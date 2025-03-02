@@ -92,7 +92,7 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 	let component = <div className="opacity-100" style={{zIndex: props.zIndex}}>
 		<Handle type="target" isConnectableStart={false} position={Position.Top} style={{ width: 12, height: 12, top: 2 + 4 * numScopes }} />
 		{
-			props.selected ?
+			props.selected && !props.dragging ?
 				<div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-64 p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
 					<div className="mb-5">
 						<button className={`bg-${color}-300 rounded-lg px-2 py-1 absolute left-[1.25rem]`} style={{left: 4 * (1 + numScopes), top: 4 * (1 + numScopes)}} onClick={handleTogglePlaynodeType} title={props.data.playnode.type}>{isSequence ? <>🔢</> : <>🎲</>}</button>
