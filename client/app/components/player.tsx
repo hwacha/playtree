@@ -195,6 +195,20 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		dispatch({ type: "autoplay_set", autoplay: shouldPlay })
 	}, [state.playheads, state.playheadIndex])
 
+
+	const handleChangePlayhead = useCallback((direction: "incremented_playhead" | "decremented_playhead") => {
+		return () => {
+			if (playtree) {
+				clientFetchWithToken("https://api.spotify.com/v1/me/player").then(response => {
+					response.json().then(playbackState => {
+						dispatch({ type: "song_progress_received", spotifyPlaybackPosition_ms: playbackState.progress_ms })
+						dispatch({ type: direction, playtree: playtree })
+					})
+				})
+			}
+		}
+	}, [playtree])
+
 	if (playtree === null) {
 		return (<div className="bg-green-600 fixed flex w-full h-36 left-48 bottom-0"><div className="text-white mx-auto my-16 w-fit font-lilitaOne">No playtrees.</div></div>)
 	} else {
@@ -242,7 +256,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 								type="button"
 								title="Previous Playhead"
 								className="rounded-sm p-2 text-white"
-								onClick={() => dispatch({ type: "decremented_playhead", playtree: playtree })}>
+								onClick={handleChangePlayhead("decremented_playhead")}>
 								{"\u23EB"}
 							</button>
 						</div>
@@ -274,7 +288,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 								type="button"
 								title="Next Playhead"
 								className="rounded-sm p-2 text-white"
-								onClick={() => dispatch({ type: "incremented_playhead", playtree: playtree })}>
+								onClick={handleChangePlayhead("incremented_playhead")}>
 								{"\u23EC"}
 							</button>
 						</div>

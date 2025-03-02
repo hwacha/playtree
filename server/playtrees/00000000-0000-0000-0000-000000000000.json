@@ -10,7 +10,7 @@
 			"id": "0",
 			"type": "selector",
 			"name": "Early 2010s Indie Shuffle",
-			"limit": 1,
+			"limit": -1,
 			"playscopes": [
 				0
 			],
@@ -301,7 +301,7 @@
 	"playscopes": [
 		{
 			"name": "Shuffle Scope",
-			"color": "#f4ca27"
+			"color": "#b0c6f4"
 		}
 	]
 }
