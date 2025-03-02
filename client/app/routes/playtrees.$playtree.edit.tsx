@@ -62,6 +62,29 @@ export default function PlaytreeEditor() {
 	})
 	const [scopeManagerVisible, setScopeManagerVisible] = useState<boolean>(false)
 
+	const playscopeComparator = useMemo(() => {
+		const playnodesByPlayscope = state.playtree.playscopes.map(_ => new Set<string>())
+		state.playtree.playnodes.forEach((playnode) => {
+			playnode.playscopes.forEach(playscopeID => {
+				playnodesByPlayscope[playscopeID].add(playnode.id)
+			})
+		})
+		return (i : number, j : number) : number => {
+			const iSubsetOfJ = isSubsetOf(playnodesByPlayscope[i], playnodesByPlayscope[j])
+			const jSubsetOfI = isSubsetOf(playnodesByPlayscope[j], playnodesByPlayscope[i])
+			if (iSubsetOfJ && jSubsetOfI) {
+				return 0
+			}
+			if (iSubsetOfJ) {
+				return -1
+			}
+			if (jSubsetOfI) {
+				return 1
+			}
+			return 0
+		}
+	}, [state.playtree.playscopes, state.playtree.playnodes])
+
 	const initialFlownodeData: PlaynodeFlowData[] = Array.from(initialPlaytree.playnodes.values()).map((playnode, index) => {
 		return {
 			key: playnode.id,
@@ -75,7 +98,8 @@ export default function PlaytreeEditor() {
 				playnode: playnode,
 				playroot: initialPlaytree.playroots.get(playnode.id) ?? null,
 				playscopes: initialPlaytree.playscopes,
-				dispatch: (x: PlaytreeEditorAction) => dispatch(x)
+				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
+				playscopeComparator: playscopeComparator
 			}
 		}
 	})
@@ -167,7 +191,8 @@ export default function PlaytreeEditor() {
 				},
 				playscopes: state.playtree.playscopes,
 				playroot: null,
-				dispatch: (x: PlaytreeEditorAction) => dispatch(x)
+				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
+				playscopeComparator: playscopeComparator
 			}
 		}
 	}, [])

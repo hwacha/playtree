@@ -14,6 +14,7 @@ export type PlaynodeFlowData = Node<{
 	playroot: Playroot | null;
 	playscopes: Playscope[];
 	dispatch: (action: PlaytreeEditorAction) => void;
+	playscopeComparator: (i: number, j: number) => number;
 }, 'play'>;
 
 export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
