@@ -1,6 +1,6 @@
 import { ActionFunctionArgs } from "@remix-run/node";
 import { redirect, useFetcher, useLoaderData } from "@remix-run/react";
-import { clientFetchWithToken } from "../fetch-with-token";
+import { clientFetchWithToken } from "../utils/fetch-with-token";
 import { getSession } from "../sessions";
 
 export const loader = async ({ request }: ActionFunctionArgs) => {

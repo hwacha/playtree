@@ -95,30 +95,14 @@
 			],
 			"next": [
 				{
-					"targetID": "1",
-					"priority": 1,
-					"shares": 1,
-					"limit": -1
-				},
-				{
 					"targetID": "2",
 					"priority": 0,
 					"shares": 1,
 					"limit": 6
-				}
-			]
-		},
-		"1": {
-			"id": "1",
-			"type": "selector",
-			"name": "Reset",
-			"limit": -1,
-			"playscopes": [],
-			"playitems": [],
-			"next": [
+				},
 				{
 					"targetID": "3",
-					"priority": 0,
+					"priority": 1,
 					"shares": 1,
 					"limit": -1
 				}

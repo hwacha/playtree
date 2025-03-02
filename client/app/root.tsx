@@ -17,7 +17,7 @@ import UserSidebar from "./components/UserSidebar";
 import Banner from "./components/Banner";
 import { playtreeFromJson } from "./types";
 import { getSession } from "./sessions";
-import { clientFetchWithToken } from "./fetch-with-token";
+import { clientFetchWithToken } from "./utils/fetch-with-token";
 import { useEffect } from "react";
 
 export const links: LinksFunction = () => [

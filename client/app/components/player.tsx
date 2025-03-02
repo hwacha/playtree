@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react"
 import { Playitem, Playnode, Playtree } from "../types";
 import deepEqual from "deep-equal";
-import { clientFetchWithToken } from "../fetch-with-token";
+import { clientFetchWithToken } from "../utils/fetch-with-token";
 import reducer, { Playhead } from "../reducers/player";
 
 type PlayerProps = {
@@ -214,7 +214,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 	} else {
 		let currentPlayhead: Playhead | null | undefined = null
 		let currentPlaynode: Playnode | null | undefined = null
-		
+		let currentPlayscope:  number | null | undefined = null
 		let currentPlayitem: Playitem | null | undefined = null
 
 		let currentNodePlaycount: number | undefined = undefined
@@ -226,16 +226,50 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 			currentPlayhead = state.playheads[state.playheadIndex]
 			if (currentPlayhead && currentPlayhead.node) {
 				currentPlaynode = currentPlayhead.node
-				const currentScope : number = state.leastScopeByNode.get(currentPlaynode.id) as number
-				currentNodePlaycount = currentPlayhead.playcounters.playnodes.get(currentScope)?.get(currentPlaynode.id)
+				currentPlayscope = state.leastScopeByNode.get(currentPlaynode.id) as number
+				currentNodePlaycount = currentPlayhead.playcounters.playnodes.get(currentPlayscope)?.get(currentPlaynode.id)
 				currentNodeMaxPlays = currentPlaynode.limit
 				if (currentPlaynode.playitems) {
 					currentPlayitem = currentPlaynode.playitems[currentPlayhead.nodeIndex]
-					currentPlayitemPlaycount = currentPlayhead.playcounters.playitems.get(currentScope)?.get(currentPlaynode.id)?.get(currentPlayitem.id)
+					currentPlayitemPlaycount = currentPlayhead.playcounters.playitems.get(currentPlayscope)?.get(currentPlaynode.id)?.get(currentPlayitem.id)
 					currentPlayitemMaxPlays = currentPlayitem.limit
 				}
 			}
 		}
+
+		const playheadInfo = currentPlayhead ? currentPlayhead.name : "Playhead not available"
+
+		let playnodeInfo = "Playnode not available"
+		// NOTE: state.messageLog.length being 1 is a hacky way
+		// to check if the player has started since load
+		if ((currentPlayhead?.stopped || state.messageLog.length === 1) && currentPlayhead?.shouldHideNode && !state.playing) {
+			playnodeInfo = "???"
+		} else if (currentPlaynode) {
+			playnodeInfo = currentPlaynode.name
+			if (currentNodePlaycount !== undefined) {
+				let playAndLimitInfo = ` (${currentNodePlaycount + 1} / ${currentNodeMaxPlays})`
+				if (currentPlayscope !== null && currentPlayscope !== -1) {
+					playAndLimitInfo = `[${playAndLimitInfo} in scope ${playtree.playscopes[currentPlayscope].name}]`
+				}
+				playnodeInfo += playAndLimitInfo
+			}
+		}
+
+		let playitemInfo = "Song not available"
+		// NOTE: same as note above
+		if ((currentPlayhead?.stopped || state.messageLog.length === 1) && currentPlayhead?.shouldHideSong && !state.playing) {
+			playitemInfo = "???"
+		} else if (currentPlayitem) {
+			playitemInfo = currentPlayitem.name
+			if (currentPlayitemPlaycount !== undefined) {
+				let playAndLimitInfo = `(${currentPlayitemPlaycount + 1} / ${currentPlayitemMaxPlays})`
+				if (currentPlayscope !== null && currentPlayscope !== -1) {
+					playAndLimitInfo = `[${playAndLimitInfo} in scope '${playtree.playscopes[currentPlayscope].name}']`
+				}
+				playitemInfo += " " + playAndLimitInfo
+			}
+		}
+
 		return (
 			<div className="bg-green-600 fixed flex w-[calc(100vw-12rem)] h-36 left-48 bottom-0">
 				<div className="w-full basis-1/4 my-6 mx-16 max-h-full overflow-hidden flex flex-col-reverse">
@@ -298,9 +332,9 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 					<table>
 						<tbody>
 							<tr><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
-							<tr><td>Playhead</td><td>|</td><td>{currentPlayhead ? currentPlayhead.name : "Playhead not available"}</td></tr>
-							<tr><td>Playnode</td><td>|</td><td>{(currentPlayhead?.stopped || state.messageLog.length === 1) && currentPlayhead?.shouldHideNode && !state.playing ? "???" : currentPlaynode ? currentPlaynode.name + (currentNodePlaycount !== undefined ? ` (${currentNodePlaycount + 1} / ${currentNodeMaxPlays})` : "") : "Playnode not available"}</td></tr>
-							<tr><td>Song</td><td>|</td><td>{(currentPlayhead?.stopped || state.messageLog.length === 1) && currentPlayhead?.shouldHideSong && !state.playing ? "???" : currentPlayitem ? currentPlayitem.name + (currentPlayitemPlaycount !== undefined ? ` (${currentPlayitemPlaycount + 1} / ${currentPlayitemMaxPlays})` : "") : "Song not available"}</td></tr>
+							<tr><td>Playhead</td><td>|</td><td>{playheadInfo}</td></tr>
+							<tr><td>Playnode</td><td>|</td><td>{playnodeInfo}</td></tr>
+							<tr><td>Song</td><td>|</td><td>{playitemInfo}</td></tr>
 						</tbody>
 					</table>
 				</div>
