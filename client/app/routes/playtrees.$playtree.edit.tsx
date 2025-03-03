@@ -1,5 +1,5 @@
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { Form, Link, useLoaderData } from "@remix-run/react";
+import { Link, useFetcher, useLoaderData, useSubmit } from "@remix-run/react";
 import { Background, Controls, MarkerType, ReactFlow, addEdge, OnConnect, useNodesState, useEdgesState } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
@@ -14,6 +14,7 @@ import { isSubsetOf } from "@opentf/std";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
 import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../api_endpoints";
 import Snack from "../components/Snack";
+import Modal from "../components/Modal";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	invariant(params.playtree)
@@ -360,14 +361,47 @@ export default function PlaytreeEditor() {
 		}
 	}, [])
 
+	const fetcher = useFetcher({ key: "player" })
+	const submit = useSubmit()
+
+	const handleDelete = useCallback(() => {
+		submit({}, {
+			method: "POST",
+			action: `/playtrees/${state.playtree.summary.id}/delete`
+		})
+	}, [])
+
+	const [deleteModalOn, setDeleteModalOn] = useState<boolean>(false)
+	const handleSetDeleteModalVisiblity = useCallback((on: boolean) => {
+		setDeleteModalOn(_ => on)
+	}, [])
+
 	return (
 		<div className="font-lilitaOne w-5/6 m-auto h-[calc(100vh-15.25rem)]">
 			<div className="w-full h-fit flex justify-between mt-12">
-				<h2 className="w-full text-3xl text-green-600">{state.playtree.summary.name}</h2>
-				<Form method="POST" action={`/playtrees/${state.playtree.summary.id}/delete`}>
-					<button type="submit" className="bg-red-400 px-2 py-1 rounded-lg font-markazi">Delete</button>
-				</Form>
+				<div className="flex py-1">
+					<h2 className="w-full text-3xl text-green-600">{state.playtree.summary.name}</h2>
+					<fetcher.Form method="POST" action="/">
+						<input type="hidden" id="playtreeID" name="playtreeID" value={state.playtree.summary.id} />
+						<button type="submit" className="bg-green-300 font-markazi text-xl rounded-md px-2 py-1 ml-2">Play</button>
+					</fetcher.Form>
+				</div>
+				<button
+					type="button"
+					className="bg-red-400 px-2 py-1 my-1 rounded-lg font-markazi text-xl"
+					onClick={() => handleSetDeleteModalVisiblity(true)}
+				>Delete</button>
 			</div>
+			{
+				deleteModalOn ?
+				<Modal
+					type={"dangerous"}
+					description={`Are you sure you want to delete the playtree '${state.playtree.summary.name}'?`}
+					exitAction={() => handleSetDeleteModalVisiblity(false)}
+					primaryAction={{ label: "Delete", callback: handleDelete }}
+				/>
+				: null
+			}
 			<div className="h-[calc(100%-8rem)] flex">
 				<div className="h-full w-full flex-[4] border-4 border-green-600 bg-neutral-100">
 					<button title="Add Playnode" className="z-10 absolute rounded-lg bg-green-400 mx-1 my-1 px-2 py-1" onClick={handleAddPlaynode}>➕</button>

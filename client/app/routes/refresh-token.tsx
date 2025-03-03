@@ -20,7 +20,6 @@ export async function action({
 	const refreshToken = session.get("refreshToken")
 	
 	if (!refreshToken) {
-		console.log('no refresh token')
 		return new Response(JSON.stringify({ error: "No refresh token provided" }), { status: 400 })
 	}
 
