@@ -34,8 +34,8 @@ export async function loader({
 				request.headers.get("Cookie")
 			);
 
-			session.set("accessToken", accessToken.access_token)
-			session.set("refreshToken", accessToken.refresh_token)
+			session.set("spotify_access_token", accessToken.access_token)
+			session.set("spotify_refresh_token", accessToken.refresh_token)
 
 			return redirect("/?authentication-success=true", {
 				headers: {

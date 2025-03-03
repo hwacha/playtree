@@ -1,7 +1,5 @@
-import { Link } from "@remix-run/react";
-import { clientFetchWithToken } from "../utils/client-fetch-with-token";
-import { SPOTIFY_CURRENT_USER_PATH } from "../api_endpoints";
-import { Suspense, useMemo } from "react";
+import { Form, Link } from "@remix-run/react";
+import { useCallback } from "react";
 
 type BannerProps = {
 	isAuthenticated: boolean;
@@ -9,6 +7,13 @@ type BannerProps = {
 }
 
 export default function Banner(props: BannerProps) {
+	const handleClearTokens = useCallback(() => {
+		if (typeof localStorage !== "undefined") {
+			localStorage.removeItem("spotify_access_token")
+			localStorage.removeItem("spotify_refresh_token")
+		}
+	}, [])
+
 	return (
 		<div className="bg-green-600 text-white font-lilitaOne fixed w-[calc(100vw-16rem)] -h-16 p-3 left-64 top-0 flex justify-between">
 			<div className="w-fit">
@@ -16,8 +21,18 @@ export default function Banner(props: BannerProps) {
 			</div>
 			<div className="w-fit my-auto">
 				{
-					props.isAuthenticated ? <h4 className="text-xl">{props.displayName}</h4> :
-					<Link to="/login" replace><h3 className='text-2xl'>Login</h3></Link>
+					props.isAuthenticated ?
+					<div className="flex">
+						<h4 className="text-xl my-auto mr-4">{props.displayName}</h4>
+						<Form method="POST" action="/logout">
+							<button
+								type="submit"
+								className="bg-slate-300 rounded-lg px-2 py-1 text-xl text-white font-markazi"
+								onClick={handleClearTokens}
+								>Logout</button>
+						</Form>
+					</div>
+					: <Link to="/login" replace><h3 className='text-2xl'>Login</h3></Link>
 				}
 			</div>
 		</div>

@@ -12,8 +12,8 @@ export const serverFetchWithToken = async (request: Request, ...args: Parameters
 	}
 
 	const session = await getSession(request.headers.get("Cookie"))
-	let accessToken = session.get("accessToken")
-	const refreshToken = session.get("refreshToken")
+	let accessToken = session.get("spotify_access_token")
+	const refreshToken = session.get("spotify_refresh_token")
 
 	if (!accessToken) {
 		// if the access token does not exist but the refresh token does, hit the refresh endpoint

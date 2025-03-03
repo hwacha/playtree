@@ -70,7 +70,7 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 
 	if (authenticationStatus === "NOT_TRIED") {
 		// check there's no access token stored as a cookie
-		if (!session.get("accessToken")) {
+		if (!session.get("spotify_access_token")) {
 			return {
 				...result,
 				authenticationStatus: authenticationStatus
@@ -95,8 +95,8 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 	return {
 		...result,
 		authenticationStatus: "SUCCESS",
-		accessToken: session.get("accessToken") ?? null,
-		refreshToken: session.get("refreshToken") ?? null
+		accessToken: session.get("spotify_access_token") ?? null,
+		refreshToken: session.get("spotify_refresh_token") ?? null
 	}
 }
 
