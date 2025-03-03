@@ -19,21 +19,18 @@ const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnTy
 		if (refreshToken) {
 			const refreshTokenResponse = await fetch(REMIX_SERVER_API_PATH + "/refresh-token", { method: "POST" })
 			if (!refreshTokenResponse.ok) {
-				window.location.href = REMIX_SERVER_API_PATH + "/login"
-				return new Response(null)
+				return new Response("Could not get access token with refresh token", { status: 401 })
 			}
 
 			const refreshTokenResponseBody = await refreshTokenResponse.json()
 			accessToken = refreshTokenResponseBody.access_token
 			localStorage.setItem("spotify_access_token", accessToken as string)
 		} else {
-			window.location.href = REMIX_SERVER_API_PATH + "/login"
-			return new Response(null)
+			return new Response("Do not have access token or refresh token", { status: 401 })
 		}
 	}
 
 	options.headers.Authorization = "Bearer " + accessToken;
-
 	args[1] = options
 	const initialFetch = await fetch(...args)
 
@@ -42,8 +39,7 @@ const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnTy
 	} else if (initialFetch.status === 401) {
 		const refreshTokenResponse = await fetch(REMIX_SERVER_API_PATH + "/refresh-token", { method: "POST" })
 		if (!refreshTokenResponse.ok) {
-			window.location.href = REMIX_SERVER_API_PATH + "/login"
-			return new Response(null)
+			return new Response("Access token expired, and could not get new access token with refresh token", { status: 401 })
 		}
 
 		const refreshTokenResponseBody = await refreshTokenResponse.json()
@@ -56,9 +52,9 @@ const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnTy
 		}
 
 		return fetch(...args)
+	} else {
+		return initialFetch
 	}
-	window.location.href = REMIX_SERVER_API_PATH + "/?authentication-success=false"
-	return new Response(null)
 }
 
 export { clientFetchWithToken }

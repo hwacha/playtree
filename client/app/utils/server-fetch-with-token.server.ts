@@ -4,11 +4,9 @@ import { REMIX_SERVER_API_PATH } from "../api_endpoints"
 
 export const serverFetchWithToken = async (request: Request, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> => {
 	let options: any = args[1]
-
 	if (!options) {
 		options = {}
 	}
-
 	if (!options.headers) {
 		options.headers = {}
 	}
@@ -22,13 +20,13 @@ export const serverFetchWithToken = async (request: Request, ...args: Parameters
 		if (refreshToken) {
 			const refreshTokenResponse = await fetch(REMIX_SERVER_API_PATH + "/refresh-token", { method: "POST" })
 			if (!refreshTokenResponse.ok) {
-				throw redirect("/login")
+				return new Response("Could not get access token with refresh token", { status: 401 })
 			}
 
 			const refreshTokenResponseBody = await refreshTokenResponse.json()
 			accessToken = refreshTokenResponseBody.access_token
 		} else {
-			throw redirect("/login")
+			return new Response("Do not have access token or refresh token", { status: 401 })
 		}
 	}
 
@@ -43,7 +41,7 @@ export const serverFetchWithToken = async (request: Request, ...args: Parameters
 	} else if (initialFetch.status === 401) { // this indicates reauthentication is worth trying
 		const refreshTokenResponse = await fetch(REMIX_SERVER_API_PATH + "/refresh-token", { method: "POST" })
 		if (!refreshTokenResponse.ok) {
-			throw redirect("/login")
+			return new Response("Access token expired, and could not get new access token with refresh token", { status: 401 })
 		}
 
 		const refreshTokenResponseBody = await refreshTokenResponse.json()
@@ -56,7 +54,7 @@ export const serverFetchWithToken = async (request: Request, ...args: Parameters
 		}
 
 		return fetch(...args)
+	} else {
+		return initialFetch
 	}
-
-	throw redirect("/?authentication-success=false")
 }
