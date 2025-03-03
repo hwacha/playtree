@@ -10,7 +10,7 @@ export async function action({
 	request
 }: ActionFunctionArgs) {
 	if (request.method !== "POST") {
-		return new Response("Method not allowed", { status: 405 })
+		return new Response(JSON.stringify({ error: "Method not allowed"}), { status: 405 })
 	}
 
 	const session = await getSession(
@@ -18,8 +18,10 @@ export async function action({
 	);
 
 	const refreshToken = session.get("refreshToken")
+	
 	if (!refreshToken) {
-		return new Response("No refresh token provided", { status: 400 })
+		console.log('no refresh token')
+		return new Response(JSON.stringify({ error: "No refresh token provided" }), { status: 400 })
 	}
 
 	const querys = queryString.stringify({

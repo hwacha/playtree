@@ -1,5 +1,5 @@
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { Form, Link, useLoaderData } from "@remix-run/react";
 import { Background, Controls, MarkerType, ReactFlow, addEdge, OnConnect, useNodesState, useEdgesState } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
@@ -13,11 +13,41 @@ import { PlayConnectionLine } from "../components/PlayConnectionLine";
 import { isSubsetOf } from "@opentf/std";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
 import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../api_endpoints";
+import Snack from "../components/Snack";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	invariant(params.playtree)
 	const response = await serverFetchWithToken(request, `${PLAYTREE_SERVER_PLAYTREES_PATH}/${params.playtree}`)
-	return await response.json()
+	if (response.ok) {
+		return {
+			authenticated: true,
+			permitted: true,
+			playtree: await response.json()
+		}
+	} else if (response.status === 401) {
+		return {
+			authenticated: false,
+			permitted: false,
+			playtree: null
+		}
+	} else if (response.status === 403) {
+		return {
+			authenticated: true,
+			permitted: false,
+			playtree: null
+		}
+	} else if (response.status === 404) {
+		return {
+			authenticated: true,
+			permitted: true,
+			playtree: null
+		}
+	}
+	return {
+		authenticated: true,
+		permitted: true,
+		playtree: null
+	}
 }
 
 type ScopeManagerProps = {
@@ -42,7 +72,9 @@ const ScopeManager = (props: ScopeManagerProps) => {
 			}
 			</ul>
 			<div className="w-full flex">
-				<button className="border-4 border-black bg-blue-400 mt-4 mx-auto" onClick={() => props.dispatch({type: "added_playscope"})}>Add Scope</button>
+				<button
+					className="border-4 border-black bg-blue-400 mt-4 mx-auto"
+					onClick={() => props.dispatch({type: "added_playscope"})}>Add Scope</button>
 			</div>
 		</div>
 	)
@@ -52,9 +84,30 @@ export default function PlaytreeEditor() {
 	const customFlowNodeTypes = useMemo(() => ({ play: PlaynodeComponent }), []);
 	const customFlowEdgeTypes = useMemo(() => ({ play: PlayedgeComponent }), []);
 
-	const initialPlaytree: Playtree | null = playtreeFromJson(useLoaderData())
+	const loaderData = useLoaderData<typeof loader>()
+
+	if (!loaderData.authenticated) {
+		return (
+			<Snack type="error"
+				body={
+					<p>You are not logged in. <Link to="/login" className="text-blue-400 underline">Log in to spotify</Link> to edit playtrees.</p>
+				}
+			/>
+		)
+	}
+	if (!loaderData.permitted) {
+		return (
+			<Snack type="error"
+				body={
+					<p>This is not your playtree. You can't edit it. <Link to="/" className="text-blue-400 underline">Go Home</Link></p>
+				}
+			/>
+		)
+	}
+	const initialPlaytree: Playtree | null = playtreeFromJson(loaderData.playtree)
+
 	if (initialPlaytree === null) {
-		return null
+		return <p></p>
 	}
 
 	const [state, dispatch] = useReducer<typeof playtreeReducer>(playtreeReducer, {
@@ -295,8 +348,6 @@ export default function PlaytreeEditor() {
 				} else {
 					throw error
 				}
-			} finally {
-
 			}
 		})()
 
@@ -311,7 +362,12 @@ export default function PlaytreeEditor() {
 
 	return (
 		<div className="font-lilitaOne w-5/6 m-auto h-[calc(100vh-15.25rem)]">
-			<h2 className="w-full text-3xl text-green-600 mt-12">{state.playtree.summary.name}</h2>
+			<div className="w-full h-fit flex justify-between mt-12">
+				<h2 className="w-full text-3xl text-green-600">{state.playtree.summary.name}</h2>
+				<Form method="POST" action={`/playtrees/${state.playtree.summary.id}/delete`}>
+					<button type="submit" className="bg-red-400 px-2 py-1 rounded-lg font-markazi">Delete</button>
+				</Form>
+			</div>
 			<div className="h-[calc(100%-8rem)] flex">
 				<div className="h-full w-full flex-[4] border-4 border-green-600 bg-neutral-100">
 					<button title="Add Playnode" className="z-10 absolute rounded-lg bg-green-400 mx-1 my-1 px-2 py-1" onClick={handleAddPlaynode}>➕</button>

@@ -257,8 +257,32 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 	},
 	"DELETE /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+
+		currentUserID, spotifyErr := getSpotifyCurrentUserID(w, r)
+		if spotifyErr != nil {
+			return
+		}
 		id := r.PathValue("id")
-		err := os.Remove("./playtrees/" + id + ".json")
+		filename := "./playtrees/" + id + ".json"
+		data, readErr := os.ReadFile(filename)
+
+		if readErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		var playtree Playtree
+		jsonErr := json.Unmarshal(data, &playtree)
+		if jsonErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if playtree.Summary.CreatedBy != *currentUserID {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		err := os.Remove(filename)
 		if err != nil {
 			// TODO: more informative error message and HTTP status
 			if errors.Is(err, os.ErrNotExist) {
@@ -286,8 +310,6 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 			return
 		}
 
-		fmt.Println(*currentUserID)
-
 		if currentlyPlaying[*currentUserID] == nil {
 			fmt.Fprint(w, "null")
 			return
@@ -305,8 +327,6 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 			log.Println(readErr)
 			fmt.Fprint(w, readErr.Error())
 		}
-
-		fmt.Println(*currentlyPlaying[*currentUserID])
 
 		fmt.Fprint(w, string(data))
 	},
@@ -341,7 +361,6 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		}
 
 		if pt.Summary.Access == "public" || pt.Summary.CreatedBy == *currentUserID {
-			fmt.Println("success")
 			currentlyPlaying[*currentUserID] = &id
 			w.WriteHeader(http.StatusNoContent)
 		} else {

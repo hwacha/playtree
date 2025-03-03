@@ -211,7 +211,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 	}, [playtree])
 
 	if (playtree === null) {
-		return (<div className="bg-green-600 fixed flex w-full h-36 left-48 bottom-0"><div className="text-white mx-auto my-16 w-fit font-lilitaOne">No playtrees.</div></div>)
+		return (<div className="bg-green-600 fixed flex w-full h-36 left-64 bottom-0"><div className="text-white mx-auto my-16 w-fit h-full font-lilitaOne">No playtrees.</div></div>)
 	} else {
 		let currentPlayhead: Playhead | null | undefined = null
 		let currentPlaynode: Playnode | null | undefined = null
@@ -272,7 +272,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		}
 
 		return (
-			<div className="bg-green-600 fixed flex w-[calc(100vw-12rem)] h-36 left-48 bottom-0">
+			<div className="bg-green-600 fixed flex w-[calc(100vw-16rem)] h-36 left-64 bottom-0">
 				<div className="w-full basis-1/4 my-6 mx-16 max-h-full overflow-hidden flex flex-col-reverse">
 					<ul className="text-white font-markazi">
 						{

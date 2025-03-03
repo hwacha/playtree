@@ -1,18 +1,29 @@
 import { ActionFunctionArgs } from "@remix-run/node";
-import { redirect, useFetcher, useLoaderData } from "@remix-run/react";
+import { Link, redirect, useFetcher, useLoaderData } from "@remix-run/react";
 import { getSession } from "../sessions";
 import { PLAYTREE_SERVER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "../api_endpoints";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
+import Snack from "../components/Snack";
 
 export const loader = async ({ request }: ActionFunctionArgs) => {
-	const session = await getSession(request.headers.get("Cookie"))
-	const response = await fetch(SPOTIFY_CURRENT_USER_PATH, {
-		headers: {
-			Authorization: "Bearer " + session.get("accessToken")
+	const response = await serverFetchWithToken(request, SPOTIFY_CURRENT_USER_PATH)
+	if (response.ok) {
+		const userInfo = await response.json()
+		return {
+			authenticated: true,
+			username: userInfo.id
 		}
-	})
-	const userInfo = await response.json()
-	return userInfo.id
+	} else if (response.status === 401) {
+		return {
+			authenticated: false,
+			username: null
+		}
+	} else {
+		return {
+			authenticated: true,
+			username: null
+		}
+	}
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -34,14 +45,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 }
 
 export default function Create() {
-	const username = useLoaderData<string>()
+	const data = useLoaderData<typeof loader>()
+
+	if (data.username === null) {
+		if (data.authenticated) {
+			return <Snack type="error" body={<p>Something happened. <Link to="/" className="text-blue-400 underline">Go Home</Link></p>}/>
+		} else {
+			return <Snack type="error" body={<p>You must be logged in to create a playtree. <Link to="/login" className="text-blue-400 underline">Log in</Link></p>}/>
+		}
+	}
+
 	const fetcher = useFetcher()
 
 	return (
 		<div className="flex w-full h-full my-40 content-evenly">
 			<div className="m-auto border-green-600 bg-neutral-100 h-fit border-2 rounded-xl font-lilitaOne text-green-600 p-4">
 				<fetcher.Form method="POST">
-					<input type="hidden" name="createdBy" value={username}></input>
+					<input type="hidden" name="createdBy" value={data.username}></input>
 					<div className="w-full mb-2">
 						<label htmlFor="name" className="mr-4">Playtree Name</label>
 						<input type="text" autoComplete="off" id="name" name="name" placeholder="New Playtree" className="text-black font-markazi" />

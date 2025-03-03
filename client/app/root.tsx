@@ -15,7 +15,7 @@ import Player from "./components/Player";
 import styles from "./tailwind.css?url";
 import UserSidebar from "./components/UserSidebar";
 import Banner from "./components/Banner";
-import { playtreeFromJson } from "./types";
+import { Playnode, Playroot, Playscope, playtreeFromJson, PlaytreeSummary } from "./types";
 import { getSession } from "./sessions";
 import { useEffect } from "react";
 import { serverFetchWithToken } from "./utils/server-fetch-with-token.server";
@@ -40,62 +40,64 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 		}
 	}
 
+	const result : {
+		authenticationStatus: AuthenticationStatus,
+		displayName: string | null,
+		playerPlaytree: {
+			summary: PlaytreeSummary,
+			playnodes: { [key: string]: Playnode },
+			playroots: { [key: string]: Playroot },
+			playscopes: Playscope[]
+		} | null,
+		userPlaytreeSummaries: PlaytreeSummary[] | null,
+		accessToken: string | null,
+		refreshToken: string | null
+	} = {
+		authenticationStatus: "FAILURE",
+		displayName: null,
+		playerPlaytree: null,
+		userPlaytreeSummaries: null,
+		accessToken: null,
+		refreshToken: null
+	}
+
 	// we tried to (re)authenticate, and it failed.
 	if (authenticationStatus === "FAILURE") {
-		return {
-			authenticationStatus: authenticationStatus,
-			displayName: null,
-			playerPlaytree: null,
-			userPlaytreeSummaries: null,
-			accessToken: null,
-			refreshToken: null
-		}
+		return result
 	}
 
 	const session = await getSession(request.headers.get("Cookie"))
 
 	if (authenticationStatus === "NOT_TRIED") {
 		// check there's no access token stored as a cookie
-		
 		if (!session.get("accessToken")) {
 			return {
-				authenticationStatus: authenticationStatus,
-				displayName: null,
-				playerPlaytree: null,
-				userPlaytreeSummaries: null,
-				accessToken: null,
-				refreshToken: null
+				...result,
+				authenticationStatus: authenticationStatus
 			}
 		}
 	}
 
 	const profileRequest = await serverFetchWithToken(request, SPOTIFY_CURRENT_USER_PATH)
-	const profileJson = await profileRequest.json()
-
 	const playerRequest = await serverFetchWithToken(request, PLAYTREE_SERVER_PLAYER_PATH)
-	const playerPlaytreeJson = await playerRequest.json()
-
 	const userPlaytreeSummariesRequest = await serverFetchWithToken(request, PLAYTREE_SERVER_USER_PLAYTREES_PATH)
-	const userPlaytreeSummariesJson = await userPlaytreeSummariesRequest.json()
+
+	if (profileRequest.ok) {
+		result.displayName = (await profileRequest.json()).display_name
+	}
+	if (playerRequest.ok) {
+		result.playerPlaytree = await playerRequest.json()
+	}
+	if (userPlaytreeSummariesRequest.ok) {
+		result.userPlaytreeSummaries = await userPlaytreeSummariesRequest.json()
+	}
 
 	return {
+		...result,
 		authenticationStatus: "SUCCESS",
-		displayName: profileJson.display_name,
-		playerPlaytree: playerPlaytreeJson,
-		userPlaytreeSummaries: userPlaytreeSummariesJson,
-		accessToken: session.get("accessToken"),
-		refreshToken: session.get("refreshToken")
+		accessToken: session.get("accessToken") ?? null,
+		refreshToken: session.get("refreshToken") ?? null
 	}
-}
-
-export function shouldRevalidate({ actionResult, defaultShouldRevalidate }: ShouldRevalidateFunctionArgs): boolean {
-	if (!actionResult) {
-		return false
-	}
-	if (!actionResult.revalidate) {
-		return false
-	}
-	return defaultShouldRevalidate
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -134,9 +136,9 @@ export default function App() {
 			<body className="bg-amber-100">
 				<Scripts />
 				<UserSidebar userPlaytreeSummaries={userPlaytreeSummaries} />
-				<div className="absolute left-48 w-[calc(100vw-12rem)] h-full">
+				<div className="absolute left-64 w-[calc(100vw-16rem)] h-full">
 					<Banner isAuthenticated={data.authenticationStatus === "SUCCESS"} displayName={data.displayName}/>
-					<div className="absolute w-full h-[calc(100%-13rem)] top-16 -bottom-64">
+					<div className="absolute w-full h-[calc(100%-17rem)] top-16 -bottom-64">
 						<Outlet key={location.pathname} />
 					</div>
 					<Player playtree={playerPlaytree} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined} />
