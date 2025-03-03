@@ -12,8 +12,6 @@ export async function loader() {
 	var state = generateRandomString(16);
 	var scope = 'streaming user-read-playback-state user-modify-playback-state user-read-private user-read-email';
 
-	return redirect('/?authentication-success=false')
-
 	return redirect('https://accounts.spotify.com/authorize?' +
 		queryString.stringify({
 			response_type: 'code',
