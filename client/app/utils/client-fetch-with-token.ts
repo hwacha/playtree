@@ -1,3 +1,5 @@
+import { REMIX_SERVER_API_PATH } from "../api_endpoints"
+
 const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnType<typeof fetch> => {
 	let options: any = args[1]
 
@@ -15,9 +17,9 @@ const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnTy
 	if (!accessToken) {
 		// if the access token does not exist but the refresh token does, hit the refresh endpoint
 		if (refreshToken) {
-			const refreshTokenResponse = await fetch("/refresh-token", { method: "POST" })
+			const refreshTokenResponse = await fetch(REMIX_SERVER_API_PATH + "/refresh-token", { method: "POST" })
 			if (!refreshTokenResponse.ok) {
-				window.location.href = "/login"
+				window.location.href = REMIX_SERVER_API_PATH + "/login"
 				return new Response(null)
 			}
 
@@ -25,7 +27,7 @@ const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnTy
 			accessToken = refreshTokenResponseBody.access_token
 			localStorage.setItem("spotify_access_token", accessToken as string)
 		} else {
-			window.location.href = "/login"
+			window.location.href = REMIX_SERVER_API_PATH + "/login"
 			return new Response(null)
 		}
 	}
@@ -38,9 +40,9 @@ const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnTy
 	if (initialFetch.ok) {
 		return initialFetch
 	} else if (initialFetch.status === 401) {
-		const refreshTokenResponse = await fetch("/refresh-token", { method: "POST" })
+		const refreshTokenResponse = await fetch(REMIX_SERVER_API_PATH + "/refresh-token", { method: "POST" })
 		if (!refreshTokenResponse.ok) {
-			window.location.href = "/login"
+			window.location.href = REMIX_SERVER_API_PATH + "/login"
 			return new Response(null)
 		}
 
@@ -55,7 +57,7 @@ const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnTy
 
 		return fetch(...args)
 	}
-	window.location.href = "/?authentication-success=false"
+	window.location.href = REMIX_SERVER_API_PATH + "/?authentication-success=false"
 	return new Response(null)
 }
 

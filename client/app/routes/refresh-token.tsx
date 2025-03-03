@@ -19,7 +19,7 @@ export async function action({
 
 	const refreshToken = session.get("refreshToken")
 	if (!refreshToken) {
-		return new Response("No refresh token provided", { status: 400})
+		return new Response("No refresh token provided", { status: 400 })
 	}
 
 	const querys = queryString.stringify({
@@ -45,6 +45,6 @@ export async function action({
 			}
 		})
 	} else {
-		return null
+		return refreshResponse
 	}
 }

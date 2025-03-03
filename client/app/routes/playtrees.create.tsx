@@ -1,11 +1,12 @@
 import { ActionFunctionArgs } from "@remix-run/node";
 import { redirect, useFetcher, useLoaderData } from "@remix-run/react";
-import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import { getSession } from "../sessions";
+import { PLAYTREE_SERVER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "../api_endpoints";
+import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
 
 export const loader = async ({ request }: ActionFunctionArgs) => {
 	const session = await getSession(request.headers.get("Cookie"))
-	const response = await fetch("https://api.spotify.com/v1/me", {
+	const response = await fetch(SPOTIFY_CURRENT_USER_PATH, {
 		headers: {
 			Authorization: "Bearer " + session.get("accessToken")
 		}
@@ -16,7 +17,7 @@ export const loader = async ({ request }: ActionFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData()
-	const response = await fetch("http://localhost:8080/playtrees", {
+	const response = await serverFetchWithToken(request, PLAYTREE_SERVER_PLAYTREES_PATH, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json"
@@ -28,6 +29,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		})
 	})
 	const newPlaytreeID = await response.text()
+
 	return redirect(`/playtrees/${newPlaytreeID}/edit`)
 }
 

@@ -101,7 +101,7 @@ export function shouldRevalidate({ actionResult, defaultShouldRevalidate }: Shou
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData()
 	const id = formData.get("playtreeID");
-	await fetch(`http://localhost:8080/me/player?playtree=${id}`, {
+	await serverFetchWithToken(request, `${PLAYTREE_SERVER_PLAYER_PATH}?playtree=${id}`, {
 		method: "PUT"
 	})
 	return { autoplay: true, revalidate: true }

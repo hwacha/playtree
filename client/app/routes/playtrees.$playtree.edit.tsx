@@ -1,6 +1,6 @@
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { Background, Controls, MarkerType, ReactFlow, getBezierPath, addEdge, OnConnect, useNodesState, useEdgesState, ConnectionLineComponent } from "@xyflow/react";
+import { Background, Controls, MarkerType, ReactFlow, addEdge, OnConnect, useNodesState, useEdgesState } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
@@ -10,11 +10,13 @@ import { PlaytreeEditorAction, playtreeReducer } from "../reducers/editor";
 import PlaynodeComponent, { PlaynodeFlowData } from "../components/PlaynodeComponent";
 import PlayedgeComponent, { PlayedgeFlowData } from "../components/PlayedgeComponent";
 import { PlayConnectionLine } from "../components/PlayConnectionLine";
-import { intersection, isSubsetOf, isSupersetOf } from "@opentf/std";
+import { isSubsetOf } from "@opentf/std";
+import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
+import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../api_endpoints";
 
-export const loader = async ({ params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	invariant(params.playtree)
-	const response = await fetch(`http://localhost:8080/playtrees/${params.playtree}`)
+	const response = await serverFetchWithToken(request, `${PLAYTREE_SERVER_PLAYTREES_PATH}/${params.playtree}`)
 	return await response.json()
 }
 

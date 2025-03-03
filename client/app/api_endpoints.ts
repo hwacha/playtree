@@ -13,3 +13,5 @@ export const PLAYTREE_SERVER_API_PATH = "http://localhost:8080"
 export const PLAYTREE_SERVER_PLAYER_PATH = `${PLAYTREE_SERVER_API_PATH}/me/player`
 export const PLAYTREE_SERVER_PLAYTREES_PATH = `${PLAYTREE_SERVER_API_PATH}/playtrees`
 export const PLAYTREE_SERVER_USER_PLAYTREES_PATH = `${PLAYTREE_SERVER_PLAYTREES_PATH}/me`
+
+export const REMIX_SERVER_API_PATH = "http://localhost:5173"

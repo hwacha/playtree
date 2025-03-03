@@ -1,5 +1,6 @@
 import { redirect } from "@remix-run/react"
 import { commitSession, getSession } from "../sessions"
+import { REMIX_SERVER_API_PATH } from "../api_endpoints"
 
 export const serverFetchWithToken = async (request: Request, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> => {
 	let options: any = args[1]
@@ -19,7 +20,7 @@ export const serverFetchWithToken = async (request: Request, ...args: Parameters
 	if (!accessToken) {
 		// if the access token does not exist but the refresh token does, hit the refresh endpoint
 		if (refreshToken) {
-			const refreshTokenResponse = await fetch("/refresh-token", { method: "POST" })
+			const refreshTokenResponse = await fetch(REMIX_SERVER_API_PATH + "/refresh-token", { method: "POST" })
 			if (!refreshTokenResponse.ok) {
 				throw redirect("/login")
 			}
@@ -40,7 +41,7 @@ export const serverFetchWithToken = async (request: Request, ...args: Parameters
 			headers: { ...initialFetch.headers, "Set-Cookie": await commitSession(session) }
 		})
 	} else if (initialFetch.status === 401) { // this indicates reauthentication is worth trying
-		const refreshTokenResponse = await fetch("/refresh-token", { method: "POST" })
+		const refreshTokenResponse = await fetch(REMIX_SERVER_API_PATH + "/refresh-token", { method: "POST" })
 		if (!refreshTokenResponse.ok) {
 			throw redirect("/login")
 		}

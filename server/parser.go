@@ -9,7 +9,7 @@ import (
 
 type (
 	PlayitemType struct {
-		Source    string `json:"source" validate:"oneof=local spotify youtube`
+		Source    string `json:"source" validate:"oneof=local spotify youtube"`
 		Plurality string `json:"plurality" validate:"oneof=single collection"`
 	}
 
