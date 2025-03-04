@@ -4,6 +4,7 @@ import deepEqual from "deep-equal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import reducer, { Playhead } from "../reducers/player";
 import { SPOTIFY_CURRENT_USER_PATH, SPOTIFY_PAUSE_PATH, SPOTIFY_PLAY_PATH, SPOTIFY_PLAYER_PATH } from "../api_endpoints";
+import { getDeviceName } from "../utils/getDeviceName.client";
 
 type PlayerProps = {
 	playtree: Playtree | null
@@ -25,29 +26,9 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		spotifyPlayerReady: false,
 	})
 
-	const suggestDeviceName = useCallback(() => {
-		const userAgent = navigator.userAgent;
-
-		let browserName = "Unknown Browser"
-
-		if (userAgent.includes('Firefox')) browserName = "Firefox";
-		if (userAgent.includes('Chrome')) browserName = "Chrome";
-		if (userAgent.includes('Safari')) browserName = "Safari";
-		if (userAgent.includes('Edge')) browserName = "Edge";
-
-		let platformName = "Unknown Platform"
-		if (userAgent.includes('Win')) platformName = "Windows";
-		if (userAgent.includes('Mac')) platformName = "macOS";
-		if (userAgent.includes('Linux')) platformName = "Linux";
-		if (userAgent.includes('Android')) platformName = "Android";
-		if (userAgent.includes('iPhone')) platformName = "iOS";
-
-		return browserName + " on " + platformName;
-	}, [navigator.userAgent])
-
-	const deviceName = useMemo<string>(suggestDeviceName, [navigator.userAgent])
-
 	const prevPlaybackState = useRef<Spotify.PlaybackState | null>(null)
+
+	
 
 	useEffect(() => {
 		const script = document.createElement("script");
@@ -60,7 +41,9 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 
 		window.onSpotifyWebPlaybackSDKReady = () => {
 			clientFetchWithToken(SPOTIFY_CURRENT_USER_PATH).then(response => {
+				
 				if (response.ok) {
+					const deviceName = getDeviceName()
 					const accessToken = localStorage.getItem("spotify_access_token")
 					newPlayer = new window.Spotify.Player({
 						name: 'Playtree Web Player: ' + deviceName,
