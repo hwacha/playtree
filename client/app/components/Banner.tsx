@@ -27,7 +27,7 @@ export default function Banner(props: BannerProps) {
 						<Form method="POST" action="/logout">
 							<button
 								type="submit"
-								className="bg-slate-300 rounded-lg px-2 py-1 text-xl text-white font-markazi"
+								className="bg-slate-300 rounded-lg px-2 py-1 text-xl text-black font-markazi"
 								onClick={handleClearTokens}
 								>Logout</button>
 						</Form>
@@ -35,7 +35,7 @@ export default function Banner(props: BannerProps) {
 					: <Link to="/login" replace>
 						<button
 							type="button"
-							className="bg-slate-300 rounded-lg px-2 py-1 text-xl text-white font-markazi"
+							className="bg-slate-300 rounded-lg px-2 py-1 text-xl text-black font-markazi"
 						>Login</button>
 					</Link>
 				}
