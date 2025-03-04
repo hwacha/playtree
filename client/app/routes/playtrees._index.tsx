@@ -3,6 +3,7 @@ import { PlaytreeSummary } from "../types";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
 import { PLAYTREE_SERVER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "../api_endpoints";
 import { LoaderFunctionArgs } from "@remix-run/node";
+import { useEffect, useRef } from "react";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const spotifyResponse = await serverFetchWithToken(request, SPOTIFY_CURRENT_USER_PATH)
@@ -58,8 +59,13 @@ const SummaryCard = ({ summary, authenticated }: SummaryCardProps) => {
 
 export default function Index() {
 	const data = useLoaderData<typeof loader>()
+	const scrollRef = useRef<HTMLDivElement>(null)
+	useEffect(() => {
+		scrollRef.current?.scrollTo({top: 0, behavior: "smooth"})
+	}, [data.start])
+	
 	return (
-		<div className="m-auto w-full h-full overflow-y-scroll">
+		<div ref={scrollRef} className="m-auto w-full h-full overflow-y-scroll">
 			{
 				data.playtrees.map((summary: any) => {
 					return (
