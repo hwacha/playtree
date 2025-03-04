@@ -393,7 +393,7 @@ export default function PlaytreeEditor() {
 				</div>
 				<button
 					type="button"
-					className="bg-red-400 px-2 py-1 my-1 rounded-lg font-markazi text-xl"
+					className="bg-red-300 px-2 py-1 my-1 rounded-lg font-markazi text-xl"
 					onClick={() => handleSetDeleteModalVisiblity(true)}
 				>Delete</button>
 			</div>
@@ -409,14 +409,31 @@ export default function PlaytreeEditor() {
 			}
 			<div className="h-[calc(100%-8rem)] flex">
 				<div className="h-full w-full flex-[4] border-4 border-green-600 bg-neutral-100">
-					<button title="Add Playnode" className="z-10 absolute rounded-lg bg-green-400 mx-1 my-1 px-2 py-1" onClick={handleAddPlaynode}>➕</button>
-					<button id="playhead-spawner" title="Add Playhead" className="z-10 absolute rounded-lg bg-purple-300 mx-1 my-10 px-2 py-1" draggable={true} onDragStart={handleDragStart}>💽</button>
-					<button title="Manage Scopes" className="z-10 absolute rounded-lg bg-blue-400 mx-1 my-[4.75rem] px-2 py-1" onClick={handleManageScopes}>🔲</button>
-					{
-						state.unsavedChangesExist ?
-							<button type="button" title="Save Changes" className="z-10 absolute rounded-lg bg-neutral-400 mx-1 my-28 px-2 py-1" onClick={handleSave}>💾</button> :
-							null
-					}
+					<div className="z-10 w-fit absolute m-1 gap-1 flex flex-col">
+						<button
+							title="Add Playnode"
+							className="rounded-lg bg-green-400 px-2 py-1"
+							onClick={handleAddPlaynode}>➕</button>
+						<button
+							id="playhead-spawner"
+							title="Add Playhead"
+							className="rounded-lg bg-purple-300 px-2 py-1"
+							draggable={true}
+							onDragStart={handleDragStart}>💽</button>
+						<button
+							title="Manage Scopes"
+							className="rounded-lg bg-teal-300 px-2 py-1"
+							onClick={handleManageScopes}>🔲</button>
+						{
+							state.unsavedChangesExist ?
+								<button
+									type="button"
+									title="Save Changes"
+									className="rounded-lg bg-neutral-400 px-2 py-1"
+									onClick={handleSave}>💾</button> :
+								null
+						}
+					</div>
 					<ReactFlow
 						nodeTypes={customFlowNodeTypes}
 						nodes={flownodes}

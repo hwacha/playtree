@@ -15,7 +15,7 @@ export default function Modal(props: ModalProps) {
 	const color = props.type === "normal" ? "blue" : "red"
 	return (
 		<div ref={ref} className={`absolute z-10 top-1/3 left-1/3 w-64 h-64 border-${color}-600 rounded-xl border-2 bg-${color}-200 font-markazi text-[24px] p-8`}>
-		<div>{props.description}</div>
+			<div className="overflow-hidden h-full pb-4" title={props.description}>{props.description}</div>
 			<div className="absolute bottom-0 w-[calc(100%-4rem)] h-fit flex justify-center">
 				<div className="my-2">
 					<button

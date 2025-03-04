@@ -59,7 +59,7 @@ export default function Create() {
 
 	return (
 		<div className="flex w-full h-full content-evenly">
-			<div className="m-auto border-green-600 bg-neutral-100 h-fit border-2 rounded-xl font-lilitaOne text-green-600 p-4">
+			<div className="m-auto border-green-600 bg-neutral-100 h-fit border-2 rounded-xl font-markazi text-xl text-green-600 p-4">
 				<fetcher.Form method="POST">
 					<input type="hidden" name="createdBy" value={data.username}></input>
 					<div className="w-full mb-2">
@@ -71,7 +71,7 @@ export default function Create() {
 						<input type="checkbox" id="access-checkbox" name="access" />
 					</div>
 					<div className="w-full flex">
-						<button type="submit" className="border-green-600 bg-green-200 border-2 rounded-md p-2 mx-auto mt-6">Create</button>
+						<button type="submit" className="border-none bg-blue-300 text-black font-markazi border-2 rounded-md p-2 mx-auto mt-6">Create</button>
 					</div>
 				</fetcher.Form>
 			</div>

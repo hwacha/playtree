@@ -93,7 +93,7 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 								{isSequence ? <>🔢</> : <>🎲</>}
 						</button>
 						<button
-							className={`bg-blue-300 rounded-lg px-2 py-1 absolute left-[3.5rem]`}
+							className={`bg-teal-300 rounded-lg px-2 py-1 absolute left-[3.5rem]`}
 							style={{left: 4 * (9.5 + numScopes), top: 4 * (1 + numScopes)}}
 							onClick={handleToggleScope} title={scopeView ? "Toggle Song View" : "Toggle Scope View"}>
 								{scopeView ? <>🎶</> : <>🔲</>}
