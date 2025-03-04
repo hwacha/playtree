@@ -58,7 +58,7 @@ export default function Create() {
 	const fetcher = useFetcher()
 
 	return (
-		<div className="flex w-full h-full my-40 content-evenly">
+		<div className="flex w-full h-full content-evenly">
 			<div className="m-auto border-green-600 bg-neutral-100 h-fit border-2 rounded-xl font-lilitaOne text-green-600 p-4">
 				<fetcher.Form method="POST">
 					<input type="hidden" name="createdBy" value={data.username}></input>
