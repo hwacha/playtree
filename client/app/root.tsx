@@ -86,7 +86,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	await serverFetchWithToken(request, `${PLAYTREE_SERVER_PLAYER_PATH}?playtree=${id}`, {
 		method: "PUT"
 	})
-	return { autoplay: true, revalidate: true }
+	return { autoplay: true }
 }
 
 export default function App() {
