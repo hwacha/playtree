@@ -3,6 +3,7 @@ import { Playitem, Playnode, Playtree } from "../types";
 import deepEqual from "deep-equal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import reducer, { Playhead } from "../reducers/player";
+import { SPOTIFY_CURRENT_USER_PATH, SPOTIFY_PAUSE_PATH, SPOTIFY_PLAY_PATH, SPOTIFY_PLAYER_PATH } from "../api_endpoints";
 
 type PlayerProps = {
 	playtree: Playtree | null
@@ -58,7 +59,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		let newPlayer: Spotify.Player | null = null;
 
 		window.onSpotifyWebPlaybackSDKReady = () => {
-			clientFetchWithToken("https://api.spotify.com/v1/me/").then(response => {
+			clientFetchWithToken(SPOTIFY_CURRENT_USER_PATH).then(response => {
 				if (response.ok) {
 					const accessToken = localStorage.getItem("spotify_access_token")
 					newPlayer = new window.Spotify.Player({
@@ -70,7 +71,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 					newPlayer.activateElement()
 	
 					newPlayer.addListener('ready', ({ device_id }: any) => {
-						clientFetchWithToken("https://api.spotify.com/v1/me/player", {
+						clientFetchWithToken(SPOTIFY_PLAYER_PATH, {
 							method: "PUT",
 							body: JSON.stringify({ device_ids: [device_id], play: false })
 						}).then(response => {
@@ -114,14 +115,14 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 	useEffect(() => {
 		const currentPlayhead = state.playheads[state.playheadIndex]
 		if (currentPlayhead) {
-			clientFetchWithToken("https://api.spotify.com/v1/me/player").then(response => {
+			clientFetchWithToken(SPOTIFY_PLAYER_PATH).then(response => {
 				if (response.ok) {
 					response.json().then(playbackState => {
 						const deviceID = playbackState.device.id
 						if (deviceID) {
 							if (state.playing) {
 								const currentSong = currentPlayhead.node.playitems[currentPlayhead.nodeIndex]
-								clientFetchWithToken("https://api.spotify.com/v1/me/player/play", {
+								clientFetchWithToken(SPOTIFY_PLAY_PATH, {
 									method: "PUT",
 									body: JSON.stringify({
 										device_id: deviceID,
@@ -131,7 +132,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 								})
 								dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
 							} else if (playbackState.is_playing) {
-								clientFetchWithToken("https://api.spotify.com/v1/me/player/pause", {
+								clientFetchWithToken(SPOTIFY_PAUSE_PATH, {
 									method: "PUT",
 									body: JSON.stringify({ device_id: deviceID })
 								})
@@ -145,11 +146,11 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 
 	useEffect(() => {
 		if (state.playheads[state.playheadIndex]?.stopped) {
-			clientFetchWithToken("https://api.spotify.com/v1/me/player").then(response => {
+			clientFetchWithToken(SPOTIFY_PLAYER_PATH).then(response => {
 				if (response.ok) {
 					response.json().then(playbackState => {
 						if (playbackState && playbackState.is_playing && playbackState.device.id) {
-							clientFetchWithToken("https://api.spotify.com/v1/me/player/pause", {
+							clientFetchWithToken(SPOTIFY_PAUSE_PATH, {
 								method: "PUT",
 								body: JSON.stringify({ device_id: playbackState.device.id})
 							})
@@ -164,13 +165,13 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		const currentPlayhead = state.playheads[state.playheadIndex]
 		const currentSong = currentPlayhead.node.playitems[currentPlayhead.nodeIndex]
 
-		clientFetchWithToken("https://api.spotify.com/v1/me/player").then(response => {
+		clientFetchWithToken(SPOTIFY_PLAYER_PATH).then(response => {
 			if (response.ok) {
 				response.json().then(playbackState => {
 					const deviceID = playbackState.device.id
 					if (deviceID) {
 						if (shouldPlay) {
-							clientFetchWithToken("https://api.spotify.com/v1/me/player/play", {
+							clientFetchWithToken(SPOTIFY_PLAY_PATH, {
 								method: "PUT",
 								body: JSON.stringify({
 									device_id: deviceID,
@@ -180,7 +181,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 							})
 							dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
 						} else {
-							clientFetchWithToken("https://api.spotify.com/v1/me/player/pause", {
+							clientFetchWithToken(SPOTIFY_PAUSE_PATH, {
 								method: "PUT",
 								body: JSON.stringify({ device_id: playbackState.device.id})
 							})
@@ -199,7 +200,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 	const handleChangePlayhead = useCallback((direction: "incremented_playhead" | "decremented_playhead") => {
 		return () => {
 			if (playtree) {
-				clientFetchWithToken("https://api.spotify.com/v1/me/player").then(response => {
+				clientFetchWithToken(SPOTIFY_PLAYER_PATH).then(response => {
 					response.json().then(playbackState => {
 						dispatch({ type: "song_progress_received", spotifyPlaybackPosition_ms: playbackState.progress_ms })
 						dispatch({ type: direction, playtree: playtree })
@@ -210,7 +211,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 	}, [playtree])
 
 	if (playtree === null) {
-		return (<div className="bg-green-600 fixed flex w-full h-36 left-48 bottom-0"><div className="text-white mx-auto my-16 w-fit font-lilitaOne">No playtrees.</div></div>)
+		return (<div className="bg-green-600 fixed flex w-full h-36 left-64 bottom-0"><div className="text-white mx-auto my-16 w-fit h-full font-lilitaOne">No playtrees.</div></div>)
 	} else {
 		let currentPlayhead: Playhead | null | undefined = null
 		let currentPlaynode: Playnode | null | undefined = null
@@ -271,7 +272,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		}
 
 		return (
-			<div className="bg-green-600 fixed flex w-[calc(100vw-12rem)] h-36 left-48 bottom-0">
+			<div className="bg-green-600 fixed flex w-[calc(100vw-16rem)] h-36 left-64 bottom-0">
 				<div className="w-full basis-1/4 my-6 mx-16 max-h-full overflow-hidden flex flex-col-reverse">
 					<ul className="text-white font-markazi">
 						{

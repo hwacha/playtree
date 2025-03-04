@@ -1,6 +1,6 @@
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
-import { Background, Controls, MarkerType, ReactFlow, getBezierPath, addEdge, OnConnect, useNodesState, useEdgesState, ConnectionLineComponent } from "@xyflow/react";
+import { Link, useFetcher, useLoaderData, useSubmit } from "@remix-run/react";
+import { Background, Controls, MarkerType, ReactFlow, addEdge, OnConnect, useNodesState, useEdgesState } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
@@ -10,12 +10,45 @@ import { PlaytreeEditorAction, playtreeReducer } from "../reducers/editor";
 import PlaynodeComponent, { PlaynodeFlowData } from "../components/PlaynodeComponent";
 import PlayedgeComponent, { PlayedgeFlowData } from "../components/PlayedgeComponent";
 import { PlayConnectionLine } from "../components/PlayConnectionLine";
-import { intersection, isSubsetOf, isSupersetOf } from "@opentf/std";
+import { isSubsetOf } from "@opentf/std";
+import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
+import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../api_endpoints";
+import Snack from "../components/Snack";
+import Modal from "../components/Modal";
 
-export const loader = async ({ params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	invariant(params.playtree)
-	const response = await fetch(`http://localhost:8080/playtrees/${params.playtree}`)
-	return await response.json()
+	const response = await serverFetchWithToken(request, `${PLAYTREE_SERVER_PLAYTREES_PATH}/${params.playtree}`)
+	if (response.ok) {
+		return {
+			authenticated: true,
+			permitted: true,
+			playtree: await response.json()
+		}
+	} else if (response.status === 401) {
+		return {
+			authenticated: false,
+			permitted: false,
+			playtree: null
+		}
+	} else if (response.status === 403) {
+		return {
+			authenticated: true,
+			permitted: false,
+			playtree: null
+		}
+	} else if (response.status === 404) {
+		return {
+			authenticated: true,
+			permitted: true,
+			playtree: null
+		}
+	}
+	return {
+		authenticated: true,
+		permitted: true,
+		playtree: null
+	}
 }
 
 type ScopeManagerProps = {
@@ -40,7 +73,9 @@ const ScopeManager = (props: ScopeManagerProps) => {
 			}
 			</ul>
 			<div className="w-full flex">
-				<button className="border-4 border-black bg-blue-400 mt-4 mx-auto" onClick={() => props.dispatch({type: "added_playscope"})}>Add Scope</button>
+				<button
+					className="border-4 border-black bg-blue-400 mt-4 mx-auto"
+					onClick={() => props.dispatch({type: "added_playscope"})}>Add Scope</button>
 			</div>
 		</div>
 	)
@@ -50,9 +85,30 @@ export default function PlaytreeEditor() {
 	const customFlowNodeTypes = useMemo(() => ({ play: PlaynodeComponent }), []);
 	const customFlowEdgeTypes = useMemo(() => ({ play: PlayedgeComponent }), []);
 
-	const initialPlaytree: Playtree | null = playtreeFromJson(useLoaderData())
+	const loaderData = useLoaderData<typeof loader>()
+
+	if (!loaderData.authenticated) {
+		return (
+			<Snack type="error"
+				body={
+					<p>You are not logged in. <Link to="/login" className="text-blue-400 underline">Log in to spotify</Link> to edit playtrees.</p>
+				}
+			/>
+		)
+	}
+	if (!loaderData.permitted) {
+		return (
+			<Snack type="error"
+				body={
+					<p>This is not your playtree. You can't edit it. <Link to="/" className="text-blue-400 underline">Go Home</Link></p>
+				}
+			/>
+		)
+	}
+	const initialPlaytree: Playtree | null = playtreeFromJson(loaderData.playtree)
+
 	if (initialPlaytree === null) {
-		return null
+		return <p></p>
 	}
 
 	const [state, dispatch] = useReducer<typeof playtreeReducer>(playtreeReducer, {
@@ -267,7 +323,6 @@ export default function PlaytreeEditor() {
 	const handleSave = useCallback(() => {
 		(async () => {
 			try {
-				console.log(jsonFromPlaytree(state.playtree))
 				const response = await fetch(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
 					method: "PUT",
 					body: JSON.stringify(jsonFromPlaytree(state.playtree))
@@ -294,8 +349,6 @@ export default function PlaytreeEditor() {
 				} else {
 					throw error
 				}
-			} finally {
-
 			}
 		})()
 
@@ -308,9 +361,47 @@ export default function PlaytreeEditor() {
 		}
 	}, [])
 
+	const fetcher = useFetcher({ key: "player" })
+	const submit = useSubmit()
+
+	const handleDelete = useCallback(() => {
+		submit({}, {
+			method: "POST",
+			action: `/playtrees/${state.playtree.summary.id}/delete`
+		})
+	}, [])
+
+	const [deleteModalOn, setDeleteModalOn] = useState<boolean>(false)
+	const handleSetDeleteModalVisiblity = useCallback((on: boolean) => {
+		setDeleteModalOn(_ => on)
+	}, [])
+
 	return (
 		<div className="font-lilitaOne w-5/6 m-auto h-[calc(100vh-15.25rem)]">
-			<h2 className="w-full text-3xl text-green-600 mt-12">{state.playtree.summary.name}</h2>
+			<div className="w-full h-fit flex justify-between mt-12">
+				<div className="flex py-1">
+					<h2 className="w-full text-3xl text-green-600">{state.playtree.summary.name}</h2>
+					<fetcher.Form method="POST" action="/">
+						<input type="hidden" id="playtreeID" name="playtreeID" value={state.playtree.summary.id} />
+						<button type="submit" className="bg-green-300 font-markazi text-xl rounded-md px-2 py-1 ml-2">Play</button>
+					</fetcher.Form>
+				</div>
+				<button
+					type="button"
+					className="bg-red-400 px-2 py-1 my-1 rounded-lg font-markazi text-xl"
+					onClick={() => handleSetDeleteModalVisiblity(true)}
+				>Delete</button>
+			</div>
+			{
+				deleteModalOn ?
+				<Modal
+					type={"dangerous"}
+					description={`Are you sure you want to delete the playtree '${state.playtree.summary.name}'?`}
+					exitAction={() => handleSetDeleteModalVisiblity(false)}
+					primaryAction={{ label: "Delete", callback: handleDelete }}
+				/>
+				: null
+			}
 			<div className="h-[calc(100%-8rem)] flex">
 				<div className="h-full w-full flex-[4] border-4 border-green-600 bg-neutral-100">
 					<button title="Add Playnode" className="z-10 absolute rounded-lg bg-green-400 mx-1 my-1 px-2 py-1" onClick={handleAddPlaynode}>➕</button>

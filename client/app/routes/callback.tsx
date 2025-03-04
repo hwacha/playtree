@@ -12,7 +12,7 @@ export async function loader({
 	const state = searchParams.get("state");
 
 	if (state === null) {
-		return redirect('/#' + queryString.stringify({ error: 'state_mismatch' }));
+		redirect("/?just-tried=login")
 	} else {
 		const query = queryString.stringify({
 			code: code,
@@ -34,16 +34,16 @@ export async function loader({
 				request.headers.get("Cookie")
 			);
 
-			session.set("accessToken", accessToken.access_token)
-			session.set("refreshToken", accessToken.refresh_token)
+			session.set("spotify_access_token", accessToken.access_token)
+			session.set("spotify_refresh_token", accessToken.refresh_token)
 
-			return redirect("/", {
+			return redirect("/?just-tried=login", {
 				headers: {
 					"Set-Cookie": await commitSession(session),
 				},
 			})
 		} else {
-			return "/#" + queryString.stringify({ error: 'could not retreive access token' })
+			return redirect("/?just-tried=login")
 		}
 	}
 }

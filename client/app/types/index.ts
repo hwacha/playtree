@@ -36,14 +36,6 @@ export type Playnode = {
 	next: Playedge[];
 }
 
-export type HistoryNode = {
-	playnodeID: string;
-	index: number;
-	multIndex: number;
-	traversedPlayedge: Playedge | null;
-	cachedPlaycounters: Playcounters | null;
-}
-
 export type Playroot = {
 	index: number;
 	name: string;
@@ -68,7 +60,7 @@ export type Playtree = {
 	playscopes: Playscope[];
 }
 
-export const playtreeFromJson = (playtreeWithNodesAsJSObject: { summary: PlaytreeSummary, playnodes: { [key: string]: Playnode }, playroots: { [key: string]: Playroot }, playscopes: Playscope[] }): Playtree | null => {
+export const playtreeFromJson = (playtreeWithNodesAsJSObject: { summary: PlaytreeSummary, playnodes: { [key: string]: Playnode }, playroots: { [key: string]: Playroot }, playscopes: Playscope[] } | null): Playtree | null => {
 	if (playtreeWithNodesAsJSObject) {
 		return {
 			...playtreeWithNodesAsJSObject,

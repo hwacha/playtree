@@ -1,8 +1,8 @@
 import { createCookieSessionStorage } from "@remix-run/node";
 
 type SessionData = {
-	accessToken: string;
-	refreshToken: string;
+	spotify_access_token: string;
+	spotify_refresh_token: string;
 };
 
 type SessionFlashData = {

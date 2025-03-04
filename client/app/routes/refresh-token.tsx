@@ -10,21 +10,22 @@ export async function action({
 	request
 }: ActionFunctionArgs) {
 	if (request.method !== "POST") {
-		return new Response("Method not allowed", { status: 405 })
+		return new Response(JSON.stringify({ error: "Method not allowed"}), { status: 405 })
 	}
 
 	const session = await getSession(
 		request.headers.get("Cookie")
 	);
 
-	const refreshToken = session.get("refreshToken")
+	const refreshToken = session.get("spotify_refresh_token")
+	
 	if (!refreshToken) {
-		return new Response("No refresh token provided", { status: 400})
+		return new Response(JSON.stringify({ error: "No refresh token provided" }), { status: 400 })
 	}
 
 	const querys = queryString.stringify({
 		grant_type: 'refresh_token',
-		refresh_token: session.get("refreshToken")
+		refresh_token: session.get("spotify_refresh_token")
 	})
 
 	const refreshResponse = await fetch('https://accounts.spotify.com/api/token?' + querys, {
@@ -37,7 +38,7 @@ export async function action({
 
 	if (refreshResponse.ok) {
 		const accessToken = await refreshResponse.json()
-		session.set("accessToken", accessToken.access_token)
+		session.set("spotify_access_token", accessToken.access_token)
 
 		return new Response(JSON.stringify(accessToken), {
 			headers: {
@@ -45,6 +46,6 @@ export async function action({
 			}
 		})
 	} else {
-		return null
+		return refreshResponse
 	}
 }
