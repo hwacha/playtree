@@ -32,7 +32,12 @@ export default function Banner(props: BannerProps) {
 								>Logout</button>
 						</Form>
 					</div>
-					: <Link to="/login" replace><h3 className='text-2xl'>Login</h3></Link>
+					: <Link to="/login" replace>
+						<button
+							type="button"
+							className="bg-slate-300 rounded-lg px-2 py-1 text-xl text-white font-markazi"
+						>Login</button>
+					</Link>
 				}
 			</div>
 		</div>
