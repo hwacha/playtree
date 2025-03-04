@@ -8,18 +8,10 @@ type SnackProps = {
 export default function Snack(props: SnackProps) {
 	const [color, symbol] = useMemo(() => {
 		switch (props.type) {
-			case "info": {
-				return ["blue", "ℹ️"]
-			}
-			case "success": {
-				return ["green", "✅"]
-			}
-			case "warning": {
-				return ["amber", "⚠️"]
-			}
-			case "error": {
-				return ["red", "🛑"]
-			}
+			case "info": return ["blue", "ℹ️"]
+			case "success": return ["green", "✅"]
+			case "warning": return ["amber", "⚠️"]
+			case "error": return ["red", "🛑"]
 		}
 	}, [props.type])
 

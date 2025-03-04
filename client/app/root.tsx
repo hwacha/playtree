@@ -4,7 +4,6 @@ import {
 	Meta,
 	Outlet,
 	Scripts,
-	ShouldRevalidateFunctionArgs,
 	useFetcher,
 	useLoaderData,
 	useLocation
@@ -25,23 +24,9 @@ export const links: LinksFunction = () => [
 	{ rel: "stylesheet", href: styles },
 ];
 
-type AuthenticationStatus = "NOT_TRIED" | "SUCCESS" | "FAILURE"
-
 export const loader = async ({request} : LoaderFunctionArgs) => {
-	const url = new URL(request.url)
-	const authenticationSuccess = url.searchParams.get("authentication-success")
-
-	let authenticationStatus : AuthenticationStatus = "NOT_TRIED"
-	if (authenticationSuccess !== undefined) {
-		if (authenticationSuccess === "true") {
-			authenticationStatus = "SUCCESS"
-		} else if (authenticationSuccess === "false") {
-			authenticationStatus = "FAILURE"
-		}
-	}
-
 	const result : {
-		authenticationStatus: AuthenticationStatus,
+		authenticated: boolean,
 		displayName: string | null,
 		playerPlaytree: {
 			summary: PlaytreeSummary,
@@ -53,7 +38,7 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 		accessToken: string | null,
 		refreshToken: string | null
 	} = {
-		authenticationStatus: "FAILURE",
+		authenticated: false,
 		displayName: null,
 		playerPlaytree: null,
 		userPlaytreeSummaries: null,
@@ -61,20 +46,14 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 		refreshToken: null
 	}
 
-	// we tried to (re)authenticate, and it failed.
-	if (authenticationStatus === "FAILURE") {
-		return result
-	}
+	const url = new URL(request.url)
+	const justTriedParam : string | null = url.searchParams.get("just-tried")
+	const justTriedLogout : boolean = justTriedParam ? justTriedParam === "logout" : false
 
-	const session = await getSession(request.headers.get("Cookie"))
-
-	if (authenticationStatus === "NOT_TRIED") {
-		// check there's no access token stored as a cookie
-		if (!session.get("spotify_access_token")) {
-			return {
-				...result,
-				authenticationStatus: authenticationStatus
-			}
+	const cookie = request.headers.get("Cookie")
+	if (justTriedLogout) {
+		if (cookie === null || !cookie.includes("__session=")) {
+			return result
 		}
 	}
 
@@ -83,6 +62,7 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 	const userPlaytreeSummariesRequest = await serverFetchWithToken(request, PLAYTREE_SERVER_USER_PLAYTREES_PATH)
 
 	if (profileRequest.ok) {
+		result.authenticated = true
 		result.displayName = (await profileRequest.json()).display_name
 	}
 	if (playerRequest.ok) {
@@ -92,9 +72,9 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 		result.userPlaytreeSummaries = await userPlaytreeSummariesRequest.json()
 	}
 
+	const session = await getSession(cookie)
 	return {
 		...result,
-		authenticationStatus: "SUCCESS",
 		accessToken: session.get("spotify_access_token") ?? null,
 		refreshToken: session.get("spotify_refresh_token") ?? null
 	}
@@ -137,7 +117,7 @@ export default function App() {
 				<Scripts />
 				<UserSidebar userPlaytreeSummaries={userPlaytreeSummaries} />
 				<div className="absolute left-64 w-[calc(100vw-16rem)] h-full">
-					<Banner isAuthenticated={data.authenticationStatus === "SUCCESS"} displayName={data.displayName}/>
+					<Banner isAuthenticated={data.authenticated} displayName={data.displayName}/>
 					<div className="absolute w-full h-[calc(100%-17rem)] top-16 -bottom-64">
 						<Outlet key={location.pathname} />
 					</div>
