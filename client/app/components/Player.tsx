@@ -232,8 +232,10 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 				currentNodeMaxPlays = currentPlaynode.limit
 				if (currentPlaynode.playitems) {
 					currentPlayitem = currentPlaynode.playitems[currentPlayhead.nodeIndex]
-					currentPlayitemPlaycount = currentPlayhead.playcounters.playitems.get(currentPlayscope)?.get(currentPlaynode.id)?.get(currentPlayitem.id)
-					currentPlayitemMaxPlays = currentPlayitem.limit
+					if (currentPlayitem) {
+						currentPlayitemPlaycount = currentPlayhead.playcounters.playitems.get(currentPlayscope)?.get(currentPlaynode.id)?.get(currentPlayitem.id)
+						currentPlayitemMaxPlays = currentPlayitem.limit
+					}
 				}
 			}
 		}
@@ -264,7 +266,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 			playitemInfo = currentPlayitem.name
 			if (currentPlayitemPlaycount !== undefined) {
 				let playAndLimitInfo = `(${currentPlayitemPlaycount + 1} / ${currentPlayitemMaxPlays})`
-				if (currentPlayscope !== null && currentPlayscope !== -1) {
+				if (currentPlayscope !== null && currentPlayscope !== -1 && playtree.playscopes[currentPlayscope] !== undefined) {
 					playAndLimitInfo = `[${playAndLimitInfo} in scope '${playtree.playscopes[currentPlayscope].name}']`
 				}
 				playitemInfo += " " + playAndLimitInfo
@@ -273,8 +275,8 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 
 		return (
 			<div className="bg-green-600 fixed flex w-[calc(100vw-16rem)] h-36 left-64 bottom-0">
-				<div className="w-full basis-1/4 my-6 mx-16 max-h-full overflow-hidden flex flex-col-reverse">
-					<ul className="text-white font-markazi">
+				<div className="w-full basis-5/12 my-4 ml-16 max-h-full overflow-hidden overflow-y-scroll flex flex-col-reverse">
+					<ul className="text-white text-lg font-markazi">
 						{
 							state.messageLog.map((message, index) => {
 								return (<li key={index}>
@@ -284,7 +286,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 						}
 					</ul>
 				</div>
-				<div className="w-full basis-1/4 my-auto">
+				<div className="w-full basis-1/12 min-w-32 my-auto">
 					<div className="w-fit float-right mr-8">
 						<div className="w-fit mx-auto">
 							<button
@@ -332,10 +334,10 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 				<div className="w-full basis-1/2 mr-8 my-auto text-white font-lilitaOne">
 					<table>
 						<tbody>
-							<tr><td>Playtree</td><td>|</td><td>{playtree.summary.name}</td></tr>
-							<tr><td>Playhead</td><td>|</td><td>{playheadInfo}</td></tr>
-							<tr><td>Playnode</td><td>|</td><td>{playnodeInfo}</td></tr>
-							<tr><td>Song</td><td>|</td><td>{playitemInfo}</td></tr>
+							<tr><td>Playtree</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playtree.summary.name}>{playtree.summary.name}</td></tr>
+							<tr><td>Playhead</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playheadInfo}>{playheadInfo}</td></tr>
+							<tr><td>Playnode</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playnodeInfo}>{playnodeInfo}</td></tr>
+							<tr><td>Song</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playitemInfo}>{playitemInfo}</td></tr>
 						</tbody>
 					</table>
 				</div>

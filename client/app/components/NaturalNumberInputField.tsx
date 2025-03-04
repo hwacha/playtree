@@ -30,13 +30,16 @@ const NaturalNumberInputField = (props: NaturalNumberInputFieldProps) => {
 
 		if (newValue === undefined) {
 			const newTextAsNumber = Number(event.target.value)
-			if (Number.isInteger(newTextAsNumber) && newTextAsNumber > 0) {
+			if (Number.isInteger(newTextAsNumber) && newTextAsNumber >= 0) {
 				newValue = newTextAsNumber
 			}
 		}
 
+
+
 		if (newValue === undefined) {
-			setErrorText("Please enter a natural number (positive integer or 0).")
+			const specialOptionsCSL = Array.from(specialOptionsToValues.keys()).reduce((s1, s2) => s1 === "" ? s2 : s1 + ", " + s2, "")
+			setErrorText(`Please enter a natural number${specialValuesToOptions.size > 0 ? ", or " : ""}${specialOptionsCSL}.`)
 		} else {
 			props.onChange(newValue)
 			setErrorText(null)
@@ -56,9 +59,10 @@ const NaturalNumberInputField = (props: NaturalNumberInputFieldProps) => {
 				id="n"
 				type="text"
 				list="options"
+				title={errorText ?? specialValuesToOptions.get(props.value) ?? props.value.toString()}
 				value={text ?? specialValuesToOptions.get(props.value) ?? props.value}
 				onChange={handleTextChange}
-				className="w-full text-right bg-inherit"
+				className={`w-full text-right bg-inherit ${errorText ? "text-red-600 line-through" : "" }`}
 			/>
 			{/* <datalist id="options">
 				{
@@ -67,7 +71,6 @@ const NaturalNumberInputField = (props: NaturalNumberInputFieldProps) => {
 					})
 				}
 			</datalist> */}
-			{errorText ? <label htmlFor="n" className="text-red-600 text-[6px]">{errorText}</label> : null}
 		</div>
 
 	)

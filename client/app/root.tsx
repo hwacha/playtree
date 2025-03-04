@@ -118,7 +118,7 @@ export default function App() {
 				<UserSidebar userPlaytreeSummaries={userPlaytreeSummaries} />
 				<div className="absolute left-64 w-[calc(100vw-16rem)] h-full">
 					<Banner isAuthenticated={data.authenticated} displayName={data.displayName}/>
-					<div className="absolute w-full h-[calc(100%-17rem)] top-16 -bottom-64">
+					<div className="absolute w-full h-[calc(100%-13rem)] top-16 -bottom-64">
 						<Outlet key={location.pathname} />
 					</div>
 					<Player playtree={playerPlaytree} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined} />

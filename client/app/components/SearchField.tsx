@@ -1,10 +1,10 @@
-import { FormEventHandler, useEffect, useRef, useState } from "react";
+import { FormEventHandler, useEffect, useMemo, useRef, useState } from "react";
 import { SPOTIFY_SEARCH_API_PATH } from "../api_endpoints";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
+import { useSubmit } from "@remix-run/react";
 
 type SearchFieldProps = {
 	onContentSelect: (content: SearchResult) => boolean;
-	onFocusOut: (event: FocusEvent) => void
 }
 
 export type SearchResult = {
@@ -24,15 +24,6 @@ export const queryString: ((sr: SearchResult) => string) = sr => {
 export default function SearchField(props: SearchFieldProps) {
 	const [query, setQuery] = useState<SearchResult>({ track: "", artist: "", uri: null })
 	const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-
-	const inputRef = useRef<HTMLInputElement>(null)
-	useEffect(() => {
-		if (inputRef.current) {
-			inputRef.current.addEventListener("focusout", event => {
-				props.onFocusOut(event)
-			})
-		}
-	}, [])
 
 	const onSearchQueryChange = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const newQueryString = event.target.value
@@ -55,8 +46,6 @@ export default function SearchField(props: SearchFieldProps) {
 		return false
 	}
 
-
-
 	useEffect(() => {
 		if (query.track.length >= 2) {
 			(async () => {
@@ -70,16 +59,36 @@ export default function SearchField(props: SearchFieldProps) {
 		}
 	}, [query])
 
+	const queryMatchesASearchResult = useMemo(() => {
+		return searchResults.some(sr => queryString(sr) === queryString(query))
+	}, [searchResults, query])
+
 	return (
-		<form onSubmit={handleSubmit}>
-			<input ref={inputRef} autoComplete="off" className="w-40 font-markazi text-black" list="spotify-search-suggestions" id="search-field" name="search-field" value={queryString(query)} placeholder="Search for a song" onChange={onSearchQueryChange} />
+		<form onSubmit={handleSubmit} className="flex">
+			<input
+				autoComplete="off"
+				className="w-full font-markazi text-black mr-1"
+				list="spotify-search-suggestions"
+				id="search-field"
+				name="search-field"
+				value={queryString(query)}
+				placeholder="Search for a song"
+				onChange={onSearchQueryChange}
+			/>
 			<datalist id="spotify-search-suggestions">
 				{
 					searchResults.map((searchResult, index) => {
-						return <option key={index} value={queryString(searchResult)} />
+						const qs = queryString(searchResult)
+						return <option key={index} title={qs} value={qs} />
 					})
 				}
 			</datalist>
+			<button
+				type="submit"
+
+				className={`rounded-lg px-2 ${queryMatchesASearchResult ? `bg-blue-200 text-blue-600` : "bg-neutral-300 text-neutral-500"} font-markazi ${queryMatchesASearchResult ? "" : "hover:cursor-not-allowed"}`}
+				disabled={!queryMatchesASearchResult}
+			>Add</button>
 		</form>
 	)
 }

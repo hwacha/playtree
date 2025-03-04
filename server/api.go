@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -77,9 +78,20 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		summaries, err := getAllPlaytreeSummaries()
 		publicSummaries := []Summary{}
 
-		for _, summary := range summaries {
+		startIndexString := r.URL.Query().Get("start")
+		startIndex, numberConversionErr := strconv.Atoi(startIndexString)
+		if numberConversionErr != nil || startIndex < 0 {
+			startIndex = 0
+		}
+		counter := 0
+		for i := startIndex; i < len(summaries); i++ {
+			summary := summaries[i]
 			if summary.Access == "public" {
 				publicSummaries = append(publicSummaries, summary)
+				counter++
+				if counter == 60 {
+					break
+				}
 			}
 		}
 		if err != nil {
@@ -301,7 +313,7 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		// _ := r.PathValue("id")
 		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.WriteHeader(http.StatusOK)
 	},
 	"GET /me/player": func(w http.ResponseWriter, r *http.Request) {

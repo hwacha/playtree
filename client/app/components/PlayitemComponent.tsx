@@ -35,17 +35,17 @@ export default function PlayitemComponent(props: PlayitemComponentProps) {
 	}, [props.playnodeID, props.index])
 
 	return (
-		<li key={props.playitem.id} className={`border border-${props.color}-600 bg-${props.color}-200 font-markazi flex`}>
-			{props.shouldHaveMoveUpButton ? <button className="w-fit ml-1" title="Move Content Up In List" onClick={handleMoveUp}>⬆️</button> : <div className="ml-5" />}
-			{props.shouldHaveMoveDownButton ? <button className="w-fit ml-1" title="Move Content Down In List" onClick={handleMoveDown}>⬇️</button> : <div className="ml-5" />}
-			<span className="w-full ml-3">{props.playitem.name}</span>
-			<div className={`bg-${props.color}-200 w-6`}>
+		<tr key={props.playitem.id} className={`group w-full min-w-full border border-${props.color}-600 bg-${props.color}-200 font-markazi`}>
+			<td><div className="min-w-5"><button className={`w-fit mx-auto hidden ${props.shouldHaveMoveUpButton ? "group-hover:block" : ""}`} title="Move Playitem Up In List" onClick={handleMoveUp}>⬆️</button></div></td>
+			<td><div className="min-w-5"><button className={`w-fit mx-auto hidden ${props.shouldHaveMoveDownButton ? "group-hover:block" : ""}`} title="Move Playitem Down In List" onClick={handleMoveDown}>⬇️</button></div></td>
+			<td><div className="ml-2 w-full" title={props.playitem.name}>{props.playitem.name}</div></td>
+			<td className={`bg-${props.color}-200 w-8`}>
 				<NaturalNumberInputField canBeInfinite={false} defaultValue={1} value={props.playitem.multiplier} onChange={handleChangeMult} />
-			</div>
-			<div className={`bg-${props.color}-200 w-6`}>
-				<NaturalNumberInputField canBeInfinite={false} defaultValue={1} value={props.playitem.limit} onChange={handleChangeLimit} />
-			</div>
-			<button className="w-fit mr-1" title="Delete Content" onClick={handleDeleteSelf}>❌</button>
-		</li>
+			</td>
+			<td className={`bg-${props.color}-200 w-8`}>
+				<NaturalNumberInputField canBeInfinite={true} defaultValue={1} value={props.playitem.limit} onChange={handleChangeLimit} />
+			</td>
+			<td><div className="min-w-5"><button className="w-fit mx-auto hidden group-hover:block" title="Delete Playitem" onClick={handleDeleteSelf}>❌</button></div></td>
+		</tr>
 	)
 }

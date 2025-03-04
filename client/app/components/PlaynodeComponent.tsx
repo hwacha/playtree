@@ -18,12 +18,7 @@ export type PlaynodeFlowData = Node<{
 }, 'play'>;
 
 export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
-	const [adding, setAdding] = useState<boolean>(false)
 	const [scopeView, setScopeView] = useState<boolean>(false)
-
-	const handleAddBegin = useCallback((_: any) => {
-		setAdding(true)
-	}, [])
 
 	const handleContentSelect = useCallback((newPlayitemAsSearchResult: SearchResult): boolean => {
 		if (newPlayitemAsSearchResult.uri === null) {
@@ -39,12 +34,7 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 				multiplier: 1,
 				limit: -1
 			}})
-		setAdding(false)
 		return true
-	}, [])
-
-	const handleSearchFocusOut = useCallback((event: FocusEvent) => {
-		setAdding(false)
 	}, [])
 
 	const handleToggleScope = useCallback(() => {
@@ -77,6 +67,7 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 	}, [])
 
 	const isSequence = props.data.playnode.type === "sequencer"
+	const otherType = isSequence ? "selector" : "sequencer"
 	const color = isSequence ? "green" : "amber"
 
 	const playscopesOnPlaynode = useMemo(() => {
@@ -93,68 +84,95 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 		<Handle type="target" isConnectableStart={false} position={Position.Top} style={{ width: 12, height: 12, top: 2 + 4 * numScopes }} />
 		{
 			props.selected && !props.dragging ?
-				<div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-64 p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
+				<div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-96 p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
 					<div className="mb-5">
-						<button className={`bg-${color}-300 rounded-lg px-2 py-1 absolute left-[1.25rem]`} style={{left: 4 * (1 + numScopes), top: 4 * (1 + numScopes)}} onClick={handleTogglePlaynodeType} title={props.data.playnode.type}>{isSequence ? <>🔢</> : <>🎲</>}</button>
-						<button className={`bg-blue-300 rounded-lg px-2 py-1 absolute left-[3.5rem]`} style={{left: 4 * (9.5 + numScopes), top: 4 * (1 + numScopes)}} onClick={handleToggleScope} title={scopeView ? "Toggle Song View" : "Toggle Scope View"}>{scopeView ? <>🎶</> : <>🔲</>}</button>
-						<button className={`bg-red-300 rounded-lg px-2 py-1 absolute right-[1.25rem]`} style={{right: 4 * (1 + numScopes), top: 4 * (1 + numScopes)}} onClick={handleDeleteSelf} title="Delete Playnode">🗑️</button>
+						<button
+							className={`bg-${color}-300 rounded-lg px-2 py-1 absolute left-[1.25rem]`}
+							style={{left: 4 * (1 + numScopes), top: 4 * (1 + numScopes)}}
+							onClick={handleTogglePlaynodeType} title={`Toggle node type from ${props.data.playnode.type} to ${otherType}`}>
+								{isSequence ? <>🔢</> : <>🎲</>}
+						</button>
+						<button
+							className={`bg-blue-300 rounded-lg px-2 py-1 absolute left-[3.5rem]`}
+							style={{left: 4 * (9.5 + numScopes), top: 4 * (1 + numScopes)}}
+							onClick={handleToggleScope} title={scopeView ? "Toggle Song View" : "Toggle Scope View"}>
+								{scopeView ? <>🎶</> : <>🔲</>}
+						</button>
+						<button
+							className={`bg-red-300 rounded-lg px-2 py-1 absolute right-[1.25rem]`}
+							style={{right: 4 * (1 + numScopes), top: 4 * (1 + numScopes)}}
+							onClick={handleDeleteSelf}
+							title="Delete Playnode">
+								🗑️
+						</button>
 					</div>
 					<input id="text" name="text" value={props.data.playnode.name} onChange={handleChangeName} className={`w-full bg-${color}-100 text-center`} />
-					<ul className="my-3 font-markazi">
-						{
-							scopeView ?
-							<>
-								{
-									props.data.playscopes.map((scope, index) => {
-										const [r, g, b] = hexToRGB(scope.color)
-										const contrastColor = r * 0.299 + g * 0.587 + b * 0.114 > 150 ? "#000000" : "#ffffff"
-										return <li key={index} className={`flex`} style={{ backgroundColor: scope.color, color: contrastColor }}>
-											<input
-												type="checkbox"
-												checked={props.data.playnode.playscopes.includes(index)}
-												onChange={handleTogglePlayscope(index)}
-												className="mx-1"/>
-											{scope.name}
-										</li>
-									})
-								}
-							</>
-							:
-							<>
-								<div className="font-markazi flex w-fit">
-									<span className="mr-1">Limit:</span>
-									<div className="w-8">
-										<NaturalNumberInputField
-											canBeInfinite={true}
-											defaultValue={1}
-											value={props.data.playnode.limit}
-											onChange={(n : number) => props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { limit: n } })}/>
-									</div>
-								</div>
-								<div className="flex font-markazi"><div className="ml-14">Name</div><div className="ml-[3.75rem]">M</div><div className="ml-3">R</div></div>
-								{
-									props.data.playnode.playitems.map((playitem: Playitem, index: number) => {
-										return <PlayitemComponent
-											key={playitem.id}
-											playnodeID={props.id}
-											playitem={playitem}
-											index={index}
-											color={color}
-											shouldHaveMoveUpButton={index > 0}
-											shouldHaveMoveDownButton={index + 1 < props.data.playnode.playitems.length}
-											dispatch={props.data.dispatch} />
-									})
-								}
-							</>
-						}
-					</ul>
 					{
-						adding ?
-							<SearchField onContentSelect={handleContentSelect} onFocusOut={handleSearchFocusOut} /> :
-							<div className="flex"><button title="Add Content" className={`border-${color}-600 bg-${color}-400 border-2 rounded-full px-2 py-1 m-auto`} onClick={handleAddBegin}>➕</button></div>
+						scopeView ?
+						<ul className="my-3 font-markazi">
+							{
+								props.data.playscopes.map((scope, index) => {
+									const [r, g, b] = hexToRGB(scope.color)
+									const contrastColor = r * 0.299 + g * 0.587 + b * 0.114 > 150 ? "#000000" : "#ffffff"
+									return <li key={index} className={`flex`} style={{ backgroundColor: scope.color, color: contrastColor }}>
+										<input
+											type="checkbox"
+											checked={props.data.playnode.playscopes.includes(index)}
+											onChange={handleTogglePlayscope(index)}
+											className="mx-1"/>
+										{scope.name}
+									</li>
+								})
+							}
+						</ul> :
+						<>
+							<div className="font-markazi flex w-fit">
+								<span className="mr-1">Limit:</span>
+								<div className="w-8">
+									<NaturalNumberInputField
+										canBeInfinite={true}
+										defaultValue={1}
+										value={props.data.playnode.limit}
+										onChange={(n : number) => props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { limit: n } })}/>
+								</div>
+							</div>
+							<table className="font-markazi table-fixed w-full mb-1">
+								<thead>
+									<tr>
+										<th className="w-6">⬆️</th>
+										<th className="w-6">⬇️</th>
+										<th className="w-3/5 text-left text-xl">&nbsp;&nbsp;&nbsp;Name</th>
+										<th title="Multiplier" className="text-right">Mult</th>
+										<th title="Limit" className="text-right">Lim</th>
+										<th>❌</th>
+									</tr>
+								</thead>
+								<tbody>
+									{
+										props.data.playnode.playitems.map((playitem: Playitem, index: number) => {
+											return <PlayitemComponent
+												key={playitem.id}
+												playnodeID={props.id}
+												playitem={playitem}
+												index={index}
+												color={color}
+												shouldHaveMoveUpButton={index > 0}
+												shouldHaveMoveDownButton={index + 1 < props.data.playnode.playitems.length}
+												dispatch={props.data.dispatch} />
+										})
+									}
+								</tbody>
+							</table>
+							<SearchField onContentSelect={handleContentSelect} />
+						</>
 					}
 				</div> :
-				<div className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-64 h-16 py-4 text-center`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>{props.data.playnode.name}</div>
+				<div
+					className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-64 h-16 py-4 text-center text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis`}
+					title={props.data.playnode.name}
+					onDrop={handleDrop}
+					onDragOver={e => e.preventDefault()}
+				>{props.data.playnode.name}</div>
 		}
 		<Handle type="source" position={Position.Bottom} id="a" style={{ width: 12, height: 12, bottom: 2 + 4 * numScopes }} />
 	</div>

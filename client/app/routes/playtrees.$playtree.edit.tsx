@@ -15,6 +15,7 @@ import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
 import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../api_endpoints";
 import Snack from "../components/Snack";
 import Modal from "../components/Modal";
+import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	invariant(params.playtree)
@@ -323,7 +324,7 @@ export default function PlaytreeEditor() {
 	const handleSave = useCallback(() => {
 		(async () => {
 			try {
-				const response = await fetch(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
+				const response = await clientFetchWithToken(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
 					method: "PUT",
 					body: JSON.stringify(jsonFromPlaytree(state.playtree))
 				})
@@ -380,7 +381,11 @@ export default function PlaytreeEditor() {
 		<div className="font-lilitaOne w-5/6 m-auto h-[calc(100vh-15.25rem)]">
 			<div className="w-full h-fit flex justify-between mt-12">
 				<div className="flex py-1">
-					<h2 className="w-full text-3xl text-green-600">{state.playtree.summary.name}</h2>
+					<h2 title={state.playtree.summary.name} className="max-w-[calc(70vw-18rem)] h-9 flex text-3xl text-green-600 resize-x">
+						<div className="whitespace-nowrap overflow-ellipsis overflow-hidden">
+							{state.playtree.summary.name}
+						</div>
+					</h2>
 					<fetcher.Form method="POST" action="/">
 						<input type="hidden" id="playtreeID" name="playtreeID" value={state.playtree.summary.id} />
 						<button type="submit" className="bg-green-300 font-markazi text-xl rounded-md px-2 py-1 ml-2">Play</button>
