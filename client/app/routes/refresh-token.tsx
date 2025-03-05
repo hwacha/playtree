@@ -1,5 +1,5 @@
 import { ActionFunctionArgs, LoaderFunctionArgs, redirect } from "@remix-run/node";
-import { commitSession, getSession } from "../sessions";
+import { commitSession, getSession } from "../utils/sessions";
 import queryString from "query-string";
 
 export async function loader() {

@@ -3,7 +3,7 @@ import { Playitem, Playnode, Playtree } from "../types";
 import deepEqual from "deep-equal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import reducer, { Playhead } from "../reducers/player";
-import { SPOTIFY_CURRENT_USER_PATH, SPOTIFY_PAUSE_PATH, SPOTIFY_PLAY_PATH, SPOTIFY_PLAYER_PATH } from "../api_endpoints";
+import { SPOTIFY_CURRENT_USER_PATH, SPOTIFY_PAUSE_PATH, SPOTIFY_PLAY_PATH, SPOTIFY_PLAYER_PATH } from "../settings/api_endpoints";
 import { getDeviceName } from "../utils/getDeviceName.client";
 
 type PlayerProps = {

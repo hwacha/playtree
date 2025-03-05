@@ -1,4 +1,4 @@
-import { REMIX_SERVER_API_PATH } from "../api_endpoints"
+import { REMIX_SERVER_API_PATH } from "../settings/api_endpoints"
 
 const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnType<typeof fetch> => {
 	let options: any = args[1]

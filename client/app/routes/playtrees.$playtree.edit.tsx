@@ -12,7 +12,7 @@ import PlayedgeComponent, { PlayedgeFlowData } from "../components/PlayedgeCompo
 import { PlayConnectionLine } from "../components/PlayConnectionLine";
 import { intersection, isSubsetOf, isSupersetOf } from "@opentf/std";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
-import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../api_endpoints";
+import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../settings/api_endpoints";
 import Snack from "../components/Snack";
 import Modal from "../components/Modal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";

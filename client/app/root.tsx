@@ -15,10 +15,10 @@ import styles from "./tailwind.css?url";
 import UserSidebar from "./components/UserSidebar";
 import Banner from "./components/Banner";
 import { Playnode, Playroot, Playscope, playtreeFromJson, PlaytreeSummary } from "./types";
-import { getSession } from "./sessions";
+import { getSession } from "./utils/sessions";
 import { useEffect } from "react";
 import { serverFetchWithToken } from "./utils/server-fetch-with-token.server";
-import { PLAYTREE_SERVER_PLAYER_PATH, PLAYTREE_SERVER_USER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "./api_endpoints";
+import { PLAYTREE_SERVER_PLAYER_PATH, PLAYTREE_SERVER_USER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "./settings/api_endpoints";
 
 export const links: LinksFunction = () => [
 	{ rel: "stylesheet", href: styles },
@@ -97,6 +97,7 @@ export default function App() {
 	const location = useLocation() // used for React resolution keys
 
 	useEffect(() => {
+
 		if (data.accessToken) {
 			localStorage.setItem("spotify_access_token", data.accessToken)
 		}

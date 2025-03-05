@@ -1,6 +1,5 @@
-import { redirect } from "@remix-run/react"
-import { commitSession, getSession } from "../sessions"
-import { REMIX_SERVER_API_PATH } from "../api_endpoints"
+import { commitSession, getSession } from "./sessions"
+import { REMIX_SERVER_API_PATH } from "../settings/api_endpoints"
 
 export const serverFetchWithToken = async (request: Request, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> => {
 	let options: any = args[1]

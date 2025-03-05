@@ -1,7 +1,7 @@
 import { Link, useFetcher, useLoaderData } from "@remix-run/react"
 import { PlaytreeSummary } from "../types";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
-import { PLAYTREE_SERVER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "../api_endpoints";
+import { PLAYTREE_SERVER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "../settings/api_endpoints";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useEffect, useRef } from "react";
 

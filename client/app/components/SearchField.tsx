@@ -1,5 +1,5 @@
 import { FormEventHandler, useEffect, useMemo, useRef, useState } from "react";
-import { SPOTIFY_SEARCH_API_PATH } from "../api_endpoints";
+import { SPOTIFY_SEARCH_API_PATH } from "../settings/api_endpoints";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import { useSubmit } from "@remix-run/react";
 

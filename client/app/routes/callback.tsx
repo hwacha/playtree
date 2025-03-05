@@ -1,6 +1,6 @@
 import { LoaderFunctionArgs, redirect } from "@remix-run/node";
 import queryString from "query-string";
-import { commitSession, getSession } from "../sessions";
+import { commitSession, getSession } from "../utils/sessions";
 
 export async function loader({
 	request
