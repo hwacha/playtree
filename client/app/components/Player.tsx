@@ -63,8 +63,12 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 							}
 						})
 					});
-	
-					// TODO error handling if the device isn't ready to play
+
+					newPlayer.addListener("not_ready", ({device_id}: any) => {
+						if (newPlayer) {
+							newPlayer.disconnect()
+						}
+					})
 	
 					newPlayer.addListener('player_state_changed', playbackState => {
 						if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
