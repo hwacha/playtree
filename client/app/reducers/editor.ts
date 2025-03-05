@@ -16,7 +16,7 @@ export type PlaytreeEditorAction = {
 	type: "loaded_playtree",
 	playtree: Playtree
 } | {
-	type: "added_playnode" | "added_playscope" | "saved_playtree",
+	type: "added_playnode" | "saved_playtree",
 } | {
 	type: "updated_playnode",
 	playnodeID: string,
@@ -43,6 +43,9 @@ export type PlaytreeEditorAction = {
 } | {
 	type: "deleted_playhead",
 	playnodeID: string,
+} | {
+	type: "added_playscope",
+	color: string
 } | {
 	type: "updated_playscope",
 	index: number,
@@ -74,18 +77,19 @@ export type PlaytreeEditorAction = {
 
 const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorAction): PlaytreeEditorState => {
 	const unsavedChangeOccurred = !["loaded_playtree", "saved_playtree", "logged_message"].includes(action.type)
+	const unsavedChangesExist = state.unsavedChangesExist || unsavedChangeOccurred
 	switch (action.type) {
 		case "loaded_playtree": {
 			return {
 				...state,
 				playtree: action.playtree,
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "saved_playtree": {
 			return {
 				...state,
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "added_playnode": {
@@ -113,7 +117,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playnodes: newPlaynodes
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "updated_playnode": {
@@ -129,7 +133,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playnodes: newNodes
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "deleted_playnode": {
@@ -147,7 +151,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playnodes: newNodes
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "added_playedge": {
@@ -170,7 +174,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 						...state.playtree,
 						playnodes: newNodes
 					},
-					unsavedChangesExist: unsavedChangeOccurred,
+					unsavedChangesExist: unsavedChangesExist,
 				}
 			}
 
@@ -191,7 +195,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 							...state.playtree,
 							playnodes: newNodes
 						},
-						unsavedChangesExist: unsavedChangeOccurred
+						unsavedChangesExist: unsavedChangesExist
 					}
 				}
 			}
@@ -211,7 +215,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 							...state.playtree,
 							playnodes: newNodes
 						},
-						unsavedChangesExist: unsavedChangeOccurred
+						unsavedChangesExist: unsavedChangesExist
 					}
 				}
 			}
@@ -230,7 +234,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playroots: newPlayroots
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "updated_playhead": {
@@ -246,7 +250,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playroots: newPlayroots
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "deleted_playhead": {
@@ -258,7 +262,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playroots: newPlayroots
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "logged_message": {
@@ -267,21 +271,20 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 			return {
 				...state,
 				messageLog: newMessageLog,
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "added_playscope": {
 			const newPlayscopes = [...state.playtree.playscopes]
 			const index = newPlayscopes.length
-			const defaultColor = rgbToHex([255 * ((index & 4) >> 2), 255 * ((index & 2) >> 1), 255 * (index & 1)])
-			newPlayscopes.push({ name: "Scope " + (index + 1), color: defaultColor })
+			newPlayscopes.push({ name: "Scope " + (index + 1), color: action.color })
 			return {
 				...state,
 				playtree: {
 					...state.playtree,
 					playscopes: newPlayscopes
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "updated_playscope": {
@@ -293,7 +296,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playscopes: newPlayscopes,
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "deleted_playscope": {
@@ -312,7 +315,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					playscopes: newPlayscopes,
 					playnodes: newNodes
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "toggled_playscope_in_playnode": {
@@ -335,7 +338,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playnodes: newNodes
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "added_playitem_to_playnode": {
@@ -357,7 +360,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playnodes: newPlaynodes
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "updated_playitem": {
@@ -373,7 +376,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playnodes: newPlaynodes
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "deleted_playitem_from_playnode": {
@@ -389,7 +392,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playnodes: newPlaynodes
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "moved_playitem_down": {
@@ -410,7 +413,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playnodes: newPlaynodes
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 		case "moved_playitem_up": {
@@ -431,7 +434,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 					...state.playtree,
 					playnodes: newPlaynodes
 				},
-				unsavedChangesExist: unsavedChangeOccurred
+				unsavedChangesExist: unsavedChangesExist
 			}
 		}
 	}

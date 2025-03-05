@@ -258,7 +258,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 
 		return (
 			<div className="bg-green-600 fixed flex w-[calc(100vw-16rem)] h-36 left-64 bottom-0">
-				<div className="w-full basis-5/12 my-4 ml-16 max-h-full overflow-hidden overflow-y-scroll flex flex-col-reverse">
+				<div className="w-full basis-5/12 my-4 ml-16 max-h-full overflow-hidden overflow-y-auto flex flex-col-reverse">
 					<ul className="text-white text-lg font-markazi">
 						{
 							state.messageLog.map((message, index) => {
