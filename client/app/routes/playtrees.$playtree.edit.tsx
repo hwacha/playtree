@@ -16,6 +16,7 @@ import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../api_endpoints";
 import Snack from "../components/Snack";
 import Modal from "../components/Modal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
+import { PlayscopeManager } from "../components/PlayscopeManager";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	invariant(params.playtree)
@@ -50,36 +51,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		permitted: true,
 		playtree: null
 	}
-}
-
-type ScopeManagerProps = {
-	scopes: Playscope[];
-	dispatch: (action: PlaytreeEditorAction) => void;
-}
-const ScopeManager = (props: ScopeManagerProps) => {
-	return (
-		<div className="absolute z-10 left-48 top-48 h-96 w-96 bg-slate-50 font-markazi">
-			<ul>
-			{
-				props.scopes.map((scope, index) => {
-					return (<li key={index}>
-						<div className="flex">
-							<input value={scope.name} onChange={e => props.dispatch({type: "updated_playscope", index: index, patch: { name: e.target.value }})}/>
-							<input type="color" value={scope.color} onChange={e => props.dispatch({type: "updated_playscope", index: index, patch: { color: e.target.value }})}/>
-							<button className="border-4 border-red bg-red-400 mt-4 mx-auto" onClick={() => props.dispatch({type: "deleted_playscope", index: index})}>Delete</button>
-						</div>
-						
-					</li>)
-				})
-			}
-			</ul>
-			<div className="w-full flex">
-				<button
-					className="border-4 border-black bg-blue-400 mt-4 mx-auto"
-					onClick={() => props.dispatch({type: "added_playscope"})}>Add Scope</button>
-			</div>
-		</div>
-	)
 }
 
 export default function PlaytreeEditor() {
@@ -117,7 +88,6 @@ export default function PlaytreeEditor() {
 		unsavedChangesExist: false,
 		messageLog: []
 	})
-	const [scopeManagerVisible, setScopeManagerVisible] = useState<boolean>(false)
 
 	const playscopeComparator = useMemo(() => {
 		const playnodesByPlayscope = state.playtree.playscopes.map(_ => new Set<string>())
@@ -309,10 +279,6 @@ export default function PlaytreeEditor() {
 		})
 	}, [state.playtree, playscopeComparator])
 
-	const handleManageScopes = useCallback(() => {
-		setScopeManagerVisible(!scopeManagerVisible)
-	}, [scopeManagerVisible])
-
 	const generateWarnings = useCallback(() => {
 		const warnings: string[] = []
 		if (state.playtree.playroots.size == 0) {
@@ -377,6 +343,13 @@ export default function PlaytreeEditor() {
 		setDeleteModalOn(_ => on)
 	}, [])
 
+	const [playscopeManagerVisible, setPlayscopeManagerVisible] = useState<boolean>(false)
+	const handlePlayscopeManagerVisibility = useCallback((visible : boolean) => {
+		return () => {
+			setPlayscopeManagerVisible(_ => visible)
+		}
+	}, [])
+
 	return (
 		<div className="font-lilitaOne w-5/6 m-auto h-[calc(100vh-15.25rem)]">
 			<div className="w-full h-fit flex justify-between mt-12">
@@ -422,8 +395,8 @@ export default function PlaytreeEditor() {
 							onDragStart={handleDragStart}>💽</button>
 						<button
 							title="Manage Scopes"
-							className="rounded-lg bg-teal-300 px-2 py-1"
-							onClick={handleManageScopes}>🔲</button>
+							className="rounded-lg bg-indigo-300 px-2 py-1"
+							onClick={handlePlayscopeManagerVisibility(true)}>🔲</button>
 						{
 							state.unsavedChangesExist ?
 								<button
@@ -448,7 +421,7 @@ export default function PlaytreeEditor() {
 						<Controls />
 					</ReactFlow>
 					{
-						scopeManagerVisible ? <ScopeManager scopes={state.playtree.playscopes} dispatch={dispatch}/> : null
+						playscopeManagerVisible ? <PlayscopeManager playscopes={state.playtree.playscopes} dispatch={dispatch} onExit={handlePlayscopeManagerVisibility(false)}/> : null
 					}
 				</div>
 				<div className="border-green-600 bg-neutral-50 border-r-4 border-t-4 border-b-4 w-full flex-[1] h-full overflow-y-auto flex flex-col-reverse">

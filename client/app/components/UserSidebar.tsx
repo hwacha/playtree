@@ -1,6 +1,5 @@
 import { Link, useFetcher } from "@remix-run/react";
 import { PlaytreeSummary } from "../types";
-import { useState } from "react";
 
 type UserSidebarProps = {
 	userPlaytreeSummaries: PlaytreeSummary[] | null;
@@ -11,7 +10,7 @@ export default function UserSidebar(props: UserSidebarProps) {
 
 	return (
 		<aside id="sidebar-multi-level-sidebar" className="fixed font-markazi top-0 left-0 z-0 w-64 h-screen" aria-label="Sidebar">
-			<div className="h-full border-4 border-green-600 bg-green-200 bg-opacity-50 px-2 pt-[1.125rem] overflow-y-scroll">
+			<div className="h-full border-4 border-green-600 bg-green-200 bg-opacity-50 px-2 pt-[1.125rem] overflow-y-auto">
 				<h3 className="text-2xl font-lilitaOne text-green-600 underline"><strong>Your Playtrees</strong></h3>
 				<nav>
 					{

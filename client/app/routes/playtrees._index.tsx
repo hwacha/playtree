@@ -65,7 +65,7 @@ export default function Index() {
 	}, [data.start])
 	
 	return (
-		<div ref={scrollRef} className="m-auto w-full h-full overflow-y-scroll">
+		<div ref={scrollRef} className="m-auto w-full h-full overflow-y-auto">
 			{
 				data.playtrees.map((summary: any) => {
 					return (

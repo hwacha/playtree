@@ -16,7 +16,7 @@ export type PlaytreeEditorAction = {
 	type: "loaded_playtree",
 	playtree: Playtree
 } | {
-	type: "added_playnode" | "added_playscope" | "saved_playtree",
+	type: "added_playnode" | "saved_playtree",
 } | {
 	type: "updated_playnode",
 	playnodeID: string,
@@ -43,6 +43,9 @@ export type PlaytreeEditorAction = {
 } | {
 	type: "deleted_playhead",
 	playnodeID: string,
+} | {
+	type: "added_playscope",
+	color: string
 } | {
 	type: "updated_playscope",
 	index: number,
@@ -273,8 +276,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 		case "added_playscope": {
 			const newPlayscopes = [...state.playtree.playscopes]
 			const index = newPlayscopes.length
-			const defaultColor = rgbToHex([255 * ((index & 4) >> 2), 255 * ((index & 2) >> 1), 255 * (index & 1)])
-			newPlayscopes.push({ name: "Scope " + (index + 1), color: defaultColor })
+			newPlayscopes.push({ name: "Scope " + (index + 1), color: action.color })
 			return {
 				...state,
 				playtree: {
