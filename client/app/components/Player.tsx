@@ -194,7 +194,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 	}, [playtree])
 
 	if (playtree === null) {
-		return (<div className="bg-green-600 fixed flex w-full h-36 left-64 bottom-0"><div className="text-white mx-auto my-16 w-fit h-full font-lilitaOne">No playtree selected to play.</div></div>)
+		return (<div className="bg-green-600 fixed z-30 flex w-full h-36 left-64 bottom-0"><div className="text-white mx-auto my-16 w-fit h-full font-lilitaOne">No playtree selected to play.</div></div>)
 	} else {
 		let currentPlayhead: Playhead | null | undefined = null
 		let currentPlaynode: Playnode | null | undefined = null
