@@ -79,10 +79,10 @@ export default function Index() {
 		<div className="flex w-full h-full justify-center items-center flex-wrap">
 			{
 				authenticationInfo.justTriedLogin || authenticationInfo.justTriedLogout ?
-				<div
-					className="absolute"><Snack
-					type={authenticationInfo.authenticated === authenticationInfo.justTriedLogin ? "success" : "error"}
-					body={<p>{authenticationInfo.justTriedLogin ? "Login" : "Logout"} {authenticationInfo.authenticated === authenticationInfo.justTriedLogin ? "successful" : "failed"}.</p>} />
+				<div className="absolute left-2 top-2">
+					<Snack
+						type={authenticationInfo.authenticated === authenticationInfo.justTriedLogin ? "success" : "error"}
+						body={<p>{authenticationInfo.justTriedLogin ? "Login" : "Logout"} {authenticationInfo.authenticated === authenticationInfo.justTriedLogin ? "successful" : "failed"}.</p>} />
 				</div>
 				: null
 			}
