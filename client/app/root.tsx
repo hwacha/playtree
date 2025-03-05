@@ -25,7 +25,6 @@ export const links: LinksFunction = () => [
 ];
 
 export const loader = async ({request} : LoaderFunctionArgs) => {
-	console.log("root loader with request", request)
 	const result : {
 		authenticated: boolean,
 		displayName: string | null,
@@ -58,24 +57,18 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 		}
 	}
 
-	console.log("requesting profile")
 	const profileRequest = await serverFetchWithToken(request, SPOTIFY_CURRENT_USER_PATH)
-	console.log("requesting player")
 	const playerRequest = await serverFetchWithToken(request, PLAYTREE_SERVER_PLAYER_PATH)
-	console.log("requesting playtreeSummaries")
 	const userPlaytreeSummariesRequest = await serverFetchWithToken(request, PLAYTREE_SERVER_USER_PLAYTREES_PATH)
 
 	if (profileRequest.ok) {
 		result.authenticated = true
-		console.log("reading profile body")
 		result.displayName = (await profileRequest.json()).display_name
 	}
 	if (playerRequest.ok) {
-		console.log("reading player body")
 		result.playerPlaytree = await playerRequest.json()
 	}
 	if (userPlaytreeSummariesRequest.ok) {
-		console.log("reading playtree summaries body")
 		result.userPlaytreeSummaries = await userPlaytreeSummariesRequest.json()
 	}
 
@@ -88,10 +81,8 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	console.log("root action", request)
 	const formData = await request.formData()
 	const id = formData.get("playtreeID");
-	console.log(`making PUT request for playtree=${id}`)
 	await serverFetchWithToken(request, `${PLAYTREE_SERVER_PLAYER_PATH}?playtree=${id}`, {
 		method: "PUT"
 	})
