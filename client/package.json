@@ -7,23 +7,31 @@
     "build": "remix vite:build",
     "dev": "remix vite:dev",
     "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
+    "postinstall": "patch-package",
     "start": "remix-serve build/server/index.js",
     "typecheck": "tsc"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.4",
+    "@opentf/std": "^0.13.0",
     "@remix-run/node": "^2.15.0",
     "@remix-run/react": "^2.15.0",
     "@remix-run/serve": "^2.15.0",
+    "@types/deep-equal": "^1.0.4",
+    "@types/spotify-web-playback-sdk": "^0.1.19",
     "@xyflow/react": "^12.3.6",
     "autoprefixer": "^10.4.20",
+    "deep-equal": "^2.2.3",
     "dotenv": "^16.4.7",
     "isbot": "^4.1.0",
     "match-sorter": "^6.3.1",
+    "patch-package": "^8.0.0",
+    "query-string": "^9.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "sort-by": "^1.2.0",
-    "tiny-invariant": "^1.3.1"
+    "tiny-invariant": "^1.3.1",
+    "vitest": "^3.0.6"
   },
   "devDependencies": {
     "@remix-run/dev": "^2.15.0",

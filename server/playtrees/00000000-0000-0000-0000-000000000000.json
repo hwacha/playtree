@@ -1,0 +1,291 @@
+{
+	"summary": {
+		"id": "00000000-0000-0000-0000-000000000000",
+		"name": "Test Playtree",
+		"createdBy": "h_wacha",
+		"access": "public"
+	},
+	"playnodes": {
+		"0": {
+			"id": "0",
+			"type": "selector",
+			"name": "Early 2010s Indie Shuffle",
+			"limit": -1,
+			"playscopes": [
+				0
+			],
+			"playitems": [
+				{
+					"id": "3",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:5P2hEcHjoNMh33EsFPPOJE",
+					"name": "Heartbeats - The Knife",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "4",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:1OVypFlcraAhyvPqIMWDor",
+					"name": "The Mother We Share - CHVRCHES",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "5",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:6qZjm61s6u8Ead9sWxCDro",
+					"name": "Elephant - Tame Impala",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "6",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:4VbDJMkAX3dWNBdn3KH6Wx",
+					"name": "Helena Beat - Foster The People",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "7",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:1eyzqe2QqGZUmfcPZtrIyt",
+					"name": "Midnight City - M83",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "8",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:0k2Hcun3EPImERPrJmJrYZ",
+					"name": "Manners - Icona Pop",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "9",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:4yYvWFUWMaKMXtoJKJnmZk",
+					"name": "Shuffle - Bombay Bicycle Club",
+					"multiplier": 1,
+					"limit": 1
+				}
+			],
+			"next": [
+				{
+					"targetID": "2",
+					"priority": 0,
+					"shares": 1,
+					"limit": 6
+				},
+				{
+					"targetID": "3",
+					"priority": 1,
+					"shares": 1,
+					"limit": -1
+				}
+			]
+		},
+		"2": {
+			"id": "2",
+			"type": "selector",
+			"name": "90s Rock Shuffle",
+			"limit": -1,
+			"playscopes": [
+				0
+			],
+			"playitems": [
+				{
+					"id": "0",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:52UcjsM15hjCQAUbTW2hy1",
+					"name": "Only Shallow - my bloody valentine",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "1",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:1Ic9pKxGSJGM0LKeqf6lGe",
+					"name": "All Apologies - Nirvana",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "2",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:73CKjW3vsUXRpy3NnX4H7F",
+					"name": "Fake Plastic Trees - Radiohead",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "3",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:6CpEUxOlhcynZpIvPY08iv",
+					"name": "Some Might Say - Oasis",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "4",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:1LzNfuep1bnAUR9skqdHCK",
+					"name": "Fade Into You - Mazzy Star",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "5",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:1vnKvlb6cj5NLpd1BMJ2jD",
+					"name": "Summer Babe - Winter Version - Pavement",
+					"multiplier": 1,
+					"limit": 1
+				}
+			],
+			"next": [
+				{
+					"targetID": "0",
+					"priority": 0,
+					"shares": 1,
+					"limit": 6
+				}
+			]
+		},
+		"3": {
+			"id": "3",
+			"type": "sequencer",
+			"name": "EDM",
+			"limit": -1,
+			"playscopes": [],
+			"playitems": [
+				{
+					"id": "0",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:5UqCQaDshqbIk3pkhy4Pjg",
+					"name": "Levels - Radio Edit - Avicii",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "2",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:4rwpZEcnalkuhPyGkEdhu0",
+					"name": "Scary Monsters and Nice Sprites - Skrillex",
+					"multiplier": 1,
+					"limit": 1
+				},
+				{
+					"id": "1",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:7cEkyAXkwXCxTR3IKE0XHu",
+					"name": "Children - Dream Version - Robert Miles",
+					"multiplier": 1,
+					"limit": -1
+				}
+			],
+			"next": [
+				{
+					"targetID": "0",
+					"priority": 0,
+					"shares": 1,
+					"limit": 1
+				}
+			]
+		},
+		"4": {
+			"id": "4",
+			"type": "sequencer",
+			"name": "Playnode",
+			"limit": 9999,
+			"playscopes": [],
+			"playitems": [
+				{
+					"id": "0",
+					"type": {
+						"source": "spotify",
+						"plurality": "single"
+					},
+					"uri": "spotify:track:2bNCdW4rLnCTzgqUXTTDO1",
+					"name": "4'33'' - John Cage",
+					"multiplier": 1,
+					"limit": -1
+				}
+			],
+			"next": [
+				{
+					"targetID": "4",
+					"priority": 0,
+					"shares": 1,
+					"limit": -1
+				}
+			]
+		}
+	},
+	"playroots": {
+		"0": {
+			"index": 0,
+			"name": "Zipper Shuffle"
+		},
+		"4": {
+			"index": 1,
+			"name": "Silence"
+		}
+	},
+	"playscopes": [
+		{
+			"name": "Shuffle Scope",
+			"color": "#b0c6f4"
+		}
+	]
+}

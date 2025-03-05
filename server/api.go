@@ -7,14 +7,42 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
 )
 
-var currentlyPlaying *string = nil
+var currentlyPlaying map[string]*string = make(map[string]*string)
 
-func getAllPlaytreeSummaries() ([]SummaryInfo, error) {
+func getSpotifyCurrentUserID(w http.ResponseWriter, r *http.Request) (*string, error) {
+	spotifyRequest, _ := http.NewRequest("GET", "https://api.spotify.com/v1/me", nil)
+	spotifyRequest.Header.Set("Authorization", r.Header.Get("Authorization"))
+	client := &http.Client{}
+	spotifyResponse, spotifyErr := client.Do(spotifyRequest)
+	if spotifyErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return nil, spotifyErr
+	}
+	if spotifyResponse.StatusCode != 200 {
+		w.WriteHeader(spotifyResponse.StatusCode)
+		return nil, errors.New("spotify error")
+	}
+
+	defer spotifyResponse.Body.Close()
+	decoder := json.NewDecoder(spotifyResponse.Body)
+
+	type SpotifyUserInfo struct {
+		ID string `json:"id"`
+	}
+
+	var userInfo SpotifyUserInfo
+	decoder.Decode(&userInfo)
+
+	return &userInfo.ID, nil
+}
+
+func getAllPlaytreeSummaries() ([]Summary, error) {
 	dirPath := "playtrees/"
 
 	files, err := os.ReadDir(dirPath)
@@ -22,7 +50,7 @@ func getAllPlaytreeSummaries() ([]SummaryInfo, error) {
 		return nil, err
 	}
 
-	summaries := []SummaryInfo{}
+	summaries := []Summary{}
 	for _, dirEntry := range files {
 		if !strings.HasSuffix(dirEntry.Name(), ".json") {
 			continue
@@ -33,7 +61,7 @@ func getAllPlaytreeSummaries() ([]SummaryInfo, error) {
 		}
 		defer file.Close()
 
-		var pti PlaytreeInfo
+		var pti Playtree
 		decoder := json.NewDecoder(file)
 		err = decoder.Decode(&pti)
 		if err != nil {
@@ -48,28 +76,51 @@ func getAllPlaytreeSummaries() ([]SummaryInfo, error) {
 var handlers = map[string]func(http.ResponseWriter, *http.Request){
 	"GET /playtrees": func(w http.ResponseWriter, r *http.Request) {
 		summaries, err := getAllPlaytreeSummaries()
+		publicSummaries := []Summary{}
+
+		startIndexString := r.URL.Query().Get("start")
+		startIndex, numberConversionErr := strconv.Atoi(startIndexString)
+		if numberConversionErr != nil || startIndex < 0 {
+			startIndex = 0
+		}
+		counter := 0
+		for i := startIndex; i < len(summaries); i++ {
+			summary := summaries[i]
+			if summary.Access == "public" {
+				publicSummaries = append(publicSummaries, summary)
+				counter++
+				if counter == 60 {
+					break
+				}
+			}
+		}
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		encoder := json.NewEncoder(w)
-		err = encoder.Encode(summaries)
+		err = encoder.Encode(publicSummaries)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	},
 	"GET /playtrees/me": func(w http.ResponseWriter, r *http.Request) {
+		currentUserID, spotifyErr := getSpotifyCurrentUserID(w, r)
+		if spotifyErr != nil {
+			return
+		}
+
 		summaries, err := getAllPlaytreeSummaries()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		summariesByUser := []SummaryInfo{}
+		summariesByUser := []Summary{}
 		for _, summary := range summaries {
-			if summary.CreatedBy == "billmarcy" { // TODO auth
+			if summary.CreatedBy == *currentUserID {
 				summariesByUser = append(summariesByUser, summary)
 			}
 		}
@@ -86,25 +137,25 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		psi, invalidPartialSummaryJsonErr := partialSummaryInfoFromJSON(r.Body)
 
 		if invalidPartialSummaryJsonErr != nil {
-			log.Fatal(invalidPartialSummaryJsonErr)
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, invalidPartialSummaryJsonErr.Error())
+			log.Println(invalidPartialSummaryJsonErr)
 			return
 		}
 
 		// generate ID
 		newPlaytreeId := uuid.New().String()
 
-		pti := PlaytreeInfo{
-			Summary: SummaryInfo{
+		pti := Playtree{
+			Summary: Summary{
 				ID:        newPlaytreeId,
 				Name:      psi.Name,
 				CreatedBy: psi.CreatedBy,
 				Access:    psi.Access,
-				Source:    nil,
 			},
-			Nodes:     make(map[string]PlayNodeInfo),
-			Playroots: make(map[string]PlayheadInfo),
+			Playnodes:  make(map[string]Playnode),
+			Playroots:  make(map[string]Playhead),
+			Playscopes: []Playscope{},
 		}
 
 		// create JSON file <id>.json with body contents, return Created
@@ -116,7 +167,10 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 			return
 		}
 
-		writeErr := json.NewEncoder(file).Encode(pti)
+		encoder := json.NewEncoder(file)
+		encoder.SetIndent("", "\t")
+
+		writeErr := encoder.Encode(pti)
 		if writeErr != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, writeErr)
@@ -127,20 +181,41 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		w.Write([]byte(newPlaytreeId))
 	},
 	"GET /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
-		idDotJson := "./playtrees/" + id + ".json"
+		// validate that the client has a valid access token
+		// and that the user is the creator of the playtree
+		currentUserID, spotifyErr := getSpotifyCurrentUserID(w, r)
+		if spotifyErr != nil {
+			return
+		}
 
-		file, openErr := os.Open(idDotJson)
+		id := r.PathValue("id")
+		playtreeFilename := "./playtrees/" + id + ".json"
+
+		playtreeFile, openErr := os.Open(playtreeFilename)
 		if openErr != nil {
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprint(w, `Playtree with ID "`+id+`" does not exist`)
 			return
 		}
+		defer playtreeFile.Close()
 
-		file.WriteTo(w)
+		playtree, _ := playtreeInfoFromJSON(playtreeFile)
+		if playtree.Summary.CreatedBy != *currentUserID {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		encoder := json.NewEncoder(w)
+		writeErr := encoder.Encode(playtree)
+
+		if writeErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	},
 	"PUT /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+
 		// check if file already exists. if not, 404 error.
 		id := r.PathValue("id")
 		idDotJson := "./playtrees/" + id + ".json"
@@ -148,16 +223,25 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		// validate playtree JSON given in body
 		pti, invalidPlaytreeJsonErr := playtreeInfoFromJSON(r.Body)
 
+		currentUserID, spotifyErr := getSpotifyCurrentUserID(w, r)
+		if spotifyErr != nil {
+			return
+		}
+
+		if pti.Summary.CreatedBy != *currentUserID {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
 		if invalidPlaytreeJsonErr != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, invalidPlaytreeJsonErr)
 			return
 		}
 
-		_, playtreeErr := playtreeFromPlaytreeInfo(*pti)
-		if playtreeErr != nil {
+		if invalidPlaytreeSemanticErr := validatePlaytreeInfo(pti); invalidPlaytreeSemanticErr != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, playtreeErr)
+			fmt.Fprint(w, invalidPlaytreeSemanticErr)
 			return
 		}
 
@@ -170,7 +254,10 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		defer file.Close()
 
 		// write updated playtree to file
-		writeToFileErr := json.NewEncoder(file).Encode(pti)
+		encoder := json.NewEncoder(file)
+		encoder.SetIndent("", "\t")
+
+		writeToFileErr := encoder.Encode(pti)
 		if writeToFileErr != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, "Could not update playtree resource")
@@ -182,8 +269,32 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 	},
 	"DELETE /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+
+		currentUserID, spotifyErr := getSpotifyCurrentUserID(w, r)
+		if spotifyErr != nil {
+			return
+		}
 		id := r.PathValue("id")
-		err := os.Remove("./playtrees/" + id + ".json")
+		filename := "./playtrees/" + id + ".json"
+		data, readErr := os.ReadFile(filename)
+
+		if readErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		var playtree Playtree
+		jsonErr := json.Unmarshal(data, &playtree)
+		if jsonErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if playtree.Summary.CreatedBy != *currentUserID {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		err := os.Remove(filename)
 		if err != nil {
 			// TODO: more informative error message and HTTP status
 			if errors.Is(err, os.ErrNotExist) {
@@ -202,15 +313,21 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		// _ := r.PathValue("id")
 		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.WriteHeader(http.StatusOK)
 	},
 	"GET /me/player": func(w http.ResponseWriter, r *http.Request) {
-		if currentlyPlaying == nil {
+		currentUserID, spotifyError := getSpotifyCurrentUserID(w, r)
+		if spotifyError != nil {
+			return
+		}
+
+		if currentlyPlaying[*currentUserID] == nil {
 			fmt.Fprint(w, "null")
 			return
 		}
-		data, readErr := os.ReadFile("./playtrees/" + *currentlyPlaying + ".json")
+
+		data, readErr := os.ReadFile("./playtrees/" + *currentlyPlaying[*currentUserID] + ".json")
 		if readErr != nil {
 			if errors.Is(readErr, os.ErrNotExist) {
 				w.WriteHeader(http.StatusNotFound)
@@ -222,12 +339,19 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 			log.Println(readErr)
 			fmt.Fprint(w, readErr.Error())
 		}
+
 		fmt.Fprint(w, string(data))
 	},
 	"PUT /me/player": func(w http.ResponseWriter, r *http.Request) {
 		id := r.FormValue("playtree")
 
-		_, readErr := os.ReadFile("./playtrees/" + id + ".json")
+		currentUserID, spotifyErr := getSpotifyCurrentUserID(w, r)
+		if spotifyErr != nil {
+			return
+		}
+
+		file, readErr := os.ReadFile("./playtrees/" + id + ".json")
+
 		if readErr != nil {
 			if errors.Is(readErr, os.ErrNotExist) {
 				w.WriteHeader(http.StatusNotFound)
@@ -240,8 +364,20 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 			log.Println(readErr.Error())
 			return
 		}
-		currentlyPlaying = &id
-		w.WriteHeader(http.StatusNoContent)
+		var pt Playtree
+		jsonErr := json.Unmarshal(file, &pt)
+		if jsonErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, jsonErr.Error())
+			return
+		}
+
+		if pt.Summary.Access == "public" || pt.Summary.CreatedBy == *currentUserID {
+			currentlyPlaying[*currentUserID] = &id
+			w.WriteHeader(http.StatusNoContent)
+		} else {
+			w.WriteHeader(http.StatusForbidden)
+		}
 	},
 }
 
