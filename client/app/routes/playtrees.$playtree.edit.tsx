@@ -10,7 +10,7 @@ import { PlaytreeEditorAction, playtreeReducer } from "../reducers/editor";
 import PlaynodeComponent, { PlaynodeFlowData } from "../components/PlaynodeComponent";
 import PlayedgeComponent, { PlayedgeFlowData } from "../components/PlayedgeComponent";
 import { PlayConnectionLine } from "../components/PlayConnectionLine";
-import { isSubsetOf } from "@opentf/std";
+import { intersection, isSubsetOf, isSupersetOf } from "@opentf/std";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
 import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../api_endpoints";
 import Snack from "../components/Snack";
@@ -279,6 +279,35 @@ export default function PlaytreeEditor() {
 		})
 	}, [state.playtree, playscopeComparator])
 
+	const generateErrors = useCallback(() => {
+		const errors: string[] = []
+		const playnodesByPlayscope : Set<string>[] = state.playtree.playscopes.map(_ => new Set())
+
+		state.playtree.playnodes.forEach(playnode => {
+			playnode.playscopes.forEach(playscopeID => {
+				playnodesByPlayscope[playscopeID].add(playnode.id)
+			})
+		})
+
+		for (let i = 0; i < playnodesByPlayscope.length; i++) {
+			for (let j = i + 1; j < playnodesByPlayscope.length; j++) {
+				const playnodeSetA = playnodesByPlayscope[i]
+				const playnodeSetB = playnodesByPlayscope[j]
+				
+				const aSupersetOfB = isSupersetOf(playnodeSetA, playnodeSetB)
+				const bSupersetOfA = isSupersetOf(playnodeSetB, playnodeSetA)
+
+				if (aSupersetOfB && bSupersetOfA) {
+					errors.push(`Redundant scopes: '${state.playtree.playscopes[i].name}' and '${state.playtree.playscopes[i].name}' apply to the same set of nodes.`)
+				} else if (!(aSupersetOfB || bSupersetOfA) && intersection([Array.from(playnodeSetA), Array.from(playnodeSetB)]).length > 0) {
+					errors.push(`Partially overlapping playscopes: '${state.playtree.playscopes[i].name}' and '${state.playtree.playscopes[j].name}' have nodes in common. This is only valid if one playscope's set of nodes is a strict subset of the other's.`)
+				}
+			}
+		}
+
+		return errors
+	}, [state.playtree])
+
 	const generateWarnings = useCallback(() => {
 		const warnings: string[] = []
 		if (state.playtree.playroots.size == 0) {
@@ -290,6 +319,15 @@ export default function PlaytreeEditor() {
 	const handleSave = useCallback(() => {
 		(async () => {
 			try {
+				const errors = generateErrors()
+
+				if (errors.length > 0) {
+					errors.forEach(error => {
+						dispatch({ type: "logged_message", message: { type: "error", message: error } })
+					})
+					return
+				}
+
 				const response = await clientFetchWithToken(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
 					method: "PUT",
 					body: JSON.stringify(jsonFromPlaytree(state.playtree))
