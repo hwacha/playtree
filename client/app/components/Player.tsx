@@ -204,7 +204,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 	}, [playtree])
 
 	if (!state.userIsAuthenticated) {
-		return <div className="bg-green-600 fixed z-30 flex w-full h-36 left-64 bottom-0"><div className="text-white mx-auto my-16 w-fit h-full font-lilitaOne">You must be logged in to a Spotify Premium Account to use the Playtree Spotify Player.</div></div>
+		return <div className="bg-green-600 fixed z-30 flex w-full h-36 left-64 bottom-0"><div className="text-white mx-auto my-16 w-fit h-full font-lilitaOne">You must be logged in to a Spotify Premium account to use the Playtree Spotify Player.</div></div>
 	} if (playtree === null) {
 		return (<div className="bg-green-600 fixed z-30 flex w-full h-36 left-64 bottom-0"><div className="text-white mx-auto my-16 w-fit h-full font-lilitaOne">Select a playtree to play it here!</div></div>)
 	} else {
