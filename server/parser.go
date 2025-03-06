@@ -20,6 +20,7 @@ type (
 		CreatorURI string       `json:"creatorURI" validate:"required"`
 		Name       string       `json:"name" validate:"required"`
 		Creator    string       `json:"creator" validate:"required"`
+		Exponent   int          `json:"exponent" validate:"min=0"`
 		Multiplier int          `json:"multiplier" validate:"min=0"`
 		Limit      int          `json:"limit" validate:"min=-1"`
 	}
@@ -35,6 +36,7 @@ type (
 		ID         string     `json:"id" validate:"required"`
 		Type       string     `json:"type" validate:"required,oneof=sequencer selector simulplexer"`
 		Name       string     `json:"name" validate:"required"`
+		Repeat     int        `json:"repeat" validate:"min=0"`
 		Limit      int        `json:"limit" validate:"min=-1"`
 		Playscopes []int      `json:"playscopes" validate:"required,min=0"`
 		Playitems  []Playitem `json:"playitems" validate:"required"`
@@ -80,11 +82,13 @@ func (ci *Playitem) UnmarshalJSON(data []byte) error {
 		CreatorURI string       `json:"creatorURI" validate:"required"`
 		Name       string       `json:"name" validate:"required"`
 		Creator    string       `json:"creator" validate:"required"`
+		Exponent   int          `json:"exponent" validate:"required"`
 		Multiplier int          `json:"multiplier" validate:"min=0"`
 		Limit      int          `json:"limit" validate:"min=-1"`
 	}
 
 	ci2 := &PlayitemTmp{
+		Exponent:   0,
 		Multiplier: 1,
 		Limit:      -1,
 	}
@@ -96,8 +100,11 @@ func (ci *Playitem) UnmarshalJSON(data []byte) error {
 
 	ci.ID = ci2.ID
 	ci.Type = ci2.Type
-	ci.Name = ci2.Name
 	ci.URI = ci2.URI
+	ci.CreatorURI = ci2.CreatorURI
+	ci.Name = ci2.Name
+	ci.Creator = ci2.Creator
+	ci.Exponent = ci2.Exponent
 	ci.Multiplier = ci2.Multiplier
 	ci.Limit = ci2.Limit
 
@@ -109,6 +116,7 @@ func (pni *Playnode) UnmarshalJSON(data []byte) error {
 		ID         string     `json:"id" validate:"required"`
 		Type       string     `json:"type" validate:"required,oneof=sequencer selector simulplexer"`
 		Name       string     `json:"name" validate:"required"`
+		Repeat     int        `json:"repeat" validate:"min=0"`
 		Limit      int        `json:"limit" validate:"min=-1"`
 		Playscopes []int      `json:"playscopes" validate:"required,min=0"`
 		Playitems  []Playitem `json:"playitems" validate:"required"`
@@ -119,6 +127,7 @@ func (pni *Playnode) UnmarshalJSON(data []byte) error {
 		ID:         "",
 		Name:       "",
 		Type:       "",
+		Repeat:     1,
 		Limit:      -1,
 		Playscopes: []int{},
 		Playitems:  []Playitem{},

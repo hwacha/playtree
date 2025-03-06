@@ -2,9 +2,9 @@ import { LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useSubmit } from "@remix-run/react";
 import { Background, Controls, MarkerType, ReactFlow, addEdge, OnConnect, useNodesState, useEdgesState } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
-import { jsonFromPlaytree, Playedge, Playnode, Playscope, Playtree, playtreeFromJson } from "../types";
+import { jsonFromPlaytree, Playedge, Playnode, Playtree, playtreeFromJson } from "../types";
 import Dagre from '@dagrejs/dagre';
 import { PlaytreeEditorAction, playtreeReducer } from "../reducers/editor";
 import PlaynodeComponent, { PlaynodeFlowData } from "../components/PlaynodeComponent";
@@ -211,6 +211,7 @@ export default function PlaytreeEditor() {
 					id: id,
 					name: "Playnode",
 					type: "sequencer",
+					repeat: 1,
 					limit: -1,
 					playscopes: [],
 					playitems: [],

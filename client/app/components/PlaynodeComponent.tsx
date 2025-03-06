@@ -33,6 +33,7 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 				creatorURI: newPlayitemAsSearchResult.creatorURI ?? "",
 				name: newPlayitemAsSearchResult.name,
 				creator: newPlayitemAsSearchResult.creator,
+				exponent: 0,
 				multiplier: 1,
 				limit: -1
 			}})

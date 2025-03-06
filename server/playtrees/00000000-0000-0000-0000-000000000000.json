@@ -11,6 +11,7 @@
 			"type": "selector",
 			"name": "Early 2010s Indie Shuffle",
 			"limit": -1,
+			"repeat": 1,
 			"playscopes": [
 				0
 			],
@@ -127,6 +128,7 @@
 			"type": "selector",
 			"name": "90s Rock Shuffle",
 			"limit": -1,
+			"repeat": 1,
 			"playscopes": [
 				0
 			],
@@ -224,6 +226,7 @@
 			"type": "sequencer",
 			"name": "EDM",
 			"limit": -1,
+			"repeat": 1,
 			"playscopes": [],
 			"playitems": [
 				{
