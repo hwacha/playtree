@@ -13,8 +13,13 @@ export type PlayitemType = {
 export type Playitem = {
 	id: string;
 	type: PlayitemType;
+
 	uri: string;
+	creatorURI: string;
+
 	name: string;
+	creator: string;
+
 	multiplier: number;
 	limit: number;
 }

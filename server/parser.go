@@ -17,7 +17,9 @@ type (
 		ID         string       `json:"id" validate:"required"`
 		Type       PlayitemType `json:"type" validate:"required"`
 		URI        string       `json:"uri" validate:"required"`
+		CreatorURI string       `json:"creatorURI" validate:"required"`
 		Name       string       `json:"name" validate:"required"`
+		Creator    string       `json:"creator" validate:"required"`
 		Multiplier int          `json:"multiplier" validate:"min=0"`
 		Limit      int          `json:"limit" validate:"min=-1"`
 	}
@@ -75,7 +77,9 @@ func (ci *Playitem) UnmarshalJSON(data []byte) error {
 		ID         string       `json:"id" validate:"required"`
 		Type       PlayitemType `json:"type" validate:"required"`
 		URI        string       `json:"uri" validate:"required"`
+		CreatorURI string       `json:"creatorURI" validate:"required"`
 		Name       string       `json:"name" validate:"required"`
+		Creator    string       `json:"creator" validate:"required"`
 		Multiplier int          `json:"multiplier" validate:"min=0"`
 		Limit      int          `json:"limit" validate:"min=-1"`
 	}

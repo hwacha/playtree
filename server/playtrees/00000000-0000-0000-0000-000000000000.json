@@ -22,7 +22,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:5P2hEcHjoNMh33EsFPPOJE",
-					"name": "Heartbeats - The Knife",
+					"creatorURI": "spotify:artist:7eQZTqEMozBcuSubfu52i4",
+					"name": "Heartbeats",
+					"creator": "The Knife",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -33,7 +35,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:1OVypFlcraAhyvPqIMWDor",
-					"name": "The Mother We Share - CHVRCHES",
+					"creatorURI": "spotify:artist:3CjlHNtplJyTf9npxaPl5w",
+					"name": "The Mother We Share",
+					"creator": "CHVRCHES",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -44,7 +48,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:6qZjm61s6u8Ead9sWxCDro",
-					"name": "Elephant - Tame Impala",
+					"creatorURI": "spotify:artist:5INjqkS1o8h1imAzPqGZBb",
+					"name": "Elephant",
+					"creator": "Tame Impala",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -55,7 +61,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:4VbDJMkAX3dWNBdn3KH6Wx",
-					"name": "Helena Beat - Foster The People",
+					"creatorURI": "spotify:artist:7gP3bB2nilZXLfPHJhMdvc",
+					"name": "Helena Beat",
+					"creator": "Foster The People",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -66,7 +74,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:1eyzqe2QqGZUmfcPZtrIyt",
-					"name": "Midnight City - M83",
+					"creatorURI": "spotify:artist:63MQldklfxkjYDoUE4Tppz",
+					"name": "Midnight City",
+					"creator": "M83",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -77,7 +87,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:0k2Hcun3EPImERPrJmJrYZ",
-					"name": "Manners - Icona Pop",
+					"creatorURI": "spotify:artist:1VBflYyxBhnDc9uVib98rw",
+					"name": "Manners",
+					"creator": "Icona Pop",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -88,7 +100,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:4yYvWFUWMaKMXtoJKJnmZk",
-					"name": "Shuffle - Bombay Bicycle Club",
+					"creatorURI": "spotify:artist:3pTE9iaJTkWns3mxpNQlJV",
+					"name": "Shuffle",
+					"creator": "Bombay Bicycle Club",
 					"multiplier": 1,
 					"limit": 1
 				}
@@ -124,7 +138,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:52UcjsM15hjCQAUbTW2hy1",
-					"name": "Only Shallow - my bloody valentine",
+					"creatorURI": "spotify:artist:3G3Gdm0ZRAOxLrbyjfhii5",
+					"name": "Only Shallow",
+					"creator": "my bloody valentine",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -135,7 +151,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:1Ic9pKxGSJGM0LKeqf6lGe",
-					"name": "All Apologies - Nirvana",
+					"creatorURI": "spotify:artist:6olE6TJLqED3rqDCT0FyPh",
+					"name": "All Apologies",
+					"creator": "Nirvana",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -146,7 +164,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:73CKjW3vsUXRpy3NnX4H7F",
-					"name": "Fake Plastic Trees - Radiohead",
+					"creatorURI": "spotify:artist:4Z8W4fKeB5YxbusRsdQVPb",
+					"name": "Fake Plastic Trees",
+					"creator": "Radiohead",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -157,7 +177,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:6CpEUxOlhcynZpIvPY08iv",
-					"name": "Some Might Say - Oasis",
+					"creatorURI": "spotify:artist:2DaxqgrOhkeH0fpeiQq2f4",
+					"name": "Some Might Say",
+					"creator": "Oasis",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -168,7 +190,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:1LzNfuep1bnAUR9skqdHCK",
-					"name": "Fade Into You - Mazzy Star",
+					"creatorURI": "spotify:artist:37w38cCSGgKLdayTRjna4W",
+					"name": "Fade Into You",
+					"creator": "Mazzy Star",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -179,7 +203,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:1vnKvlb6cj5NLpd1BMJ2jD",
-					"name": "Summer Babe - Winter Version - Pavement",
+					"creatorURI": "spotify:artist:3inCNiUr4R6XQ3W43s9Aqi",
+					"name": "Summer Babe - Winter Version",
+					"creator": "Pavement",
 					"multiplier": 1,
 					"limit": 1
 				}
@@ -207,7 +233,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:5UqCQaDshqbIk3pkhy4Pjg",
-					"name": "Levels - Radio Edit - Avicii",
+					"creatorURI": "spotify:artist:1vCWHaC5f2uS3yhpwWbIA6",
+					"name": "Levels - Radio Edit",
+					"creator": "Avicii",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -218,7 +246,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:4rwpZEcnalkuhPyGkEdhu0",
-					"name": "Scary Monsters and Nice Sprites - Skrillex",
+					"creatorURI": "spotify:artist:5he5w2lnU9x7JFhnwcekXX",
+					"name": "Scary Monsters and Nice Sprites",
+					"creator": "Skrillex",
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -229,7 +259,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:7cEkyAXkwXCxTR3IKE0XHu",
-					"name": "Children - Dream Version - Robert Miles",
+					"creatorURI": "spotify:artist:2YVF0Ou5zIc4mpgtLIlGN0",
+					"name": "Children - Dream Version",
+					"creator": "Robert Miles",
 					"multiplier": 1,
 					"limit": -1
 				}
@@ -257,7 +289,9 @@
 						"plurality": "single"
 					},
 					"uri": "spotify:track:2bNCdW4rLnCTzgqUXTTDO1",
-					"name": "4'33'' - John Cage",
+					"creatorURI": "spotify:artist:1Z3fF5lZdCM0ZHugkGoH8s",
+					"name": "4'33''",
+					"creator": "John Cage",
 					"multiplier": 1,
 					"limit": -1
 				}

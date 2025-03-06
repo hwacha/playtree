@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react"
+import { ReactElement, useCallback, useEffect, useMemo, useReducer, useRef } from "react"
 import { Playitem, Playnode, Playtree } from "../types";
 import deepEqual from "deep-equal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
@@ -23,12 +23,11 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		messageLog:[],
 		playing: false,
 		autoplay: autoplay ?? false,
+		userIsAuthenticated: false,
 		spotifyPlayerReady: false,
 	})
 
 	const prevPlaybackState = useRef<Spotify.PlaybackState | null>(null)
-
-	
 
 	useEffect(() => {
 		const script = document.createElement("script");
@@ -41,45 +40,52 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 
 		window.onSpotifyWebPlaybackSDKReady = () => {
 			clientFetchWithToken(SPOTIFY_CURRENT_USER_PATH).then(response => {
-				
 				if (response.ok) {
-					const deviceName = getDeviceName()
-					const accessToken = localStorage.getItem("spotify_access_token")
-					newPlayer = new window.Spotify.Player({
-						name: 'Playtree Web Player: ' + deviceName,
-						getOAuthToken: (cb: any) => { cb(accessToken); },
-						volume: 1
-					});
+					response.json().then(userInfo => {
+						if (userInfo.product !== "premium") {
+							return
+						}
+						dispatch({type: "user_authenticated"})
+
+						const deviceName = getDeviceName()
+						const accessToken = localStorage.getItem("spotify_access_token")
+
+						newPlayer = new window.Spotify.Player({
+							name: 'Playtree Web Player: ' + deviceName,
+							getOAuthToken: (cb: any) => { cb(accessToken); },
+							volume: 1
+						});
+		
+						newPlayer.activateElement()
+		
+						newPlayer.addListener('ready', ({ device_id }: any) => {
+							clientFetchWithToken(SPOTIFY_PLAYER_PATH, {
+								method: "PUT",
+								body: JSON.stringify({ device_ids: [device_id], play: false })
+							}).then(response => {
+								if (response.ok) {
+									dispatch({ type: 'spotify_player_ready'})
+								}
+							})
+						});
 	
-					newPlayer.activateElement()
-	
-					newPlayer.addListener('ready', ({ device_id }: any) => {
-						clientFetchWithToken(SPOTIFY_PLAYER_PATH, {
-							method: "PUT",
-							body: JSON.stringify({ device_ids: [device_id], play: false })
-						}).then(response => {
-							if (response.ok) {
-								dispatch({ type: 'spotify_player_ready'})
+						newPlayer.addListener("not_ready", ({device_id}: any) => {
+							if (newPlayer) {
+								newPlayer.disconnect()
 							}
 						})
-					});
-
-					newPlayer.addListener("not_ready", ({device_id}: any) => {
-						if (newPlayer) {
-							newPlayer.disconnect()
-						}
-					})
-	
-					newPlayer.addListener('player_state_changed', playbackState => {
-						if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
-							if (playtree) {
-								dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
+		
+						newPlayer.addListener('player_state_changed', playbackState => {
+							if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
+								if (playtree) {
+									dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
+								}
 							}
-						}
-						prevPlaybackState.current = playbackState
+							prevPlaybackState.current = playbackState
+						})
+		
+						newPlayer.connect()
 					})
-	
-					newPlayer.connect()
 				}
 			})
 		}
@@ -197,8 +203,10 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		}
 	}, [playtree])
 
-	if (playtree === null) {
-		return (<div className="bg-green-600 fixed z-30 flex w-full h-36 left-64 bottom-0"><div className="text-white mx-auto my-16 w-fit h-full font-lilitaOne">No playtree selected to play.</div></div>)
+	if (!state.userIsAuthenticated) {
+		return <div className="bg-green-600 fixed z-30 flex w-full h-36 left-64 bottom-0"><div className="text-white mx-auto my-16 w-fit h-full font-lilitaOne">You must be logged in to a Spotify Premium Account to use the Playtree Spotify Player.</div></div>
+	} if (playtree === null) {
+		return (<div className="bg-green-600 fixed z-30 flex w-full h-36 left-64 bottom-0"><div className="text-white mx-auto my-16 w-fit h-full font-lilitaOne">Select a playtree to play it here!</div></div>)
 	} else {
 		let currentPlayhead: Playhead | null | undefined = null
 		let currentPlaynode: Playnode | null | undefined = null
@@ -245,24 +253,54 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 			}
 		}
 
-		let playitemInfo = "Song not available"
+		let playitemInfo : ReactElement = <>Song not available</>
+		let playAndLimitInfo = ""
 		// NOTE: same as note above
 		if ((currentPlayhead?.stopped || state.messageLog.length === 1) && currentPlayhead?.shouldHideSong && !state.playing) {
-			playitemInfo = "???"
+			playitemInfo = <>???</>
 		} else if (currentPlayitem) {
-			playitemInfo = currentPlayitem.name
+			const songURISplit = currentPlayitem.uri.split(":")
+			const songURIWithoutCategories = songURISplit[songURISplit.length - 1]
+
+			const creatorURISplit = currentPlayitem.creatorURI.split(":")
+			const creatorURIWithoutCategories = creatorURISplit[creatorURISplit.length - 1]
+
+			playitemInfo = (
+				<span>
+					<a
+						target="_blank"
+						rel="noopener noreferrer"
+						href={`https://open.spotify.com/track/${songURIWithoutCategories}`}
+						className="underline"
+					>
+						{currentPlayitem.name}
+					</a>
+					{" - "}
+					<a
+						target="_blank"
+						rel="noopener noreferrer"
+						href={`https://open.spotify.com/artist/${creatorURIWithoutCategories}`}
+						className="underline"
+					>
+						{currentPlayitem.creator}
+					</a>
+				</span>
+
+			)
+			
 			if (currentPlayitemPlaycount !== undefined) {
-				let playAndLimitInfo = `(${currentPlayitemPlaycount + 1} / ${currentPlayitemMaxPlays})`
+				playAndLimitInfo = `(${currentPlayitemPlaycount + 1} / ${currentPlayitemMaxPlays})`
 				if (currentPlayscope !== null && currentPlayscope !== -1 && playtree.playscopes[currentPlayscope] !== undefined) {
 					playAndLimitInfo = `[${playAndLimitInfo} in scope '${playtree.playscopes[currentPlayscope].name}']`
 				}
-				playitemInfo += " " + playAndLimitInfo
+				playAndLimitInfo = " " + playAndLimitInfo
+				playitemInfo = <>{playitemInfo}{playAndLimitInfo}</>
 			}
 		}
 
 		return (
-			<div className="bg-green-600 fixed z-30 flex w-[calc(100vw-16rem)] h-36 left-64 bottom-0">
-				<div className="w-full basis-5/12 my-4 ml-16 max-h-full overflow-hidden overflow-y-auto flex flex-col-reverse">
+			<div className="bg-green-600 fixed z-30 flex items-center w-[calc(100vw-16rem)] h-36 left-64 bottom-0">
+				<div className="w-full basis-1/4 my-4 ml-16 max-h-full overflow-hidden overflow-y-auto flex flex-col-reverse">
 					<ul className="text-white text-lg font-markazi">
 						{
 							state.messageLog.map((message, index) => {
@@ -272,6 +310,9 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 							})
 						}
 					</ul>
+				</div>
+				<div className="w-full basis-1/6 min-w-32 my-auto">
+					<img src="/images/Full_Logo_White_RGB.svg" ></img>
 				</div>
 				<div className="w-full basis-1/12 min-w-32 my-auto">
 					<div className="w-fit float-right mr-8">
@@ -295,9 +336,9 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 							<button
 								type="button"
 								title={!state.spotifyPlayerReady ? "Loading Player" : state.playing ? "Pause" : "Play"}
-								className="rounded-sm p-2 text-white fill-white"
+								className={`rounded-sm p-2 text-white fill-white`}
 								onClick={() => handlePlayPauseAudio(!state.playing)}
-								disabled={!state.spotifyPlayerReady}
+								disabled={ state ? !state.spotifyPlayerReady : true}
 							>
 								{!state.spotifyPlayerReady ? "\u23F3" : state.playing ? "\u23F8" : "\u23F5"}
 							</button>
@@ -324,7 +365,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 							<tr><td>Playtree</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playtree.summary.name}>{playtree.summary.name}</td></tr>
 							<tr><td>Playhead</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playheadInfo}>{playheadInfo}</td></tr>
 							<tr><td>Playnode</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playnodeInfo}>{playnodeInfo}</td></tr>
-							<tr><td>Song</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playitemInfo}>{playitemInfo}</td></tr>
+							<tr><td>Song</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={currentPlayitem ? `${currentPlayitem.name} - ${currentPlayitem.creator}${playAndLimitInfo}` : ""}>{playitemInfo}</td></tr>
 						</tbody>
 					</table>
 				</div>

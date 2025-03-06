@@ -30,7 +30,9 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 			playitem: {
 				type: { source: "spotify", plurality: "single" },
 				uri: newPlayitemAsSearchResult.uri,
-				name: queryString(newPlayitemAsSearchResult),
+				creatorURI: newPlayitemAsSearchResult.creatorURI ?? "",
+				name: newPlayitemAsSearchResult.name,
+				creator: newPlayitemAsSearchResult.creator,
 				multiplier: 1,
 				limit: -1
 			}})
