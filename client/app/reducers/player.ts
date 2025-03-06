@@ -102,14 +102,14 @@ type PlayerState = {
 
 	messageLog: string[];
 
-	spotifyPlayerReady: boolean;
+	spotifyPlayerReady: boolean | undefined;
 
 	playing: boolean;
 	autoplay: boolean;
 }
 
 type PlayerAction = {
-	type: 'spotify_player_ready' | 'played' | 'paused';
+	type: 'spotify_player_connection_failed' | 'spotify_player_ready' | 'played' | 'paused';
 } | {
 	type: 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
 	playtree: Playtree;
@@ -708,6 +708,12 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			return {
 				...state,
 				spotifyPlayerReady: true
+			}
+		}
+		case 'spotify_player_connection_failed': {
+			return {
+				...state,
+				spotifyPlayerReady: false,
 			}
 		}
 		case 'message_logged': {

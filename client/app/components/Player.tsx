@@ -1,10 +1,11 @@
-import { ReactElement, useCallback, useEffect, useMemo, useReducer, useRef } from "react"
+import { ReactElement, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { Playitem, Playnode, Playtree } from "../types";
 import deepEqual from "deep-equal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import reducer, { Playhead } from "../reducers/player";
 import { SPOTIFY_CURRENT_USER_PATH, SPOTIFY_PAUSE_PATH, SPOTIFY_PLAY_PATH, SPOTIFY_PLAYER_PATH } from "../settings/api_endpoints";
 import { getDeviceName } from "../utils/getDeviceName.client";
+import Snack from "./Snack";
 
 type PlayerProps = {
 	playtree: Playtree | null
@@ -24,16 +25,20 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		messageLog:[],
 		playing: false,
 		autoplay: autoplay ?? false,
-		spotifyPlayerReady: false,
+		spotifyPlayerReady: undefined,
 	})
 
 	const prevPlaybackState = useRef<Spotify.PlaybackState | null>(null)
+
+	const [spotifyWebPlayer, setSpotifyWebPlayer] = useState<Spotify.Player | null>(null)
 
 	useEffect(() => {
 		if (!authenticatedWithPremium) {
 			return
 		}
+
 		let newPlayer: Spotify.Player | null = null;
+		
 		const script = document.createElement("script");
 		script.src = "https://sdk.scdn.co/spotify-player.js";
 		script.async = true;
@@ -57,7 +62,7 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 					body: JSON.stringify({ device_ids: [device_id], play: false })
 				}).then(response => {
 					if (response.ok) {
-						dispatch({ type: 'spotify_player_ready'})
+						dispatch({ type: 'spotify_player_ready' })
 					}
 				})
 			});
@@ -76,13 +81,56 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 				}
 				prevPlaybackState.current = playbackState
 			})
-			newPlayer.connect()
+
+			newPlayer.addListener('initialization_error', ({ message }) => {
+				// TODO make error message in browser more informative
+				dispatch({type: "spotify_player_connection_failed"})
+				console.error('Failed to initialize Spotify Web Player', message)
+			})
+
+			newPlayer.addListener('authentication_error', ({ message }) => {
+				// TODO a more informative error message by having the
+				// authentication state be managed by reducer
+				// This will be improtant in the unusual circumstance
+				// where authentication just succeeded but failed on
+				// the client side
+				dispatch({type: "spotify_player_connection_failed"})
+				console.error('Web player authentication failed', message)
+			})
+
+			newPlayer.addListener('account_error', ({ message }) => {
+				// TODO same as authentication error
+				// this will be relevant if there are special premium
+				// plans that still fail for the SDK
+				dispatch({type: "spotify_player_connection_failed"})
+				console.error('Premium validation failed', message)
+			})
+
+			newPlayer.addListener('playback_error', ({message}) => {
+				dispatch({type: "paused"})
+				console.error('Playback update failed', message)
+			})
+
+			newPlayer.connect().then(success => {
+				if (!success) {
+					dispatch({type: "spotify_player_connection_failed" })
+				}
+			})
+
+			setSpotifyWebPlayer(newPlayer)
 		}
 
 		return () => {
 			if (newPlayer) {
 				newPlayer.disconnect()
 			}
+		}
+	}, [])
+
+	useEffect(() => {
+		if (!authenticatedWithPremium) {
+			spotifyWebPlayer?.disconnect()
+			setSpotifyWebPlayer(null)
 		}
 	}, [authenticatedWithPremium])
 
@@ -315,10 +363,19 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 			</div>
 		)
 	}
-	if (!state.spotifyPlayerReady) {
+
+	if (state.spotifyPlayerReady === undefined) {
 		return wrapInnerComponentWithBackground(
 			<div className="font-markazi text-xl text-white w-full flex justify-center">
 				Waiting for the Spotify Web Player to load...
+			</div>
+		)
+	}
+
+	if (!state.spotifyPlayerReady) {
+		return wrapInnerComponentWithBackground(
+			<div className="w-full flex justify-center">
+				<Snack type={"error"} body={<p>Spotify Web Player failed to connect.</p>}></Snack>
 			</div>
 		)
 	}

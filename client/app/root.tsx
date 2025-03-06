@@ -101,7 +101,6 @@ export default function App() {
 	const location = useLocation() // used for React resolution keys
 
 	useEffect(() => {
-
 		if (data.accessToken) {
 			localStorage.setItem("spotify_access_token", data.accessToken)
 		}
