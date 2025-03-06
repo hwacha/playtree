@@ -8,10 +8,11 @@ import { getDeviceName } from "../utils/getDeviceName.client";
 
 type PlayerProps = {
 	playtree: Playtree | null
+	authenticatedWithPremium: boolean
 	autoplay: boolean | undefined
 }
 
-export default function Player({ playtree, autoplay }: PlayerProps) {
+export default function Player({ playtree, authenticatedWithPremium, autoplay }: PlayerProps) {
 	const initialPlayheadIndex = 0
 	let initialPlayheads: Playhead[] = []
 
@@ -23,71 +24,59 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		messageLog:[],
 		playing: false,
 		autoplay: autoplay ?? false,
-		userIsAuthenticated: false,
 		spotifyPlayerReady: false,
 	})
 
 	const prevPlaybackState = useRef<Spotify.PlaybackState | null>(null)
 
 	useEffect(() => {
+		if (!authenticatedWithPremium) {
+			return
+		}
+		let newPlayer: Spotify.Player | null = null;
 		const script = document.createElement("script");
 		script.src = "https://sdk.scdn.co/spotify-player.js";
 		script.async = true;
 
 		document.body.appendChild(script);
-
-		let newPlayer: Spotify.Player | null = null;
-
 		window.onSpotifyWebPlaybackSDKReady = () => {
-			clientFetchWithToken(SPOTIFY_CURRENT_USER_PATH).then(response => {
-				if (response.ok) {
-					response.json().then(userInfo => {
-						if (userInfo.product !== "premium") {
-							return
-						}
-						dispatch({type: "user_authenticated"})
+			const deviceName = getDeviceName()
+			const accessToken = localStorage.getItem("spotify_access_token")
 
-						const deviceName = getDeviceName()
-						const accessToken = localStorage.getItem("spotify_access_token")
+			newPlayer = new window.Spotify.Player({
+				name: 'Playtree Web Player: ' + deviceName,
+				getOAuthToken: (cb: any) => { cb(accessToken); },
+				volume: 1
+			});
 
-						newPlayer = new window.Spotify.Player({
-							name: 'Playtree Web Player: ' + deviceName,
-							getOAuthToken: (cb: any) => { cb(accessToken); },
-							volume: 1
-						});
-		
-						newPlayer.activateElement()
-		
-						newPlayer.addListener('ready', ({ device_id }: any) => {
-							clientFetchWithToken(SPOTIFY_PLAYER_PATH, {
-								method: "PUT",
-								body: JSON.stringify({ device_ids: [device_id], play: false })
-							}).then(response => {
-								if (response.ok) {
-									dispatch({ type: 'spotify_player_ready'})
-								}
-							})
-						});
-	
-						newPlayer.addListener("not_ready", ({device_id}: any) => {
-							if (newPlayer) {
-								newPlayer.disconnect()
-							}
-						})
-		
-						newPlayer.addListener('player_state_changed', playbackState => {
-							if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
-								if (playtree) {
-									dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
-								}
-							}
-							prevPlaybackState.current = playbackState
-						})
-		
-						newPlayer.connect()
-					})
+			newPlayer.activateElement()
+
+			newPlayer.addListener('ready', ({ device_id }: any) => {
+				clientFetchWithToken(SPOTIFY_PLAYER_PATH, {
+					method: "PUT",
+					body: JSON.stringify({ device_ids: [device_id], play: false })
+				}).then(response => {
+					if (response.ok) {
+						dispatch({ type: 'spotify_player_ready'})
+					}
+				})
+			});
+
+			newPlayer.addListener("not_ready", ({device_id}: any) => {
+				if (newPlayer) {
+					newPlayer.disconnect()
 				}
 			})
+
+			newPlayer.addListener('player_state_changed', playbackState => {
+				if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
+					if (playtree) {
+						dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
+					}
+				}
+				prevPlaybackState.current = playbackState
+			})
+			newPlayer.connect()
 		}
 
 		return () => {
@@ -95,7 +84,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 				newPlayer.disconnect()
 			}
 		}
-	}, [])
+	}, [authenticatedWithPremium])
 
 	const oldPlaytree = useRef<Playtree | null>(null)
 	useEffect(() => {
@@ -203,21 +192,24 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		}
 	}, [playtree])
 
-	if (!state.userIsAuthenticated) {
-		return <div className="bg-green-600 fixed z-30 flex w-full h-36 left-64 bottom-0"><div className="text-white mx-auto my-16 w-fit h-full font-lilitaOne">You must be logged in to a Spotify Premium account to use the Playtree Spotify Player.</div></div>
-	} if (playtree === null) {
-		return (<div className="bg-green-600 fixed z-30 flex w-full h-36 left-64 bottom-0"><div className="text-white mx-auto my-16 w-fit h-full font-lilitaOne">Select a playtree to play it here!</div></div>)
-	} else {
+	const wrapInnerComponentWithBackground = (innerComponent : ReactElement) => {
+		return <div className="bg-green-600 fixed z-30 flex items-center w-[calc(100vw-16rem)] h-36 left-64 bottom-0">{innerComponent}</div>
+	}
+
+	const [playheadInfo, playnodeInfo, currentPlayitem, playAndLimitInfo, playitemInfo] = useMemo(() => {
+		if (playtree === null || !authenticatedWithPremium) {
+			return [undefined, undefined, undefined, undefined, undefined]
+		}
 		let currentPlayhead: Playhead | null | undefined = null
 		let currentPlaynode: Playnode | null | undefined = null
 		let currentPlayscope:  number | null | undefined = null
 		let currentPlayitem: Playitem | null | undefined = null
-
+	
 		let currentNodePlaycount: number | undefined = undefined
 		let currentNodeMaxPlays: number | undefined = undefined
 		let currentPlayitemPlaycount: number | undefined = undefined
 		let currentPlayitemMaxPlays: number | undefined = undefined
-
+	
 		if (state && state.playheads) {
 			currentPlayhead = state.playheads[state.playheadIndex]
 			if (currentPlayhead && currentPlayhead.node) {
@@ -234,9 +226,9 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 				}
 			}
 		}
-
+	
 		const playheadInfo = currentPlayhead ? currentPlayhead.name : "Playhead not available"
-
+	
 		let playnodeInfo = "Playnode not available"
 		// NOTE: state.messageLog.length being 1 is a hacky way
 		// to check if the player has started since load
@@ -252,7 +244,7 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 				playnodeInfo += playAndLimitInfo
 			}
 		}
-
+	
 		let playitemInfo : ReactElement = <>Song not available</>
 		let playAndLimitInfo = ""
 		// NOTE: same as note above
@@ -261,10 +253,10 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 		} else if (currentPlayitem) {
 			const songURISplit = currentPlayitem.uri.split(":")
 			const songURIWithoutCategories = songURISplit[songURISplit.length - 1]
-
+	
 			const creatorURISplit = currentPlayitem.creatorURI.split(":")
 			const creatorURIWithoutCategories = creatorURISplit[creatorURISplit.length - 1]
-
+	
 			playitemInfo = (
 				<span>
 					<a
@@ -285,7 +277,6 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 						{currentPlayitem.creator}
 					</a>
 				</span>
-
 			)
 			
 			if (currentPlayitemPlaycount !== undefined) {
@@ -298,78 +289,111 @@ export default function Player({ playtree, autoplay }: PlayerProps) {
 			}
 		}
 
-		return (
-			<div className="bg-green-600 fixed z-30 flex items-center w-[calc(100vw-16rem)] h-36 left-64 bottom-0">
-				<div className="w-full basis-1/4 my-4 ml-16 max-h-full overflow-hidden overflow-y-auto flex flex-col-reverse">
-					<ul className="text-white text-lg font-markazi">
-						{
-							state.messageLog.map((message, index) => {
-								return (<li key={index}>
-									◽️ {message}
-								</li>)
-							})
-						}
-					</ul>
-				</div>
-				<div className="w-full basis-1/6 min-w-32 my-auto">
-					<img src="/images/Full_Logo_White_RGB.svg" ></img>
-				</div>
-				<div className="w-full basis-1/12 min-w-32 my-auto">
-					<div className="w-fit float-right mr-8">
-						<div className="w-fit mx-auto">
-							<button
-								type="button"
-								title="Previous Playhead"
-								className="rounded-sm p-2 text-white"
-								onClick={handleChangePlayhead("decremented_playhead")}>
-								{"\u23EB"}
-							</button>
-						</div>
-						<div className="w-fit mx-auto">
-							<button
-								type="button"
-								title="Skip Backward"
-								className="rounded-sm p-2 text-white"
-								onClick={() => dispatch({ type: "skipped_backward", playtree: playtree })}>
-								{"\u23EE"}
-							</button>
-							<button
-								type="button"
-								title={!state.spotifyPlayerReady ? "Loading Player" : state.playing ? "Pause" : "Play"}
-								className={`rounded-sm p-2 text-white fill-white`}
-								onClick={() => handlePlayPauseAudio(!state.playing)}
-								disabled={ state ? !state.spotifyPlayerReady : true}
-							>
-								{!state.spotifyPlayerReady ? "\u23F3" : state.playing ? "\u23F8" : "\u23F5"}
-							</button>
-							<button
-								type="button"
-								title="Skip Forward"
-								className="rounded-sm p-2 text-white"
-								onClick={() => dispatch({ type: "skipped_forward", playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random() })}>{"\u23ED"}</button>
-						</div>
-						<div className="w-fit mx-auto">
-							<button
-								type="button"
-								title="Next Playhead"
-								className="rounded-sm p-2 text-white"
-								onClick={handleChangePlayhead("incremented_playhead")}>
-								{"\u23EC"}
-							</button>
-						</div>
-					</div>
-				</div>
-				<div className="w-full basis-1/2 mr-8 my-auto text-white font-lilitaOne">
-					<table>
-						<tbody>
-							<tr><td>Playtree</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playtree.summary.name}>{playtree.summary.name}</td></tr>
-							<tr><td>Playhead</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playheadInfo}>{playheadInfo}</td></tr>
-							<tr><td>Playnode</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playnodeInfo}>{playnodeInfo}</td></tr>
-							<tr><td>Song</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={currentPlayitem ? `${currentPlayitem.name} - ${currentPlayitem.creator}${playAndLimitInfo}` : ""}>{playitemInfo}</td></tr>
-						</tbody>
-					</table>
-				</div>
+		return [playheadInfo, playnodeInfo, currentPlayitem, playAndLimitInfo, playitemInfo]
+	}, [playtree, state.playheads, state.playheadIndex, authenticatedWithPremium])
+
+	if (!authenticatedWithPremium) {
+		return wrapInnerComponentWithBackground(
+			<div className="font-markazi text-xl text-white w-full flex justify-center">
+				<span className="w-fit">
+					You must be logged in to a&nbsp;
+					<a
+						target="_blank"
+						rel="noopener noreferrer"
+						href="https://www.spotify.com/us/premium/"
+						className="text-blue-400 underline"
+					>
+					Spotify Premium</a>&nbsp;account to use the Playtree Spotify Player.
+				</span>
 			</div>
 		)
 	}
+	if (playtree === null) {
+		return wrapInnerComponentWithBackground(
+			<div className="font-markazi text-xl text-white w-full flex justify-center">
+				Select a playtree to play it here!
+			</div>
+		)
+	}
+	if (!state.spotifyPlayerReady) {
+		return wrapInnerComponentWithBackground(
+			<div className="font-markazi text-xl text-white w-full flex justify-center">
+				Waiting for the Spotify Web Player to load...
+			</div>
+		)
+	}
+
+	return wrapInnerComponentWithBackground(
+		<>
+			<div className="w-full basis-1/4 my-4 ml-16 max-h-full overflow-hidden overflow-y-auto flex flex-col-reverse">
+				<ul className="text-white text-lg font-markazi">
+					{
+						state.messageLog.map((message, index) => {
+							return (<li key={index}>
+								◽️ {message}
+							</li>)
+						})
+					}
+				</ul>
+			</div>
+			<div className="w-full basis-1/6 min-w-32 my-auto">
+				<img src="/images/Full_Logo_White_RGB.svg" ></img>
+			</div>
+			<div className="w-full basis-1/12 min-w-32 my-auto">
+				<div className="w-fit float-right mr-8">
+					<div className="w-fit mx-auto">
+						<button
+							type="button"
+							title="Previous Playhead"
+							className="rounded-sm p-2 text-white"
+							onClick={handleChangePlayhead("decremented_playhead")}>
+							{"\u23EB"}
+						</button>
+					</div>
+					<div className="w-fit mx-auto">
+						<button
+							type="button"
+							title="Skip Backward"
+							className="rounded-sm p-2 text-white"
+							onClick={() => dispatch({ type: "skipped_backward", playtree: playtree })}>
+							{"\u23EE"}
+						</button>
+						<button
+							type="button"
+							title={!state.spotifyPlayerReady ? "Loading Player" : state.playing ? "Pause" : "Play"}
+							className={`rounded-sm p-2 text-white fill-white`}
+							onClick={() => handlePlayPauseAudio(!state.playing)}
+							disabled={ state ? !state.spotifyPlayerReady : true}
+						>
+							{!state.spotifyPlayerReady ? "\u23F3" : state.playing ? "\u23F8" : "\u23F5"}
+						</button>
+						<button
+							type="button"
+							title="Skip Forward"
+							className="rounded-sm p-2 text-white"
+							onClick={() => dispatch({ type: "skipped_forward", playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random() })}>{"\u23ED"}</button>
+					</div>
+					<div className="w-fit mx-auto">
+						<button
+							type="button"
+							title="Next Playhead"
+							className="rounded-sm p-2 text-white"
+							onClick={handleChangePlayhead("incremented_playhead")}>
+							{"\u23EC"}
+						</button>
+					</div>
+				</div>
+			</div>
+			<div className="w-full basis-1/2 mr-8 my-auto text-white font-lilitaOne">
+				<table>
+					<tbody>
+						<tr><td>Playtree</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playtree.summary.name}>{playtree.summary.name}</td></tr>
+						<tr><td>Playhead</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playheadInfo}>{playheadInfo}</td></tr>
+						<tr><td>Playnode</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playnodeInfo}>{playnodeInfo}</td></tr>
+						<tr><td>Song</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={currentPlayitem ? `${currentPlayitem.name} - ${currentPlayitem.creator}${playAndLimitInfo}` : ""}>{playitemInfo}</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</>
+	)
 }

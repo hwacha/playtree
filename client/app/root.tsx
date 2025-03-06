@@ -27,6 +27,7 @@ export const links: LinksFunction = () => [
 export const loader = async ({request} : LoaderFunctionArgs) => {
 	const result : {
 		authenticated: boolean,
+		hasPremium: boolean,
 		displayName: string | null,
 		playerPlaytree: {
 			summary: PlaytreeSummary,
@@ -39,6 +40,7 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 		refreshToken: string | null
 	} = {
 		authenticated: false,
+		hasPremium: false,
 		displayName: null,
 		playerPlaytree: null,
 		userPlaytreeSummaries: null,
@@ -63,7 +65,9 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 
 	if (profileRequest.ok) {
 		result.authenticated = true
-		result.displayName = (await profileRequest.json()).display_name
+		const profileJson = await profileRequest.json()
+		result.hasPremium = profileJson.product === "premium"
+		result.displayName = profileJson.display_name
 	}
 	if (playerRequest.ok) {
 		result.playerPlaytree = await playerRequest.json()
@@ -122,7 +126,7 @@ export default function App() {
 					<div className="absolute w-full h-[calc(100%-13rem)] top-16 -bottom-64">
 						<Outlet key={location.pathname} />
 					</div>
-					<Player playtree={playerPlaytree} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined} />
+					<Player playtree={playerPlaytree} authenticatedWithPremium={data.authenticated && data.hasPremium} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined} />
 				</div>
 			</body>
 		</html>

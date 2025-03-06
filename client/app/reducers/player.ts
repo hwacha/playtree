@@ -102,7 +102,6 @@ type PlayerState = {
 
 	messageLog: string[];
 
-	userIsAuthenticated: boolean;
 	spotifyPlayerReady: boolean;
 
 	playing: boolean;
@@ -110,7 +109,7 @@ type PlayerState = {
 }
 
 type PlayerAction = {
-	type: 'user_authenticated' | 'spotify_player_ready' | 'played' | 'paused';
+	type: 'spotify_player_ready' | 'played' | 'paused';
 } | {
 	type: 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
 	playtree: Playtree;
@@ -715,12 +714,6 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			return {
 				...state,
 				messageLog: [...state.messageLog, action.message]
-			}
-		}
-		case 'user_authenticated': {
-			return {
-				...state,
-				userIsAuthenticated: true
 			}
 		}
 	}
