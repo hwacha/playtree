@@ -120,13 +120,15 @@ export default function App() {
 			</head>
 			<body className="bg-amber-100">
 				<Scripts />
-				<UserSidebar userPlaytreeSummaries={userPlaytreeSummaries} />
-				<div className="absolute left-64 w-[calc(100vw-16rem)] h-full">
-					<Banner isAuthenticated={data.authenticated} displayName={data.displayName}/>
-					<div className="absolute w-full h-[calc(100%-13rem)] top-16 -bottom-64">
-						<Outlet key={location.pathname} />
+				<div className="h-screen overflow-hidden flex">
+					<UserSidebar userPlaytreeSummaries={userPlaytreeSummaries} />
+					<div className="w-full flex flex-col">
+						<Banner isAuthenticated={data.authenticated} displayName={data.displayName}/>
+						<div className="w-full h-full overflow-y-auto">
+							<Outlet key={location.pathname} />
+						</div>
+						<Player playtree={playerPlaytree} authenticatedWithPremium={data.authenticated && data.hasPremium} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined} />
 					</div>
-					<Player playtree={playerPlaytree} authenticatedWithPremium={data.authenticated && data.hasPremium} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined} />
 				</div>
 			</body>
 		</html>

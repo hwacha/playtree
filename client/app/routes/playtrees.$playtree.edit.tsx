@@ -390,89 +390,91 @@ export default function PlaytreeEditor() {
 	}, [])
 
 	return (
-		<div className="font-lilitaOne w-5/6 m-auto h-[calc(100vh-15.25rem)]">
-			<div className="w-full h-fit flex justify-between mt-12">
-				<div className="flex py-1">
-					<h2 title={state.playtree.summary.name} className="max-w-[calc(70vw-18rem)] h-9 flex text-3xl text-green-600 resize-x">
-						<div className="whitespace-nowrap overflow-ellipsis overflow-hidden">
-							{state.playtree.summary.name}
-						</div>
-					</h2>
-					<fetcher.Form method="POST" action="/">
-						<input type="hidden" id="playtreeID" name="playtreeID" value={state.playtree.summary.id} />
-						<button type="submit" className="bg-green-300 font-markazi text-xl rounded-md px-2 py-1 ml-2">Play</button>
-					</fetcher.Form>
+		<div className="w-5/6 h-full mx-auto font-lilitaOne flex flex-col justify-end">
+			<div className="w-full h-[95%]">
+				<div className="w-full h-fit flex justify-between">
+					<div className="flex py-1">
+						<h2 title={state.playtree.summary.name} className="max-w-[calc(70vw-18rem)] h-9 flex text-3xl text-green-600 resize-x">
+							<div className="whitespace-nowrap overflow-ellipsis overflow-hidden">
+								{state.playtree.summary.name}
+							</div>
+						</h2>
+						<fetcher.Form method="POST" action="/">
+							<input type="hidden" id="playtreeID" name="playtreeID" value={state.playtree.summary.id} />
+							<button type="submit" className="bg-green-300 font-markazi text-xl rounded-md px-2 py-1 ml-2">Play</button>
+						</fetcher.Form>
+					</div>
+					<button
+						type="button"
+						className="bg-red-300 px-2 py-1 my-1 rounded-lg font-markazi text-xl"
+						onClick={() => handleSetDeleteModalVisiblity(true)}
+					>Delete</button>
 				</div>
-				<button
-					type="button"
-					className="bg-red-300 px-2 py-1 my-1 rounded-lg font-markazi text-xl"
-					onClick={() => handleSetDeleteModalVisiblity(true)}
-				>Delete</button>
-			</div>
-			{
-				deleteModalOn ?
-				<Modal
-					type={"dangerous"}
-					description={`Are you sure you want to delete the playtree '${state.playtree.summary.name}'?`}
-					exitAction={() => handleSetDeleteModalVisiblity(false)}
-					primaryAction={{ label: "Delete", callback: handleDelete }}
-				/>
-				: null
-			}
-			<div className="h-[calc(100%-8rem)] flex">
-				<div className="h-full w-full flex-[4] border-4 border-green-600 bg-neutral-100">
-					<div className="z-10 w-fit absolute m-1 gap-1 flex flex-col">
-						<button
-							title="Add Playnode"
-							className="rounded-lg bg-green-400 px-2 py-1"
-							onClick={handleAddPlaynode}>➕</button>
-						<button
-							id="playhead-spawner"
-							title="Add Playhead"
-							className="rounded-lg bg-purple-300 px-2 py-1"
-							draggable={true}
-							onDragStart={handleDragStart}>💽</button>
-						<button
-							title="Manage Scopes"
-							className="rounded-lg bg-indigo-300 px-2 py-1"
-							onClick={handlePlayscopeManagerVisibility(true)}>🔲</button>
+				{
+					deleteModalOn ?
+					<Modal
+						type={"dangerous"}
+						description={`Are you sure you want to delete the playtree '${state.playtree.summary.name}'?`}
+						exitAction={() => handleSetDeleteModalVisiblity(false)}
+						primaryAction={{ label: "Delete", callback: handleDelete }}
+					/>
+					: null
+				}
+				<div className="h-[85%] flex">
+					<div className="h-full w-full flex-[4] border-4 border-green-600 bg-neutral-100">
+						<div className="z-10 w-fit absolute m-1 gap-1 flex flex-col">
+							<button
+								title="Add Playnode"
+								className="rounded-lg bg-green-400 px-2 py-1"
+								onClick={handleAddPlaynode}>➕</button>
+							<button
+								id="playhead-spawner"
+								title="Add Playhead"
+								className="rounded-lg bg-purple-300 px-2 py-1"
+								draggable={true}
+								onDragStart={handleDragStart}>💽</button>
+							<button
+								title="Manage Scopes"
+								className="rounded-lg bg-indigo-300 px-2 py-1"
+								onClick={handlePlayscopeManagerVisibility(true)}>🔲</button>
+							{
+								state.unsavedChangesExist ?
+									<button
+										type="button"
+										title="Save Changes"
+										className="rounded-lg bg-neutral-400 px-2 py-1"
+										onClick={handleSave}>💾</button> :
+									null
+							}
+						</div>
+						<ReactFlow
+							nodeTypes={customFlowNodeTypes}
+							nodes={flownodes}
+							onNodesChange={onFlownodesChange}
+							edgeTypes={customFlowEdgeTypes}
+							edges={flowedges}
+							onEdgesChange={onFlowedgesChange}
+							connectionLineComponent={PlayConnectionLine}
+							onConnect={onConnect}
+						>
+							<Background />
+							<Controls />
+						</ReactFlow>
 						{
-							state.unsavedChangesExist ?
-								<button
-									type="button"
-									title="Save Changes"
-									className="rounded-lg bg-neutral-400 px-2 py-1"
-									onClick={handleSave}>💾</button> :
-								null
+							playscopeManagerVisible ? <PlayscopeManager playscopes={state.playtree.playscopes} dispatch={dispatch} onExit={handlePlayscopeManagerVisibility(false)}/> : null
 						}
 					</div>
-					<ReactFlow
-						nodeTypes={customFlowNodeTypes}
-						nodes={flownodes}
-						onNodesChange={onFlownodesChange}
-						edgeTypes={customFlowEdgeTypes}
-						edges={flowedges}
-						onEdgesChange={onFlowedgesChange}
-						connectionLineComponent={PlayConnectionLine}
-						onConnect={onConnect}
-					>
-						<Background />
-						<Controls />
-					</ReactFlow>
-					{
-						playscopeManagerVisible ? <PlayscopeManager playscopes={state.playtree.playscopes} dispatch={dispatch} onExit={handlePlayscopeManagerVisibility(false)}/> : null
-					}
-				</div>
-				<div className="border-green-600 bg-neutral-50 border-r-4 border-t-4 border-b-4 w-full flex-[1] h-full overflow-y-auto flex flex-col-reverse">
-					<ul className="font-markazi">
-						{
-							state.messageLog.map((message, index) => {
-								const color = message.type === "error" ? "red" : message.type === "warning" ? "amber" : "green";
-								const emoji = message.type === "error" ? <>🛑</> : message.type === "warning" ? <>⚠️</> : <>✅</>;
-								return <li key={index} className={`bg-${color}-200 text-${color}-500 pl-2 pt-1`}>{emoji} {` `} {message.message}</li>
-							})
-						}
-					</ul>
+					<div className="border-green-600 bg-neutral-50 border-r-4 border-t-4 border-b-4 w-full flex-[1] h-full overflow-y-auto flex flex-col-reverse">
+						<ul className="font-markazi">
+							{
+								state.messageLog.map((message, index) => {
+									const color = message.type === "error" ? "red" : message.type === "warning" ? "amber" : "green";
+									const emoji = message.type === "error" ? <>🛑</> : message.type === "warning" ? <>⚠️</> : <>✅</>;
+									return <li key={index} className={`bg-${color}-200 text-${color}-500 pl-2 pt-1`}>{emoji} {` `} {message.message}</li>
+								})
+							}
+						</ul>
+					</div>
 				</div>
 			</div>
 		</div>

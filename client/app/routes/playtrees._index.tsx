@@ -75,7 +75,7 @@ export default function Index() {
 	}, [data.start])
 	
 	return (
-		<div ref={scrollRef} className="m-auto w-full h-full overflow-y-auto">
+		<div ref={scrollRef} className="w-full flex flex-wrap justify-center">
 			{
 				data.playtrees.map((summary: any) => {
 					return (
@@ -88,7 +88,7 @@ export default function Index() {
 					)
 				})
 			}
-			<div className="flex justify-center">
+			<div className="w-full flex justify-center">
 				{
 					data.start > 0 ?
 					<Link to={`/playtrees?start=${Math.max(data.start - 60, 0)}`}>

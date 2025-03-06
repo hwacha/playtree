@@ -193,7 +193,7 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 	}, [playtree])
 
 	const wrapInnerComponentWithBackground = (innerComponent : ReactElement) => {
-		return <div className="bg-green-600 fixed z-30 flex items-center w-[calc(100vw-16rem)] h-36 left-64 bottom-0">{innerComponent}</div>
+		return <div className="w-full h-36 min-h-36 bg-green-600 z-30 overflow-x-auto flex items-center">{innerComponent}</div>
 	}
 
 	const [playheadInfo, playnodeInfo, currentPlayitem, playAndLimitInfo, playitemInfo] = useMemo(() => {
@@ -325,7 +325,7 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 
 	return wrapInnerComponentWithBackground(
 		<>
-			<div className="w-full basis-1/4 my-4 ml-16 max-h-full overflow-hidden overflow-y-auto flex flex-col-reverse">
+			<div className="w-full basis-1/4 h-[95%] ml-16 max-h-full overflow-y-auto flex flex-col-reverse">
 				<ul className="text-white text-lg font-markazi">
 					{
 						state.messageLog.map((message, index) => {
