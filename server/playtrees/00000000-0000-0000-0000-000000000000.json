@@ -10,8 +10,8 @@
 			"id": "0",
 			"type": "selector",
 			"name": "Early 2010s Indie Shuffle",
-			"limit": -1,
 			"repeat": 1,
+			"limit": -1,
 			"playscopes": [
 				0
 			],
@@ -26,6 +26,7 @@
 					"creatorURI": "spotify:artist:7eQZTqEMozBcuSubfu52i4",
 					"name": "Heartbeats",
 					"creator": "The Knife",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -39,6 +40,7 @@
 					"creatorURI": "spotify:artist:3CjlHNtplJyTf9npxaPl5w",
 					"name": "The Mother We Share",
 					"creator": "CHVRCHES",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -52,6 +54,7 @@
 					"creatorURI": "spotify:artist:5INjqkS1o8h1imAzPqGZBb",
 					"name": "Elephant",
 					"creator": "Tame Impala",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -65,6 +68,7 @@
 					"creatorURI": "spotify:artist:7gP3bB2nilZXLfPHJhMdvc",
 					"name": "Helena Beat",
 					"creator": "Foster The People",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -78,6 +82,7 @@
 					"creatorURI": "spotify:artist:63MQldklfxkjYDoUE4Tppz",
 					"name": "Midnight City",
 					"creator": "M83",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -91,6 +96,7 @@
 					"creatorURI": "spotify:artist:1VBflYyxBhnDc9uVib98rw",
 					"name": "Manners",
 					"creator": "Icona Pop",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -104,6 +110,7 @@
 					"creatorURI": "spotify:artist:3pTE9iaJTkWns3mxpNQlJV",
 					"name": "Shuffle",
 					"creator": "Bombay Bicycle Club",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				}
@@ -127,8 +134,8 @@
 			"id": "2",
 			"type": "selector",
 			"name": "90s Rock Shuffle",
-			"limit": -1,
 			"repeat": 1,
+			"limit": -1,
 			"playscopes": [
 				0
 			],
@@ -143,6 +150,7 @@
 					"creatorURI": "spotify:artist:3G3Gdm0ZRAOxLrbyjfhii5",
 					"name": "Only Shallow",
 					"creator": "my bloody valentine",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -156,6 +164,7 @@
 					"creatorURI": "spotify:artist:6olE6TJLqED3rqDCT0FyPh",
 					"name": "All Apologies",
 					"creator": "Nirvana",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -169,6 +178,7 @@
 					"creatorURI": "spotify:artist:4Z8W4fKeB5YxbusRsdQVPb",
 					"name": "Fake Plastic Trees",
 					"creator": "Radiohead",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -182,6 +192,7 @@
 					"creatorURI": "spotify:artist:2DaxqgrOhkeH0fpeiQq2f4",
 					"name": "Some Might Say",
 					"creator": "Oasis",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -195,6 +206,7 @@
 					"creatorURI": "spotify:artist:37w38cCSGgKLdayTRjna4W",
 					"name": "Fade Into You",
 					"creator": "Mazzy Star",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -208,6 +220,7 @@
 					"creatorURI": "spotify:artist:3inCNiUr4R6XQ3W43s9Aqi",
 					"name": "Summer Babe - Winter Version",
 					"creator": "Pavement",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				}
@@ -225,8 +238,8 @@
 			"id": "3",
 			"type": "sequencer",
 			"name": "EDM",
-			"limit": -1,
 			"repeat": 1,
+			"limit": -1,
 			"playscopes": [],
 			"playitems": [
 				{
@@ -239,6 +252,7 @@
 					"creatorURI": "spotify:artist:1vCWHaC5f2uS3yhpwWbIA6",
 					"name": "Levels - Radio Edit",
 					"creator": "Avicii",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -252,6 +266,7 @@
 					"creatorURI": "spotify:artist:5he5w2lnU9x7JFhnwcekXX",
 					"name": "Scary Monsters and Nice Sprites",
 					"creator": "Skrillex",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": 1
 				},
@@ -265,6 +280,7 @@
 					"creatorURI": "spotify:artist:2YVF0Ou5zIc4mpgtLIlGN0",
 					"name": "Children - Dream Version",
 					"creator": "Robert Miles",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": -1
 				}
@@ -282,6 +298,7 @@
 			"id": "4",
 			"type": "sequencer",
 			"name": "Playnode",
+			"repeat": 1,
 			"limit": 9999,
 			"playscopes": [],
 			"playitems": [
@@ -295,6 +312,7 @@
 					"creatorURI": "spotify:artist:1Z3fF5lZdCM0ZHugkGoH8s",
 					"name": "4'33''",
 					"creator": "John Cage",
+					"exponent": 0,
 					"multiplier": 1,
 					"limit": -1
 				}

@@ -76,8 +76,9 @@ export type PlaytreeEditorAction = {
 }
 
 const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorAction): PlaytreeEditorState => {
+	const saveJustOccurred = action.type === "saved_playtree"
 	const unsavedChangeOccurred = !["loaded_playtree", "saved_playtree", "logged_message"].includes(action.type)
-	const unsavedChangesExist = state.unsavedChangesExist || unsavedChangeOccurred
+	const unsavedChangesExist = !saveJustOccurred && (state.unsavedChangesExist || unsavedChangeOccurred)
 	switch (action.type) {
 		case "loaded_playtree": {
 			return {
@@ -104,6 +105,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 				id: (maxValue + 1).toString(),
 				name: "Playnode",
 				type: "sequencer",
+				repeat: 1,
 				limit: -1,
 				playscopes: [],
 				playitems: [],

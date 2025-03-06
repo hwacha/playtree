@@ -73,7 +73,7 @@ export default function SearchField(props: SearchFieldProps) {
 				id="search-field"
 				name="search-field"
 				value={queryString(query)}
-				placeholder="Search for a song"
+				placeholder={"Search for a song with Spotify"}
 				onChange={onSearchQueryChange}
 			/>
 			<datalist id="spotify-search-suggestions">

@@ -63,7 +63,7 @@ export default function PlaytreeEditor() {
 		return (
 			<Snack type="error"
 				body={
-					<p>You are not logged in. <Link to="/login" className="text-blue-400 underline">Log in to spotify</Link> to edit playtrees.</p>
+					<p>You are not logged in. <Link to="/login" className="text-blue-400 underline">Log in to Spotify</Link> to edit playtrees.</p>
 				}
 			/>
 		)
