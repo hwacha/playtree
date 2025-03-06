@@ -301,7 +301,7 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 						target="_blank"
 						rel="noopener noreferrer"
 						href="https://www.spotify.com/us/premium/"
-						className="text-blue-400 underline"
+						className="text-blue-300 underline"
 					>
 					Spotify Premium</a>&nbsp;account to use the Playtree Spotify Player.
 				</span>
