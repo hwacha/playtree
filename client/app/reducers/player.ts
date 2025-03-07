@@ -520,6 +520,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					newMessageLog.push(`Traversing playedge '${curNodeForEdgeTraversal.name} => ${nextNode.name}'${edgePlaycount !== undefined ? ` (${edgePlaycount + 1} / ${selectedEdge.limit})` : ""}`)
 					exitingScopes = union([exitingScopes, diff([curNode.playscopes, nextNode.playscopes]) as number[]]) as number[]
 					exitingScopes.forEach(scopeID => {
+						newMessageLog.push(`Exiting scope ${action.playtree.playscopes.find(playscope => playscope.id === scopeID)?.name}. Resetting plays.`)
 						cachedPlaycounters.playitems.set(scopeID, newPlaycounters.playitems.get(scopeID) as Map<string, Map<string, number>>)
 						cachedPlaycounters.playnodes.set(scopeID, newPlaycounters.playnodes.get(scopeID) as Map<string, number>)
 						cachedPlaycounters.playedges.set(scopeID, newPlaycounters.playedges.get(scopeID) as Map<string, Map<string, number>>)
