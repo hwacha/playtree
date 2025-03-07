@@ -2,7 +2,7 @@ import { LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useSubmit } from "@remix-run/react";
 import { Background, Controls, MarkerType, ReactFlow, addEdge, OnConnect, useNodesState, useEdgesState } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
 import { jsonFromPlaytree, Playedge, Playnode, Playtree, playtreeFromJson } from "../types";
 import Dagre from '@dagrejs/dagre';
@@ -17,6 +17,7 @@ import Snack from "../components/Snack";
 import Modal from "../components/Modal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import { PlayscopeManager } from "../components/PlayscopeManager";
+import { Token } from "../root";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	invariant(params.playtree)
@@ -332,6 +333,8 @@ export default function PlaytreeEditor() {
 		return warnings
 	}, [state.playtree.playroots])
 
+	const token = useContext(Token)
+
 	const handleSave = useCallback(() => {
 		(async () => {
 			try {
@@ -344,7 +347,7 @@ export default function PlaytreeEditor() {
 					return
 				}
 
-				const response = await clientFetchWithToken(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
+				const response = await clientFetchWithToken(token, `http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
 					method: "PUT",
 					body: JSON.stringify(jsonFromPlaytree(state.playtree))
 				})

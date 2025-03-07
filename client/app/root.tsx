@@ -4,6 +4,7 @@ import {
 	Meta,
 	Outlet,
 	Scripts,
+	ShouldRevalidateFunction,
 	useFetcher,
 	useLoaderData,
 	useLocation
@@ -16,9 +17,9 @@ import UserSidebar from "./components/UserSidebar";
 import Banner from "./components/Banner";
 import { Playnode, Playroot, Playscope, playtreeFromJson, PlaytreeSummary } from "./types";
 import { getSession } from "./utils/sessions";
-import { useEffect } from "react";
 import { serverFetchWithToken } from "./utils/server-fetch-with-token.server";
 import { PLAYTREE_SERVER_PLAYER_PATH, PLAYTREE_SERVER_USER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "./settings/api_endpoints";
+import React from "react";
 
 export const links: LinksFunction = () => [
 	{ rel: "stylesheet", href: styles },
@@ -77,21 +78,30 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 	}
 
 	const session = await getSession(cookie)
+	const accessToken = session.get("spotify_access_token") ?? null
+	const refreshToken = session.get("spotify_refresh_token") ?? null
+
 	return {
 		...result,
-		accessToken: session.get("spotify_access_token") ?? null,
-		refreshToken: session.get("spotify_refresh_token") ?? null
+		accessToken,
+		refreshToken
 	}
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData()
-	const id = formData.get("playtreeID");
-	await serverFetchWithToken(request, `${PLAYTREE_SERVER_PLAYER_PATH}?playtree=${id}`, {
-		method: "PUT"
-	})
+	const playtreeID = formData.get("playtreeID");
+	if (playtreeID) {
+		await serverFetchWithToken(request, `${PLAYTREE_SERVER_PLAYER_PATH}?playtree=${playtreeID}`, {
+			method: "PUT"
+		})
+	}
+
 	return { autoplay: true }
 }
+
+export type TokenType = {accessToken: string | null, refreshToken: string | null}
+export const Token = React.createContext<TokenType>({accessToken: null, refreshToken: null })
 
 export default function App() {
 	const data = useLoaderData<typeof loader>()
@@ -99,15 +109,6 @@ export default function App() {
 	const playerPlaytree = playtreeFromJson(data.playerPlaytree)
 	const userPlaytreeSummaries = data.userPlaytreeSummaries
 	const location = useLocation() // used for React resolution keys
-
-	useEffect(() => {
-		if (data.accessToken) {
-			localStorage.setItem("spotify_access_token", data.accessToken)
-		}
-		if (data.refreshToken) {
-			localStorage.setItem("spotify_refresh_token", data.refreshToken)
-		}
-	}, [])
 
 	return (
 		<html lang="en">
@@ -119,16 +120,18 @@ export default function App() {
 			</head>
 			<body className="bg-amber-100">
 				<Scripts />
-				<div className="h-screen overflow-hidden flex">
-					<UserSidebar userPlaytreeSummaries={userPlaytreeSummaries} />
-					<div className="w-full flex flex-col">
-						<Banner isAuthenticated={data.authenticated} displayName={data.displayName}/>
-						<div className="w-full h-full overflow-y-auto">
-							<Outlet key={location.pathname} />
+				<Token.Provider value={{accessToken: data.accessToken, refreshToken: data.refreshToken}}>
+					<div className="h-screen overflow-hidden flex">
+						<UserSidebar userPlaytreeSummaries={userPlaytreeSummaries} />
+						<div className="w-full flex flex-col">
+							<Banner isAuthenticated={data.authenticated} displayName={data.displayName}/>
+							<div className="w-full h-full overflow-y-auto">
+								<Outlet key={location.pathname} />
+							</div>
+							<Player playtree={playerPlaytree} authenticatedWithPremium={data.authenticated && data.hasPremium} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined} />
 						</div>
-						<Player playtree={playerPlaytree} authenticatedWithPremium={data.authenticated && data.hasPremium} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined} />
 					</div>
-				</div>
+				</Token.Provider>
 			</body>
 		</html>
 	);
