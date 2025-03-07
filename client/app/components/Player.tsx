@@ -48,11 +48,10 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		document.body.appendChild(script);
 		window.onSpotifyWebPlaybackSDKReady = () => {
 			const deviceName = getDeviceName()
-			const accessToken = localStorage.getItem("spotify_access_token")
 
 			newPlayer = new window.Spotify.Player({
 				name: 'Playtree Web Player: ' + deviceName,
-				getOAuthToken: (cb: any) => { cb(accessToken); },
+				getOAuthToken: (cb: any) => { cb(token.accessToken); },
 				volume: 1
 			});
 
