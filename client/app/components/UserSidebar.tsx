@@ -14,7 +14,7 @@ export default function UserSidebar(props: UserSidebarProps) {
 			<nav>
 				{
 					props.userPlaytreeSummaries === null ?
-					<p><Link to="/login" className="text-xl text-blue-400 underline">Log in with Spotify</Link> to see your playtrees here.</p>
+					<p className="text-xl"><Link to="/login" className="text-blue-400 underline">Log in with Spotify</Link> to see your playtrees here.</p>
 					: props.userPlaytreeSummaries.map((summary, index) => {
 						return (
 							<div key={index} className="group flex justify-between my-3 text-xl">

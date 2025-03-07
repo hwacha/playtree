@@ -90,22 +90,27 @@ export default function PlaytreeEditor() {
 	})
 
 	const playscopeComparator = useMemo(() => {
-		const playnodesByPlayscope = state.playtree.playscopes.map(_ => new Set<string>())
+		const playnodesByPlayscope = new Map<number, Set<string>>()
+		state.playtree.playscopes.forEach(playscope => {
+			playnodesByPlayscope.set(playscope.id, new Set<string>())
+		})
 		state.playtree.playnodes.forEach((playnode) => {
 			playnode.playscopes.forEach(playscopeID => {
-				playnodesByPlayscope[playscopeID].add(playnode.id)
+				playnodesByPlayscope.get(playscopeID)?.add(playnode.id)
 			})
 		})
-		return (i : number, j : number) : number => {
-			const iSubsetOfJ = isSubsetOf(playnodesByPlayscope[i], playnodesByPlayscope[j])
-			const jSubsetOfI = isSubsetOf(playnodesByPlayscope[j], playnodesByPlayscope[i])
-			if (iSubsetOfJ && jSubsetOfI) {
+		return (a : number, b : number) : number => {
+			const aNodes = playnodesByPlayscope.get(a) as Set<string>
+			const bNodes = playnodesByPlayscope.get(b) as Set<string>
+			const aSubsetOfB = isSubsetOf(aNodes, bNodes)
+			const bSubsetOfA = isSubsetOf(bNodes, aNodes)
+			if (aSubsetOfB && bSubsetOfA) {
 				return 0
 			}
-			if (iSubsetOfJ) {
+			if (aSubsetOfB) {
 				return -1
 			}
-			if (jSubsetOfI) {
+			if (bSubsetOfA) {
 				return 1
 			}
 			return 0
@@ -282,24 +287,34 @@ export default function PlaytreeEditor() {
 
 	const generateErrors = useCallback(() => {
 		const errors: string[] = []
-		const playnodesByPlayscope : Set<string>[] = state.playtree.playscopes.map(_ => new Set())
+		const playnodesByPlayscopeIndex : Set<string>[] = state.playtree.playscopes.map(_ => new Set())
 
 		state.playtree.playnodes.forEach(playnode => {
 			playnode.playscopes.forEach(playscopeID => {
-				playnodesByPlayscope[playscopeID].add(playnode.id)
+				playnodesByPlayscopeIndex[playscopeID].add(playnode.id)
 			})
 		})
 
-		for (let i = 0; i < playnodesByPlayscope.length; i++) {
-			for (let j = i + 1; j < playnodesByPlayscope.length; j++) {
-				const playnodeSetA = playnodesByPlayscope[i]
-				const playnodeSetB = playnodesByPlayscope[j]
+		for (let i = 0; i < playnodesByPlayscopeIndex.length; i++) {
+			const playnodeSetA = playnodesByPlayscopeIndex[i]
+			const aHasAllNodes = playnodeSetA.size === state.playtree.playnodes.size && playnodeSetA.size > 0
+
+			if (aHasAllNodes) {
+				errors.push(`Redundant playscope: '${state.playtree.playscopes[i].name}' has every playnode, which is the same as the default scope.`)
+			}
+
+			for (let j = i + 1; j < playnodesByPlayscopeIndex.length; j++) {
+				
+				const playnodeSetB = playnodesByPlayscopeIndex[j]
 				
 				const aSupersetOfB = isSupersetOf(playnodeSetA, playnodeSetB)
 				const bSupersetOfA = isSupersetOf(playnodeSetB, playnodeSetA)
 
 				if (aSupersetOfB && bSupersetOfA) {
-					errors.push(`Redundant scopes: '${state.playtree.playscopes[i].name}' and '${state.playtree.playscopes[i].name}' apply to the same set of nodes.`)
+					if (playnodeSetA.size > 0) {
+						// empty scopes will never be reached, and so they won't cause inconsistent reset behavior
+						errors.push(`Redundant playscopes: '${state.playtree.playscopes[i].name}' and '${state.playtree.playscopes[j].name}' apply to the same set of nodes.`)
+					}
 				} else if (!(aSupersetOfB || bSupersetOfA) && intersection([Array.from(playnodeSetA), Array.from(playnodeSetB)]).length > 0) {
 					errors.push(`Partially overlapping playscopes: '${state.playtree.playscopes[i].name}' and '${state.playtree.playscopes[j].name}' have nodes in common. This is only valid if one playscope's set of nodes is a strict subset of the other's.`)
 				}

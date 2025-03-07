@@ -228,14 +228,14 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 			return
 		}
 
-		if pti.Summary.CreatedBy != *currentUserID {
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-
 		if invalidPlaytreeJsonErr != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, invalidPlaytreeJsonErr)
+			return
+		}
+
+		if pti.Summary.CreatedBy != *currentUserID {
+			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 

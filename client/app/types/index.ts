@@ -46,12 +46,14 @@ export type Playroot = {
 }
 
 export type Playscope = {
+	id: number;
 	name: string;
 	color: string;
 }
 
 export const makeDefaultPlayscope = () : Playscope => {
 	return {
+		id: -1,
 		name: "default",
 		color: "white"
 	}

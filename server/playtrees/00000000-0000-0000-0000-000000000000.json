@@ -339,6 +339,7 @@
 	},
 	"playscopes": [
 		{
+			"id": 0,
 			"name": "Shuffle Scope",
 			"color": "#2b98f4"
 		}

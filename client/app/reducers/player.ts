@@ -515,7 +515,6 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					newPlaycounters.playedges.get(curLeastScopeForSelectedEdge)?.get(curNodeForEdgeTraversal.id)?.set(selectedEdge.targetID, edgePlaycount + 1)
 				}
 
-				
 				let nextNode = action.playtree.playnodes.get(selectedEdge.targetID)
 				if (nextNode) {
 					newMessageLog.push(`Traversing playedge '${curNodeForEdgeTraversal.name} => ${nextNode.name}'${edgePlaycount !== undefined ? ` (${edgePlaycount + 1} / ${selectedEdge.limit})` : ""}`)
