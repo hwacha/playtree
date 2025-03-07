@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
+	"github.com/lithammer/shortuuid/v4"
 )
 
 var currentlyPlaying map[string]*string = make(map[string]*string)
@@ -144,7 +144,7 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		}
 
 		// generate ID
-		newPlaytreeId := uuid.New().String()
+		newPlaytreeId := shortuuid.New()
 
 		pti := Playtree{
 			Summary: Summary{
