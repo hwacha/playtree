@@ -1,4 +1,4 @@
-import { rgbToHex } from "@opentf/std";
+import { defaultScopeColors } from "../settings/defaultValues";
 import { Playedge, Playroot, Playnode, Playscope, Playtree, Playitem } from "../types"
 
 export type LogMessage = {
@@ -16,7 +16,7 @@ export type PlaytreeEditorAction = {
 	type: "loaded_playtree",
 	playtree: Playtree
 } | {
-	type: "added_playnode" | "saved_playtree",
+	type: "added_playnode" | "added_playscope" | "saved_playtree",
 } | {
 	type: "updated_playnode",
 	playnodeID: string,
@@ -44,19 +44,16 @@ export type PlaytreeEditorAction = {
 	type: "deleted_playhead",
 	playnodeID: string,
 } | {
-	type: "added_playscope",
-	color: string
-} | {
 	type: "updated_playscope",
 	index: number,
-	patch: Partial<Playscope>
+	patch: Partial<Omit<Playscope, "id">>
 } | {
 	type: "deleted_playscope",
 	index: number
 } | {
 	type: "toggled_playscope_in_playnode",
-	index: number,
-	playnodeID: string
+	playnodeID: string,
+	playscopeID: number,
 } | {
 	type: "added_playitem_to_playnode",
 	playnodeID: string,
@@ -76,8 +73,9 @@ export type PlaytreeEditorAction = {
 }
 
 const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorAction): PlaytreeEditorState => {
+	const saveJustOccurred = action.type === "saved_playtree"
 	const unsavedChangeOccurred = !["loaded_playtree", "saved_playtree", "logged_message"].includes(action.type)
-	const unsavedChangesExist = state.unsavedChangesExist || unsavedChangeOccurred
+	const unsavedChangesExist = !saveJustOccurred && (state.unsavedChangesExist || unsavedChangeOccurred)
 	switch (action.type) {
 		case "loaded_playtree": {
 			return {
@@ -104,6 +102,7 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 				id: (maxValue + 1).toString(),
 				name: "Playnode",
 				type: "sequencer",
+				repeat: 1,
 				limit: -1,
 				playscopes: [],
 				playitems: [],
@@ -276,8 +275,9 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 		}
 		case "added_playscope": {
 			const newPlayscopes = [...state.playtree.playscopes]
-			const index = newPlayscopes.length
-			newPlayscopes.push({ name: "Scope " + (index + 1), color: action.color })
+			const playscopeIDs = [...newPlayscopes.map(playscope => playscope.id), -1]
+			const nextID = Math.max(...playscopeIDs) + 1
+			newPlayscopes.push({ id: nextID, name: "Scope " + nextID, color: defaultScopeColors[nextID % defaultScopeColors.length]})
 			return {
 				...state,
 				playtree: {
@@ -301,12 +301,10 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 		}
 		case "deleted_playscope": {
 			const newPlayscopes = [...state.playtree.playscopes]
-			newPlayscopes.splice(action.index, 1)
+			const [playscopeToDelete] = newPlayscopes.splice(action.index, 1)
 			const newNodes = structuredClone(state.playtree.playnodes)
 			newNodes.forEach(node => {
-				node.playscopes = node.playscopes.filter(scopeID => scopeID !== action.index).map(scopeID => {
-					return scopeID >= action.index ? scopeID + 1 : scopeID
-				})
+				node.playscopes = node.playscopes.filter(scopeID => scopeID !== playscopeToDelete.id)
 			})
 			return {
 				...state,
@@ -322,10 +320,10 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 			const newNodes = structuredClone(state.playtree.playnodes)
 			const newPlayscopes = newNodes.get(action.playnodeID)?.playscopes
 			if (newPlayscopes) {
-				const indexInPlayscopes = newPlayscopes.findIndex(playscope => playscope === action.index)
+				const indexInPlayscopes = newPlayscopes.findIndex(playscope => playscope === action.playscopeID)
 				if (indexInPlayscopes === -1) { // node doesn't have playscope yet
 					// add to playscopes
-					newPlayscopes.push(action.index)
+					newPlayscopes.push(action.playscopeID)
 				} else {
 					// remove from playscopes
 					newPlayscopes.splice(indexInPlayscopes, 1)

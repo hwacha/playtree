@@ -1,7 +1,7 @@
 import { ActionFunctionArgs } from "@remix-run/node";
 import { Link, redirect, useFetcher, useLoaderData } from "@remix-run/react";
-import { getSession } from "../sessions";
-import { PLAYTREE_SERVER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "../api_endpoints";
+import { getSession } from "../utils/sessions";
+import { PLAYTREE_SERVER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "../settings/api_endpoints";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
 import Snack from "../components/Snack";
 

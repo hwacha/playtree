@@ -8,33 +8,6 @@ type PlayscopeManagerProps = {
 	onExit: () => void;
 }
 export const PlayscopeManager = (props: PlayscopeManagerProps) => {
-	const [colorCounter, setColorCounter]  = useState<number>(0)
-	const colorSuggestion = useMemo(() => {
-		const colors = [
-			"#ffdd00",
-			"#3f51b5",
-			"#00bcd4",
-			"#4caf50",
-			"#ff6f61",
-			"#9c27b0",
-			"#673ab7",
-			"#ff4081",
-			"#2196f3",
-			"#8bc34a",
-			"#ba68c8",
-			"#ffeb3b",
-			"#009688",
-			"#cddc39",
-			"#f57f17",
-			"#d84315",
-			"#03a9f4",
-			"#e91e63",
-			"#1e88e5",
-			"#aeea00",
-		]
-		return colors[colorCounter % colors.length]
-	}, [colorCounter])
-
 	return (
 		<div className="absolute z-10 left-1/4 top-1/4 h-96 w-96 border-2 border-indigo-300 bg-indigo-100 rounded-lg overflow-hidden font-markazi p-4">
 			<div className="max-h-64 overflow-y-auto">
@@ -85,10 +58,7 @@ export const PlayscopeManager = (props: PlayscopeManagerProps) => {
 			<div className="w-full flex justify-center">
 				<button
 					className="border-2 bg-indigo-300 border-none px-2 rounded-lg py-1 mt-4"
-					onClick={() => {
-						props.dispatch({ type: "added_playscope", color: colorSuggestion })
-						setColorCounter(cc => cc + 1)
-					}}>Add Scope</button>
+					onClick={() => { props.dispatch({ type: "added_playscope" }) }}>Add Scope</button>
 			</div>
 			<div className="absolute w-[calc(100%-2rem)] bottom-1 flex justify-center">
 				<button

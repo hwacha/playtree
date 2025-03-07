@@ -30,7 +30,10 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 			playitem: {
 				type: { source: "spotify", plurality: "single" },
 				uri: newPlayitemAsSearchResult.uri,
-				name: queryString(newPlayitemAsSearchResult),
+				creatorURI: newPlayitemAsSearchResult.creatorURI ?? "",
+				name: newPlayitemAsSearchResult.name,
+				creator: newPlayitemAsSearchResult.creator,
+				exponent: 0,
 				multiplier: 1,
 				limit: -1
 			}})
@@ -60,9 +63,9 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 		props.data.dispatch({ type: "added_playhead", playnodeID: props.data.playnode.id })
 	}, [])
 
-	const handleTogglePlayscope = useCallback((index : number) => {
+	const handleTogglePlayscope = useCallback((playscopeID : number) => {
 		return () => {
-			props.data.dispatch({type: "toggled_playscope_in_playnode", playnodeID: props.data.playnode.id, index: index})
+			props.data.dispatch({type: "toggled_playscope_in_playnode", playnodeID: props.data.playnode.id, playscopeID: playscopeID})
 		}
 	}, [])
 
@@ -71,11 +74,9 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 	const color = isSequence ? "green" : "amber"
 
 	const playscopesOnPlaynode = useMemo(() => {
-		return [...props.data.playscopes].map((p, i) => {
-			return {playscope: p, index: i}
-		}).sort(({playscope: p1, index: i1}, {playscope: p2, index: i2}) => {
-			return props.data.playscopeComparator(i1, i2)
-		}).filter(({index}) => props.data.playnode.playscopes.includes(index))
+		return [...props.data.playscopes].sort((p1, p2) => {
+			return props.data.playscopeComparator(p1.id, p2.id)
+		}).filter(({id}) => props.data.playnode.playscopes.includes(id))
 	}, [props.data.playscopes, props.data.playnode.playscopes])
 
 	const numScopes = playscopesOnPlaynode.length
@@ -84,7 +85,7 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 		<Handle type="target" isConnectableStart={false} position={Position.Top} style={{ width: 12, height: 12, top: 2 + 4 * numScopes }} />
 		{
 			props.selected && !props.dragging ?
-				<div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-96 p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
+				<div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-[32rem] p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
 					<div className="mb-5">
 						<button
 							className={`bg-${color}-300 rounded-lg px-2 py-1 absolute left-[1.25rem]`}
@@ -106,19 +107,19 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 								🗑️
 						</button>
 					</div>
-					<input id="text" name="text" value={props.data.playnode.name} onChange={handleChangeName} className={`w-full bg-${color}-100 text-center`} />
+					<input id="text" name="text" title={props.data.playnode.name} value={props.data.playnode.name} onChange={handleChangeName} className={`w-full bg-${color}-100 text-center`} />
 					{
 						scopeView ?
 						<ul className="my-3 font-markazi">
 							{
-								props.data.playscopes.map((scope, index) => {
+								props.data.playscopes.map(scope => {
 									const [r, g, b] = hexToRGB(scope.color)
 									const contrastColor = r * 0.299 + g * 0.587 + b * 0.114 > 150 ? "#000000" : "#ffffff"
-									return <li key={index} className={`flex`} style={{ backgroundColor: scope.color, color: contrastColor }}>
+									return <li key={scope.id} className={`flex`} title={scope.name} style={{ backgroundColor: scope.color, color: contrastColor }}>
 										<input
 											type="checkbox"
-											checked={props.data.playnode.playscopes.includes(index)}
-											onChange={handleTogglePlayscope(index)}
+											checked={props.data.playnode.playscopes.includes(scope.id)}
+											onChange={handleTogglePlayscope(scope.id)}
 											className="mx-1"/>
 										{scope.name}
 									</li>
@@ -126,14 +127,31 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 							}
 						</ul> :
 						<>
-							<div className="font-markazi flex w-fit">
-								<span className="mr-1">Limit:</span>
-								<div className="w-8">
-									<NaturalNumberInputField
-										canBeInfinite={true}
-										defaultValue={1}
-										value={props.data.playnode.limit}
-										onChange={(n : number) => props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { limit: n } })}/>
+							<div className="font-markazi text-xl w-full flex justify-between items-center my-2">
+								<div title="You can edit the repeat value, but it is not implemented on the player." className="w-fit flex hover:cursor-help line-through">
+									Repeat:
+									<div>
+										<div className="w-8">
+											<NaturalNumberInputField
+												canBeInfinite={false}
+												defaultValue={1}
+												value={props.data.playnode.repeat}
+												onChange={(n : number) => props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { repeat: n } })}/>
+										</div>
+									</div>
+								</div>
+								<div className="flex w-fit">
+									Limit:
+									<div className="w-8">
+										<NaturalNumberInputField
+											canBeInfinite={true}
+											defaultValue={1}
+											value={props.data.playnode.limit}
+											onChange={(n : number) => props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { limit: n } })}/>
+									</div>
+								</div>
+								<div className="w-fit h-5 flex">
+									<img src="/images/Full_Logo_Black_RGB.svg" />
 								</div>
 							</div>
 							<table className="font-markazi table-fixed w-full mb-1">
@@ -141,9 +159,11 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 									<tr>
 										<th className="w-6">⬆️</th>
 										<th className="w-6">⬇️</th>
-										<th className="w-3/5 text-left text-xl">&nbsp;&nbsp;&nbsp;Name</th>
-										<th title="Multiplier" className="text-right">Mult</th>
-										<th title="Limit" className="text-right">Lim</th>
+										<th className="w-2/5 text-left text-xl">&nbsp;&nbsp;&nbsp;Name</th>
+										<th className="w-1/5 text-left text-xl">&nbsp;&nbsp;&nbsp;Artist</th>
+										<th title="Exponent: You can edit this value, but the player hasn't implemented it yet." className="text-right text-lg line-through hover:cursor-help">Exp</th>
+										<th title="Multiplier" className="text-right text-lg">Mult</th>
+										<th title="Limit" className="text-right text-lg">Lim</th>
 										<th>❌</th>
 									</tr>
 								</thead>
@@ -177,10 +197,10 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 		<Handle type="source" position={Position.Bottom} id="a" style={{ width: 12, height: 12, bottom: 2 + 4 * numScopes }} />
 	</div>
 
-	playscopesOnPlaynode.forEach(({playscope, index}, depth) => {
+	playscopesOnPlaynode.forEach((playscope, depth) => {
 		const [r, g, b] = hexToRGB(playscope.color);
 		const rgba = `rgba(${r}, ${g}, ${b}, ${0.5})`
-		component = <div key={index} className={`w-fit h-fit border-4`} style={{borderColor: rgba, borderRadius: 4 * (4 + depth), zIndex: -200 - depth - 1}}>{component}</div>
+		component = <div key={playscope.id} className={`w-fit h-fit border-4`} style={{borderColor: rgba, borderRadius: 4 * (4 + depth), zIndex: -200 - depth - 1}}>{component}</div>
 	})
 
 	return (

@@ -102,13 +102,14 @@ type PlayerState = {
 
 	messageLog: string[];
 
-	spotifyPlayerReady: boolean;
+	spotifyPlayerReady: boolean | undefined;
+
 	playing: boolean;
 	autoplay: boolean;
 }
 
 type PlayerAction = {
-	type: 'spotify_player_ready' | 'played' | 'paused';
+	type: 'spotify_player_connection_failed' | 'spotify_player_ready' | 'played' | 'paused';
 } | {
 	type: 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
 	playtree: Playtree;
@@ -514,12 +515,12 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					newPlaycounters.playedges.get(curLeastScopeForSelectedEdge)?.get(curNodeForEdgeTraversal.id)?.set(selectedEdge.targetID, edgePlaycount + 1)
 				}
 
-				
 				let nextNode = action.playtree.playnodes.get(selectedEdge.targetID)
 				if (nextNode) {
 					newMessageLog.push(`Traversing playedge '${curNodeForEdgeTraversal.name} => ${nextNode.name}'${edgePlaycount !== undefined ? ` (${edgePlaycount + 1} / ${selectedEdge.limit})` : ""}`)
 					exitingScopes = union([exitingScopes, diff([curNode.playscopes, nextNode.playscopes]) as number[]]) as number[]
 					exitingScopes.forEach(scopeID => {
+						newMessageLog.push(`Exiting scope ${action.playtree.playscopes.find(playscope => playscope.id === scopeID)?.name}. Resetting plays.`)
 						cachedPlaycounters.playitems.set(scopeID, newPlaycounters.playitems.get(scopeID) as Map<string, Map<string, number>>)
 						cachedPlaycounters.playnodes.set(scopeID, newPlaycounters.playnodes.get(scopeID) as Map<string, number>)
 						cachedPlaycounters.playedges.set(scopeID, newPlaycounters.playedges.get(scopeID) as Map<string, Map<string, number>>)
@@ -707,6 +708,12 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			return {
 				...state,
 				spotifyPlayerReady: true
+			}
+		}
+		case 'spotify_player_connection_failed': {
+			return {
+				...state,
+				spotifyPlayerReady: false,
 			}
 		}
 		case 'message_logged': {

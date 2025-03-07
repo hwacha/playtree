@@ -1,5 +1,5 @@
 import { FormEventHandler, useEffect, useMemo, useRef, useState } from "react";
-import { SPOTIFY_SEARCH_API_PATH } from "../api_endpoints";
+import { SPOTIFY_SEARCH_API_PATH } from "../settings/api_endpoints";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import { useSubmit } from "@remix-run/react";
 
@@ -8,26 +8,27 @@ type SearchFieldProps = {
 }
 
 export type SearchResult = {
-	track: string;
-	artist: string;
 	uri: string | null;
+	creatorURI: string | null;
+	name: string;
+	creator: string;
 }
 
 export const queryString: ((sr: SearchResult) => string) = sr => {
-	if (sr.artist === "") {
-		return sr.track
+	if (sr.creator === "") {
+		return sr.name
 	} else {
-		return `${sr.track} - ${sr.artist}`
+		return `${sr.name} - ${sr.creator}`
 	}
 }
 
 export default function SearchField(props: SearchFieldProps) {
-	const [query, setQuery] = useState<SearchResult>({ track: "", artist: "", uri: null })
+	const [query, setQuery] = useState<SearchResult>({ uri: null, creatorURI: null, name: "", creator: "" })
 	const [searchResults, setSearchResults] = useState<SearchResult[]>([])
 
 	const onSearchQueryChange = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const newQueryString = event.target.value
-		let newQuery: SearchResult = { track: event.target.value, artist: "", uri: null }
+		let newQuery: SearchResult = { uri: null, creatorURI: null, name: event.target.value, creator: "" }
 		const matchingSearchResult = searchResults.find(sr => queryString(sr) === newQueryString)
 		if (matchingSearchResult) {
 			newQuery = matchingSearchResult
@@ -38,7 +39,7 @@ export default function SearchField(props: SearchFieldProps) {
 	const handleSubmit: FormEventHandler<HTMLFormElement> = event => {
 		if (query.uri !== null) {
 			if (props.onContentSelect(query)) {
-				setQuery({ track: "", artist: "", uri: null })
+				setQuery({ uri: null, creatorURI: null, name: "", creator: "" })
 				setSearchResults([])
 			}
 		}
@@ -47,11 +48,11 @@ export default function SearchField(props: SearchFieldProps) {
 	}
 
 	useEffect(() => {
-		if (query.track.length >= 2) {
+		if (query.name.length >= 2) {
 			(async () => {
-				const data = await clientFetchWithToken(SPOTIFY_SEARCH_API_PATH(query.track))
+				const data = await clientFetchWithToken(SPOTIFY_SEARCH_API_PATH(query.name))
 				const dataAsJSON = await data.json()
-				const searchResultsJSON: SearchResult[] = dataAsJSON.tracks.items.map((item: any) => { return { track: item.name, artist: item.artists[0].name, uri: item.uri } })
+				const searchResultsJSON: SearchResult[] = dataAsJSON.tracks.items.map((item: any) => { return { uri: item.uri, creatorURI: item.artists[0].uri, name: item.name, creator: item.artists[0].name } })
 				setSearchResults(searchResultsJSON)
 			})()
 		} else if (searchResults.length > 0) {
@@ -72,7 +73,7 @@ export default function SearchField(props: SearchFieldProps) {
 				id="search-field"
 				name="search-field"
 				value={queryString(query)}
-				placeholder="Search for a song"
+				placeholder={"Search for a song with Spotify"}
 				onChange={onSearchQueryChange}
 			/>
 			<datalist id="spotify-search-suggestions">

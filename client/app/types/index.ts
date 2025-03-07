@@ -14,7 +14,10 @@ export type Playitem = {
 	id: string;
 	type: PlayitemType;
 	uri: string;
+	creatorURI: string;
 	name: string;
+	creator: string;
+	exponent: number;
 	multiplier: number;
 	limit: number;
 }
@@ -30,6 +33,7 @@ export type Playnode = {
 	id: string;
 	type: "sequencer" | "selector" | "simulplexer";
 	name: string;
+	repeat: number;
 	limit: number;
 	playscopes: number[];
 	playitems: Playitem[];
@@ -42,12 +46,14 @@ export type Playroot = {
 }
 
 export type Playscope = {
+	id: number;
 	name: string;
 	color: string;
 }
 
 export const makeDefaultPlayscope = () : Playscope => {
 	return {
+		id: -1,
 		name: "default",
 		color: "white"
 	}

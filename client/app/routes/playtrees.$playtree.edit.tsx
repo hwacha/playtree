@@ -2,9 +2,9 @@ import { LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useSubmit } from "@remix-run/react";
 import { Background, Controls, MarkerType, ReactFlow, addEdge, OnConnect, useNodesState, useEdgesState } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
-import { jsonFromPlaytree, Playedge, Playnode, Playscope, Playtree, playtreeFromJson } from "../types";
+import { jsonFromPlaytree, Playedge, Playnode, Playtree, playtreeFromJson } from "../types";
 import Dagre from '@dagrejs/dagre';
 import { PlaytreeEditorAction, playtreeReducer } from "../reducers/editor";
 import PlaynodeComponent, { PlaynodeFlowData } from "../components/PlaynodeComponent";
@@ -12,11 +12,12 @@ import PlayedgeComponent, { PlayedgeFlowData } from "../components/PlayedgeCompo
 import { PlayConnectionLine } from "../components/PlayConnectionLine";
 import { intersection, isSubsetOf, isSupersetOf } from "@opentf/std";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
-import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../api_endpoints";
+import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../settings/api_endpoints";
 import Snack from "../components/Snack";
 import Modal from "../components/Modal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import { PlayscopeManager } from "../components/PlayscopeManager";
+import { Token } from "../root";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	invariant(params.playtree)
@@ -63,7 +64,7 @@ export default function PlaytreeEditor() {
 		return (
 			<Snack type="error"
 				body={
-					<p>You are not logged in. <Link to="/login" className="text-blue-400 underline">Log in to spotify</Link> to edit playtrees.</p>
+					<p>You are not logged in. <Link to="/login" className="text-blue-400 underline">Log in to Spotify</Link> to edit playtrees.</p>
 				}
 			/>
 		)
@@ -90,22 +91,27 @@ export default function PlaytreeEditor() {
 	})
 
 	const playscopeComparator = useMemo(() => {
-		const playnodesByPlayscope = state.playtree.playscopes.map(_ => new Set<string>())
+		const playnodesByPlayscope = new Map<number, Set<string>>()
+		state.playtree.playscopes.forEach(playscope => {
+			playnodesByPlayscope.set(playscope.id, new Set<string>())
+		})
 		state.playtree.playnodes.forEach((playnode) => {
 			playnode.playscopes.forEach(playscopeID => {
-				playnodesByPlayscope[playscopeID].add(playnode.id)
+				playnodesByPlayscope.get(playscopeID)?.add(playnode.id)
 			})
 		})
-		return (i : number, j : number) : number => {
-			const iSubsetOfJ = isSubsetOf(playnodesByPlayscope[i], playnodesByPlayscope[j])
-			const jSubsetOfI = isSubsetOf(playnodesByPlayscope[j], playnodesByPlayscope[i])
-			if (iSubsetOfJ && jSubsetOfI) {
+		return (a : number, b : number) : number => {
+			const aNodes = playnodesByPlayscope.get(a) as Set<string>
+			const bNodes = playnodesByPlayscope.get(b) as Set<string>
+			const aSubsetOfB = isSubsetOf(aNodes, bNodes)
+			const bSubsetOfA = isSubsetOf(bNodes, aNodes)
+			if (aSubsetOfB && bSubsetOfA) {
 				return 0
 			}
-			if (iSubsetOfJ) {
+			if (aSubsetOfB) {
 				return -1
 			}
-			if (jSubsetOfI) {
+			if (bSubsetOfA) {
 				return 1
 			}
 			return 0
@@ -211,6 +217,7 @@ export default function PlaytreeEditor() {
 					id: id,
 					name: "Playnode",
 					type: "sequencer",
+					repeat: 1,
 					limit: -1,
 					playscopes: [],
 					playitems: [],
@@ -281,24 +288,34 @@ export default function PlaytreeEditor() {
 
 	const generateErrors = useCallback(() => {
 		const errors: string[] = []
-		const playnodesByPlayscope : Set<string>[] = state.playtree.playscopes.map(_ => new Set())
+		const playnodesByPlayscopeIndex : Set<string>[] = state.playtree.playscopes.map(_ => new Set())
 
 		state.playtree.playnodes.forEach(playnode => {
 			playnode.playscopes.forEach(playscopeID => {
-				playnodesByPlayscope[playscopeID].add(playnode.id)
+				playnodesByPlayscopeIndex[playscopeID].add(playnode.id)
 			})
 		})
 
-		for (let i = 0; i < playnodesByPlayscope.length; i++) {
-			for (let j = i + 1; j < playnodesByPlayscope.length; j++) {
-				const playnodeSetA = playnodesByPlayscope[i]
-				const playnodeSetB = playnodesByPlayscope[j]
+		for (let i = 0; i < playnodesByPlayscopeIndex.length; i++) {
+			const playnodeSetA = playnodesByPlayscopeIndex[i]
+			const aHasAllNodes = playnodeSetA.size === state.playtree.playnodes.size && playnodeSetA.size > 0
+
+			if (aHasAllNodes) {
+				errors.push(`Redundant playscope: '${state.playtree.playscopes[i].name}' has every playnode, which is the same as the default scope.`)
+			}
+
+			for (let j = i + 1; j < playnodesByPlayscopeIndex.length; j++) {
+				
+				const playnodeSetB = playnodesByPlayscopeIndex[j]
 				
 				const aSupersetOfB = isSupersetOf(playnodeSetA, playnodeSetB)
 				const bSupersetOfA = isSupersetOf(playnodeSetB, playnodeSetA)
 
 				if (aSupersetOfB && bSupersetOfA) {
-					errors.push(`Redundant scopes: '${state.playtree.playscopes[i].name}' and '${state.playtree.playscopes[i].name}' apply to the same set of nodes.`)
+					if (playnodeSetA.size > 0) {
+						// empty scopes will never be reached, and so they won't cause inconsistent reset behavior
+						errors.push(`Redundant playscopes: '${state.playtree.playscopes[i].name}' and '${state.playtree.playscopes[j].name}' apply to the same set of nodes.`)
+					}
 				} else if (!(aSupersetOfB || bSupersetOfA) && intersection([Array.from(playnodeSetA), Array.from(playnodeSetB)]).length > 0) {
 					errors.push(`Partially overlapping playscopes: '${state.playtree.playscopes[i].name}' and '${state.playtree.playscopes[j].name}' have nodes in common. This is only valid if one playscope's set of nodes is a strict subset of the other's.`)
 				}
@@ -316,6 +333,8 @@ export default function PlaytreeEditor() {
 		return warnings
 	}, [state.playtree.playroots])
 
+	const token = useContext(Token)
+
 	const handleSave = useCallback(() => {
 		(async () => {
 			try {
@@ -328,7 +347,7 @@ export default function PlaytreeEditor() {
 					return
 				}
 
-				const response = await clientFetchWithToken(`http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
+				const response = await clientFetchWithToken(token, `http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
 					method: "PUT",
 					body: JSON.stringify(jsonFromPlaytree(state.playtree))
 				})
@@ -389,89 +408,91 @@ export default function PlaytreeEditor() {
 	}, [])
 
 	return (
-		<div className="font-lilitaOne w-5/6 m-auto h-[calc(100vh-15.25rem)]">
-			<div className="w-full h-fit flex justify-between mt-12">
-				<div className="flex py-1">
-					<h2 title={state.playtree.summary.name} className="max-w-[calc(70vw-18rem)] h-9 flex text-3xl text-green-600 resize-x">
-						<div className="whitespace-nowrap overflow-ellipsis overflow-hidden">
-							{state.playtree.summary.name}
-						</div>
-					</h2>
-					<fetcher.Form method="POST" action="/">
-						<input type="hidden" id="playtreeID" name="playtreeID" value={state.playtree.summary.id} />
-						<button type="submit" className="bg-green-300 font-markazi text-xl rounded-md px-2 py-1 ml-2">Play</button>
-					</fetcher.Form>
+		<div className="w-5/6 h-full mx-auto font-lilitaOne flex flex-col justify-end">
+			<div className="w-full h-[95%]">
+				<div className="w-full h-fit flex justify-between">
+					<div className="flex py-1">
+						<h2 title={state.playtree.summary.name} className="max-w-[calc(70vw-18rem)] h-9 flex text-3xl text-green-600 resize-x">
+							<div className="whitespace-nowrap overflow-ellipsis overflow-hidden">
+								{state.playtree.summary.name}
+							</div>
+						</h2>
+						<fetcher.Form method="POST" action="/">
+							<input type="hidden" id="playtreeID" name="playtreeID" value={state.playtree.summary.id} />
+							<button type="submit" className="bg-green-300 font-markazi text-xl rounded-md px-2 py-1 ml-2">Play</button>
+						</fetcher.Form>
+					</div>
+					<button
+						type="button"
+						className="bg-red-300 px-2 py-1 my-1 rounded-lg font-markazi text-xl"
+						onClick={() => handleSetDeleteModalVisiblity(true)}
+					>Delete</button>
 				</div>
-				<button
-					type="button"
-					className="bg-red-300 px-2 py-1 my-1 rounded-lg font-markazi text-xl"
-					onClick={() => handleSetDeleteModalVisiblity(true)}
-				>Delete</button>
-			</div>
-			{
-				deleteModalOn ?
-				<Modal
-					type={"dangerous"}
-					description={`Are you sure you want to delete the playtree '${state.playtree.summary.name}'?`}
-					exitAction={() => handleSetDeleteModalVisiblity(false)}
-					primaryAction={{ label: "Delete", callback: handleDelete }}
-				/>
-				: null
-			}
-			<div className="h-[calc(100%-8rem)] flex">
-				<div className="h-full w-full flex-[4] border-4 border-green-600 bg-neutral-100">
-					<div className="z-10 w-fit absolute m-1 gap-1 flex flex-col">
-						<button
-							title="Add Playnode"
-							className="rounded-lg bg-green-400 px-2 py-1"
-							onClick={handleAddPlaynode}>➕</button>
-						<button
-							id="playhead-spawner"
-							title="Add Playhead"
-							className="rounded-lg bg-purple-300 px-2 py-1"
-							draggable={true}
-							onDragStart={handleDragStart}>💽</button>
-						<button
-							title="Manage Scopes"
-							className="rounded-lg bg-indigo-300 px-2 py-1"
-							onClick={handlePlayscopeManagerVisibility(true)}>🔲</button>
+				{
+					deleteModalOn ?
+					<Modal
+						type={"dangerous"}
+						description={`Are you sure you want to delete the playtree '${state.playtree.summary.name}'?`}
+						exitAction={() => handleSetDeleteModalVisiblity(false)}
+						primaryAction={{ label: "Delete", callback: handleDelete }}
+					/>
+					: null
+				}
+				<div className="h-[85%] flex">
+					<div className="h-full w-full flex-[4] border-4 border-green-600 bg-neutral-100">
+						<div className="z-10 w-fit absolute m-1 gap-1 flex flex-col">
+							<button
+								title="Add Playnode"
+								className="rounded-lg bg-green-400 px-2 py-1"
+								onClick={handleAddPlaynode}>➕</button>
+							<button
+								id="playhead-spawner"
+								title="Add Playhead"
+								className="rounded-lg bg-purple-300 px-2 py-1"
+								draggable={true}
+								onDragStart={handleDragStart}>💽</button>
+							<button
+								title="Manage Scopes"
+								className="rounded-lg bg-indigo-300 px-2 py-1"
+								onClick={handlePlayscopeManagerVisibility(true)}>🔲</button>
+							{
+								state.unsavedChangesExist ?
+									<button
+										type="button"
+										title="Save Changes"
+										className="rounded-lg bg-neutral-400 px-2 py-1"
+										onClick={handleSave}>💾</button> :
+									null
+							}
+						</div>
+						<ReactFlow
+							nodeTypes={customFlowNodeTypes}
+							nodes={flownodes}
+							onNodesChange={onFlownodesChange}
+							edgeTypes={customFlowEdgeTypes}
+							edges={flowedges}
+							onEdgesChange={onFlowedgesChange}
+							connectionLineComponent={PlayConnectionLine}
+							onConnect={onConnect}
+						>
+							<Background />
+							<Controls />
+						</ReactFlow>
 						{
-							state.unsavedChangesExist ?
-								<button
-									type="button"
-									title="Save Changes"
-									className="rounded-lg bg-neutral-400 px-2 py-1"
-									onClick={handleSave}>💾</button> :
-								null
+							playscopeManagerVisible ? <PlayscopeManager playscopes={state.playtree.playscopes} dispatch={dispatch} onExit={handlePlayscopeManagerVisibility(false)}/> : null
 						}
 					</div>
-					<ReactFlow
-						nodeTypes={customFlowNodeTypes}
-						nodes={flownodes}
-						onNodesChange={onFlownodesChange}
-						edgeTypes={customFlowEdgeTypes}
-						edges={flowedges}
-						onEdgesChange={onFlowedgesChange}
-						connectionLineComponent={PlayConnectionLine}
-						onConnect={onConnect}
-					>
-						<Background />
-						<Controls />
-					</ReactFlow>
-					{
-						playscopeManagerVisible ? <PlayscopeManager playscopes={state.playtree.playscopes} dispatch={dispatch} onExit={handlePlayscopeManagerVisibility(false)}/> : null
-					}
-				</div>
-				<div className="border-green-600 bg-neutral-50 border-r-4 border-t-4 border-b-4 w-full flex-[1] h-full overflow-y-auto flex flex-col-reverse">
-					<ul className="font-markazi">
-						{
-							state.messageLog.map((message, index) => {
-								const color = message.type === "error" ? "red" : message.type === "warning" ? "amber" : "green";
-								const emoji = message.type === "error" ? <>🛑</> : message.type === "warning" ? <>⚠️</> : <>✅</>;
-								return <li key={index} className={`bg-${color}-200 text-${color}-500 pl-2 pt-1`}>{emoji} {` `} {message.message}</li>
-							})
-						}
-					</ul>
+					<div className="border-green-600 bg-neutral-50 border-r-4 border-t-4 border-b-4 w-full flex-[1] h-full overflow-y-auto flex flex-col-reverse">
+						<ul className="font-markazi">
+							{
+								state.messageLog.map((message, index) => {
+									const color = message.type === "error" ? "red" : message.type === "warning" ? "amber" : "green";
+									const emoji = message.type === "error" ? <>🛑</> : message.type === "warning" ? <>⚠️</> : <>✅</>;
+									return <li key={index} className={`bg-${color}-200 text-${color}-500 pl-2 pt-1`}>{emoji} {` `} {message.message}</li>
+								})
+							}
+						</ul>
+					</div>
 				</div>
 			</div>
 		</div>

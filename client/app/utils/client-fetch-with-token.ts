@@ -1,6 +1,8 @@
-import { REMIX_SERVER_API_PATH } from "../api_endpoints"
+import { useRevalidator } from "@remix-run/react"
+import { TokenType } from "../root"
+import { REMIX_SERVER_API_PATH } from "../settings/api_endpoints"
 
-const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnType<typeof fetch> => {
+const clientFetchWithToken = async (token: TokenType, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> => {
 	let options: any = args[1]
 
 	if (!options) {
@@ -11,8 +13,8 @@ const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnTy
 		options.headers = {}
 	}
 
-	let accessToken = localStorage.getItem("spotify_access_token")
-	let refreshToken = localStorage.getItem("spotify_refresh_token")
+	let accessToken = token.accessToken ?? sessionStorage.getItem("spotify_access_token")
+	let refreshToken = token.refreshToken
 
 	if (!accessToken) {
 		// if the access token does not exist but the refresh token does, hit the refresh endpoint
@@ -24,7 +26,7 @@ const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnTy
 
 			const refreshTokenResponseBody = await refreshTokenResponse.json()
 			accessToken = refreshTokenResponseBody.access_token
-			localStorage.setItem("spotify_access_token", accessToken as string)
+			sessionStorage.setItem("spotify_access_token", refreshTokenResponseBody.access_token)
 		} else {
 			return new Response(JSON.stringify({ error: "Do not have access token or refresh token" }), { status: 401 })
 		}
@@ -45,7 +47,7 @@ const clientFetchWithToken = async (...args: Parameters<typeof fetch>): ReturnTy
 		const refreshTokenResponseBody = await refreshTokenResponse.json()
 
 		accessToken = refreshTokenResponseBody.access_token
-		localStorage.setItem("spotify_access_token", accessToken as string)
+		sessionStorage.setItem("spotify_access_token", refreshTokenResponseBody.access_token)
 
 		if (args[1] && args[1].headers && (args[1].headers as any).Authorization) {
 			(args[1].headers as any).Authorization = "Bearer " + accessToken;

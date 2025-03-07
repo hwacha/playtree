@@ -1,12 +1,17 @@
 import { Link, useFetcher, useLoaderData } from "@remix-run/react"
 import { PlaytreeSummary } from "../types";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
-import { PLAYTREE_SERVER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "../api_endpoints";
+import { PLAYTREE_SERVER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "../settings/api_endpoints";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useEffect, useRef } from "react";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const spotifyResponse = await serverFetchWithToken(request, SPOTIFY_CURRENT_USER_PATH)
+	let hasPremium = false
+	if (spotifyResponse.ok) {
+		const userInfo = await spotifyResponse.json()
+		hasPremium = userInfo.product === "premium"
+	}
 	
 	
 	const url = new URL(request.url)
@@ -19,6 +24,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 	return {
 		authenticated: spotifyResponse.ok,
+		hasPremium: hasPremium,
 		playtrees: await playtreesResponse.json(),
 		start: start
 	}
@@ -27,9 +33,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 type SummaryCardProps = {
 	summary: PlaytreeSummary;
 	authenticated: boolean;
+	hasPremium: boolean;
 }
 
-const SummaryCard = ({ summary, authenticated }: SummaryCardProps) => {
+const SummaryCard = ({ summary, authenticated, hasPremium }: SummaryCardProps) => {
 	const fetcher = useFetcher()
 	return (
 		<div
@@ -45,10 +52,13 @@ const SummaryCard = ({ summary, authenticated }: SummaryCardProps) => {
 			</p>
 			{
 				authenticated ?
-				<fetcher.Form method="post" action="/">
-					<input type="hidden" id="playtreeID" name="playtreeID" value={summary.id} />
-					<button type="submit" className="border-2 border-green-600 rounded-md px-3 py-2 bg-green-600 text-white">Play</button>
-				</fetcher.Form> :
+				(hasPremium ?
+					<fetcher.Form method="post" action="/">
+						<input type="hidden" id="playtreeID" name="playtreeID" value={summary.id} />
+						<button type="submit" className="border-2 border-green-600 rounded-md px-3 py-2 bg-green-600 text-white">Play</button>
+					</fetcher.Form> :
+					<p className="font-markazi text-md">Your account must have <a target="_blank" rel="noopener noreferrer" href="https://www.spotify.com/us/premium/" className="text-blue-400 underline">Spotify Premium</a> to play a playtree.</p>
+				) :
 				<p className="font-markazi my-8">
 					<Link to="/login" className="text-blue-400 underline">Log in</Link> to play a playtree.
 				</p>
@@ -65,7 +75,7 @@ export default function Index() {
 	}, [data.start])
 	
 	return (
-		<div ref={scrollRef} className="m-auto w-full h-full overflow-y-auto">
+		<div ref={scrollRef} className="w-full flex flex-wrap justify-center">
 			{
 				data.playtrees.map((summary: any) => {
 					return (
@@ -73,11 +83,12 @@ export default function Index() {
 							key={summary.id}
 							summary={summary}
 							authenticated={data.authenticated}
+							hasPremium={data.hasPremium}
 						/>
 					)
 				})
 			}
-			<div className="flex justify-center">
+			<div className="w-full flex justify-center">
 				{
 					data.start > 0 ?
 					<Link to={`/playtrees?start=${Math.max(data.start - 60, 0)}`}>
