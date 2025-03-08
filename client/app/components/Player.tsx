@@ -64,6 +64,9 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 					body: JSON.stringify({ device_ids: [device_id], play: false })
 				}).then(response => {
 					if (response.ok) {
+						clientFetchWithToken(remixServerPath, token, `${SPOTIFY_PLAYER_PATH}/repeat?state=off&device_id=${device_id}`, {
+							method: "PUT",
+						})
 						dispatch({ type: 'spotify_player_ready' })
 					}
 				})
@@ -242,10 +245,6 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		}
 	}, [playtree])
 
-	const wrapInnerComponentWithBackground = (innerComponent : ReactElement) => {
-		return <div className="w-full h-36 min-h-36 bg-green-600 z-30 overflow-x-auto flex items-center">{innerComponent}</div>
-	}
-
 	const [playheadInfo, playnodeInfo, currentPlayitem, playAndLimitInfo, playitemInfo] = useMemo(() => {
 		if (playtree === null || !authenticatedWithPremium) {
 			return [undefined, undefined, undefined, undefined, undefined]
@@ -341,6 +340,10 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 
 		return [playheadInfo, playnodeInfo, currentPlayitem, playAndLimitInfo, playitemInfo]
 	}, [playtree, state.playheads, state.playheadIndex, authenticatedWithPremium])
+
+	const wrapInnerComponentWithBackground = (innerComponent : ReactElement) => {
+		return <div className="w-full h-36 min-h-36 bg-green-600 z-30 overflow-x-auto flex items-center">{innerComponent}</div>
+	}
 
 	if (!authenticatedWithPremium) {
 		return wrapInnerComponentWithBackground(
