@@ -33,14 +33,14 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 	const [spotifyWebPlayer, setSpotifyWebPlayer] = useState<Spotify.Player | null>(null)
 
 	const remixServerPath = useContext(ServerPath).remix ?? undefined
-	const token = useContext(Token)	
+	const token = useContext(Token)
+
+	const spotifyPlayer = useRef<Spotify.Player | null>(null)
 
 	useEffect(() => {
 		if (!authenticatedWithPremium) {
 			return
 		}
-
-		let newPlayer: Spotify.Player | null = null;
 		
 		const script = document.createElement("script");
 		script.src = "https://sdk.scdn.co/spotify-player.js";
@@ -50,15 +50,15 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		window.onSpotifyWebPlaybackSDKReady = () => {
 			const deviceName = getDeviceName()
 
-			newPlayer = new window.Spotify.Player({
+			spotifyPlayer.current = new window.Spotify.Player({
 				name: 'Playtree Web Player: ' + deviceName,
 				getOAuthToken: (cb: any) => { cb(token.accessToken); },
 				volume: 1
 			});
 
-			newPlayer.activateElement()
+			spotifyPlayer.current.activateElement()
 
-			newPlayer.addListener('ready', ({ device_id }: any) => {
+			spotifyPlayer.current.addListener('ready', ({ device_id }: any) => {
 				clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAYER_PATH, {
 					method: "PUT",
 					body: JSON.stringify({ device_ids: [device_id], play: false })
@@ -72,13 +72,13 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 				})
 			});
 
-			newPlayer.addListener("not_ready", ({device_id}: any) => {
-				if (newPlayer) {
-					newPlayer.disconnect()
+			spotifyPlayer.current.addListener("not_ready", ({device_id}: any) => {
+				if (spotifyPlayer.current) {
+					spotifyPlayer.current.disconnect()
 				}
 			})
 
-			newPlayer.addListener('player_state_changed', playbackState => {
+			spotifyPlayer.current.addListener('player_state_changed', playbackState => {
 				if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
 					if (playtree) {
 						dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
@@ -87,13 +87,13 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 				prevPlaybackState.current = playbackState
 			})
 
-			newPlayer.addListener('initialization_error', ({ message }) => {
+			spotifyPlayer.current.addListener('initialization_error', ({ message }) => {
 				// TODO make error message in browser more informative
 				dispatch({type: "spotify_player_connection_failed"})
 				console.error('Failed to initialize Spotify Web Player', message)
 			})
 
-			newPlayer.addListener('authentication_error', ({ message }) => {
+			spotifyPlayer.current.addListener('authentication_error', ({ message }) => {
 				// TODO a more informative error message by having the
 				// authentication state be managed by reducer
 				// This will be improtant in the unusual circumstance
@@ -103,7 +103,7 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 				console.error('Web player authentication failed', message)
 			})
 
-			newPlayer.addListener('account_error', ({ message }) => {
+			spotifyPlayer.current.addListener('account_error', ({ message }) => {
 				// TODO same as authentication error
 				// this will be relevant if there are special premium
 				// plans that still fail for the SDK
@@ -111,23 +111,21 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 				console.error('Premium validation failed', message)
 			})
 
-			newPlayer.addListener('playback_error', ({message}) => {
+			spotifyPlayer.current.addListener('playback_error', ({message}) => {
 				dispatch({type: "paused"})
 				console.error('Playback update failed', message)
 			})
 
-			newPlayer.connect().then(success => {
+			spotifyPlayer.current.connect().then(success => {
 				if (!success) {
 					dispatch({type: "spotify_player_connection_failed" })
 				}
 			})
-
-			setSpotifyWebPlayer(newPlayer)
 		}
 
 		return () => {
-			if (newPlayer) {
-				newPlayer.disconnect()
+			if (spotifyPlayer.current) {
+				spotifyPlayer.current.disconnect()
 			}
 		}
 	}, [])
@@ -139,11 +137,25 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		}
 	}, [authenticatedWithPremium])
 
-	const oldPlaytree = useRef<Playtree | null>(null)
+	const curPlaytreeRef = useRef<Playtree | null>(null)
 	useEffect(() => {
-		if (playtree && !deepEqual(playtree, oldPlaytree.current)) {
+		if (playtree && !deepEqual(playtree, curPlaytreeRef.current)) {
 			dispatch({ type: "playtree_loaded", playtree: playtree, selectorRand: Math.random(), autoplay: autoplay })
-			oldPlaytree.current = playtree
+			curPlaytreeRef.current = playtree
+
+			// we need to make a new closure for the event
+			// listener so the old playtree value isn't captured
+			if (spotifyPlayer.current) {
+				spotifyPlayer.current.removeListener('player_state_changed')
+				spotifyPlayer.current.addListener('player_state_changed', playbackState => {
+					if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
+						if (playtree) {
+							dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
+						}
+					}
+					prevPlaybackState.current = playbackState
+				})
+			}
 		}
 	}, [playtree])
 

@@ -291,15 +291,18 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				}
 			})
 
-			return {
-				...state,
+			const newState = {
 				playheadIndex: 0,
 				playheads: newPlayheads,
 				leastScopeByNode: leastScopeByNode,
 				leastScopeByEdge: leastScopeByEdge,
 				messageLog: [`Playtree "${action.playtree.summary.name}" loaded.`],
-				playing: false
+				playing: false,
+				autoplay: state.autoplay,
+				spotifyPlayerReady: state.spotifyPlayerReady,
 			}
+
+			return newState
 		}
 		case 'played': {
 			const newPlayheads = [...state.playheads]
