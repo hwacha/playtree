@@ -73,6 +73,16 @@ func getAllPlaytreeSummaries() ([]Summary, error) {
 	return summaries, nil
 }
 
+func setAllowOriginHeader(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+
+	if origin == "http://localhost:5173" || origin == "http://localhost:3000" || origin == "https://playtree.gdn" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+	} else {
+		w.Header().Set("Access-Control-Allow-Origin", "https://playtree.gdn")
+	}
+}
+
 var handlers = map[string]func(http.ResponseWriter, *http.Request){
 	"GET /playtrees": func(w http.ResponseWriter, r *http.Request) {
 		summaries, err := getAllPlaytreeSummaries()
@@ -181,6 +191,8 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		w.Write([]byte(newPlaytreeId))
 	},
 	"GET /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
+		setAllowOriginHeader(w, r)
+
 		// validate that the client has a valid access token
 		// and that the user is the creator of the playtree
 		currentUserID, spotifyErr := getSpotifyCurrentUserID(w, r)
@@ -214,7 +226,7 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		}
 	},
 	"PUT /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		setAllowOriginHeader(w, r)
 
 		// check if file already exists. if not, 404 error.
 		id := r.PathValue("id")
@@ -268,7 +280,7 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		w.WriteHeader(http.StatusNoContent)
 	},
 	"DELETE /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		setAllowOriginHeader(w, r)
 
 		currentUserID, spotifyErr := getSpotifyCurrentUserID(w, r)
 		if spotifyErr != nil {
@@ -310,11 +322,9 @@ var handlers = map[string]func(http.ResponseWriter, *http.Request){
 		w.WriteHeader(http.StatusNoContent)
 	},
 	"OPTIONS /playtrees/{id}": func(w http.ResponseWriter, r *http.Request) {
-		// _ := r.PathValue("id")
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		setAllowOriginHeader(w, r)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.WriteHeader(http.StatusOK)
 	},
 	"GET /me/player": func(w http.ResponseWriter, r *http.Request) {
 		currentUserID, spotifyError := getSpotifyCurrentUserID(w, r)

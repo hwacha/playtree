@@ -12,16 +12,15 @@ import PlayedgeComponent, { PlayedgeFlowData } from "../components/PlayedgeCompo
 import { PlayConnectionLine } from "../components/PlayConnectionLine";
 import { intersection, isSubsetOf, isSupersetOf } from "@opentf/std";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
-import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../settings/api_endpoints";
 import Snack from "../components/Snack";
 import Modal from "../components/Modal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import { PlayscopeManager } from "../components/PlayscopeManager";
-import { Token } from "../root";
+import { ServerPath, Token } from "../root";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	invariant(params.playtree)
-	const response = await serverFetchWithToken(request, `${PLAYTREE_SERVER_PLAYTREES_PATH}/${params.playtree}`)
+	const response = await serverFetchWithToken(request, `${process.env.PLAYTREE_SERVER_API_PATH}/playtrees/${params.playtree}`)
 	if (response.ok) {
 		return {
 			authenticated: true,
@@ -333,6 +332,9 @@ export default function PlaytreeEditor() {
 		return warnings
 	}, [state.playtree.playroots])
 
+	const serverPaths = useContext(ServerPath)
+	const remixServerPath = serverPaths.remix ?? undefined
+	const playtreeServerPath = serverPaths.playtree
 	const token = useContext(Token)
 
 	const handleSave = useCallback(() => {
@@ -347,7 +349,7 @@ export default function PlaytreeEditor() {
 					return
 				}
 
-				const response = await clientFetchWithToken(token, `http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
+				const response = await clientFetchWithToken(remixServerPath, token, `${playtreeServerPath}/playtrees/${state.playtree.summary.id}`, {
 					method: "PUT",
 					body: JSON.stringify(jsonFromPlaytree(state.playtree))
 				})

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { PlaytreeEditorAction } from "../reducers/editor";
 import { Playitem } from "../types";
 import NaturalNumberInputField from "./NaturalNumberInputField";

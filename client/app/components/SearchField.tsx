@@ -1,8 +1,7 @@
 import { FormEventHandler, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { SPOTIFY_SEARCH_API_PATH } from "../settings/api_endpoints";
+import { SPOTIFY_SEARCH_API_PATH } from "../settings/spotify_api_endpoints";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
-import { useSubmit } from "@remix-run/react";
-import { Token } from "../root";
+import { ServerPath, Token } from "../root";
 
 type SearchFieldProps = {
 	onContentSelect: (content: SearchResult) => boolean;
@@ -48,12 +47,13 @@ export default function SearchField(props: SearchFieldProps) {
 		return false
 	}
 
+	const remixServerPath = useContext(ServerPath).remix ?? undefined
 	const token = useContext(Token)
 
 	useEffect(() => {
 		if (query.name.length >= 2) {
 			(async () => {
-				const data = await clientFetchWithToken(token, SPOTIFY_SEARCH_API_PATH(query.name))
+				const data = await clientFetchWithToken(remixServerPath, token, SPOTIFY_SEARCH_API_PATH(query.name))
 				const dataAsJSON = await data.json()
 				const searchResultsJSON: SearchResult[] = dataAsJSON.tracks.items.map((item: any) => { return { uri: item.uri, creatorURI: item.artists[0].uri, name: item.name, creator: item.artists[0].name } })
 				setSearchResults(searchResultsJSON)

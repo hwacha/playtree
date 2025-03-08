@@ -1,7 +1,6 @@
 import { ActionFunctionArgs } from "@remix-run/node";
 import { Link, redirect, useFetcher, useLoaderData } from "@remix-run/react";
-import { getSession } from "../utils/sessions";
-import { PLAYTREE_SERVER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "../settings/api_endpoints";
+import { SPOTIFY_CURRENT_USER_PATH } from "../settings/spotify_api_endpoints";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
 import Snack from "../components/Snack";
 
@@ -28,7 +27,7 @@ export const loader = async ({ request }: ActionFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData()
-	const response = await serverFetchWithToken(request, PLAYTREE_SERVER_PLAYTREES_PATH, {
+	const response = await serverFetchWithToken(request, `${process.env.PLAYTREE_SERVER_API_PATH}/playtrees` as string, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json"

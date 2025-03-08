@@ -4,7 +4,6 @@ import {
 	Meta,
 	Outlet,
 	Scripts,
-	ShouldRevalidateFunction,
 	useFetcher,
 	useLoaderData,
 	useLocation
@@ -18,7 +17,7 @@ import Banner from "./components/Banner";
 import { Playnode, Playroot, Playscope, playtreeFromJson, PlaytreeSummary } from "./types";
 import { getSession } from "./utils/sessions";
 import { serverFetchWithToken } from "./utils/server-fetch-with-token.server";
-import { PLAYTREE_SERVER_PLAYER_PATH, PLAYTREE_SERVER_USER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "./settings/api_endpoints";
+import { SPOTIFY_CURRENT_USER_PATH } from "./settings/spotify_api_endpoints";
 import React from "react";
 
 export const links: LinksFunction = () => [
@@ -26,6 +25,9 @@ export const links: LinksFunction = () => [
 ];
 
 export const loader = async ({request} : LoaderFunctionArgs) => {
+	console.log("PLAYTREE_REMIX_SERVER_API_PATH:", process.env.PLAYTREE_REMIX_SERVER_API_PATH);
+	console.log("PLAYTREE_SERVER_API_PATH:", process.env.PLAYTREE_SERVER_API_PATH);
+	
 	const result : {
 		authenticated: boolean,
 		hasPremium: boolean,
@@ -38,7 +40,9 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 		} | null,
 		userPlaytreeSummaries: PlaytreeSummary[] | null,
 		accessToken: string | null,
-		refreshToken: string | null
+		refreshToken: string | null,
+		playtreeRemixServerAPIPath: string | undefined,
+		playtreeServerAPIPath: string | undefined,
 	} = {
 		authenticated: false,
 		hasPremium: false,
@@ -46,7 +50,9 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 		playerPlaytree: null,
 		userPlaytreeSummaries: null,
 		accessToken: null,
-		refreshToken: null
+		refreshToken: null,
+		playtreeRemixServerAPIPath: process.env.PLAYTREE_REMIX_SERVER_API_PATH,
+		playtreeServerAPIPath: process.env.PLAYTREE_SERVER_API_PATH,
 	}
 
 	const url = new URL(request.url)
@@ -60,10 +66,10 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 		}
 	}
 
-	const profileRequest = await serverFetchWithToken(request, SPOTIFY_CURRENT_USER_PATH)
-	const playerRequest = await serverFetchWithToken(request, PLAYTREE_SERVER_PLAYER_PATH)
-	const userPlaytreeSummariesRequest = await serverFetchWithToken(request, PLAYTREE_SERVER_USER_PLAYTREES_PATH)
-
+	const profileRequest = await serverFetchWithToken(request, SPOTIFY_CURRENT_USER_PATH as string)
+	const playerRequest = await serverFetchWithToken(request, `${process.env.PLAYTREE_SERVER_API_PATH}/me/player` )
+	const userPlaytreeSummariesRequest = await serverFetchWithToken(request, `${process.env.PLAYTREE_SERVER_API_PATH}/playtrees/me` as string)
+	
 	if (profileRequest.ok) {
 		result.authenticated = true
 		const profileJson = await profileRequest.json()
@@ -92,7 +98,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData()
 	const playtreeID = formData.get("playtreeID");
 	if (playtreeID) {
-		await serverFetchWithToken(request, `${PLAYTREE_SERVER_PLAYER_PATH}?playtree=${playtreeID}`, {
+		await serverFetchWithToken(request, `${process.env.PLAYTREE_SERVER_API_PATH}/me/player?playtree=${playtreeID}`, {
 			method: "PUT"
 		})
 	}
@@ -102,6 +108,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export type TokenType = {accessToken: string | null, refreshToken: string | null}
 export const Token = React.createContext<TokenType>({accessToken: null, refreshToken: null })
+export type ServersType = { remix: string | null, playtree: string | null }
+export const ServerPath = React.createContext<ServersType>({remix: null, playtree: null})
 
 export default function App() {
 	const data = useLoaderData<typeof loader>()
@@ -120,18 +128,20 @@ export default function App() {
 			</head>
 			<body className="bg-amber-100">
 				<Scripts />
-				<Token.Provider value={{accessToken: data.accessToken, refreshToken: data.refreshToken}}>
-					<div className="h-screen overflow-hidden flex">
-						<UserSidebar userPlaytreeSummaries={userPlaytreeSummaries} />
-						<div className="w-full flex flex-col">
-							<Banner isAuthenticated={data.authenticated} displayName={data.displayName}/>
-							<div className="w-full h-full overflow-y-auto">
-								<Outlet key={location.pathname} />
+				<ServerPath.Provider value={{ remix: data.playtreeRemixServerAPIPath ?? null, playtree: data.playtreeServerAPIPath ?? null}}>
+					<Token.Provider value={{accessToken: data.accessToken, refreshToken: data.refreshToken}}>
+						<div className="h-screen overflow-hidden flex">
+							<UserSidebar userPlaytreeSummaries={userPlaytreeSummaries} />
+							<div className="w-full flex flex-col">
+								<Banner isAuthenticated={data.authenticated} displayName={data.displayName}/>
+								<div className="w-full h-full overflow-y-auto">
+									<Outlet key={location.pathname} />
+								</div>
+								<Player playtree={playerPlaytree} authenticatedWithPremium={data.authenticated && data.hasPremium} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined} />
 							</div>
-							<Player playtree={playerPlaytree} authenticatedWithPremium={data.authenticated && data.hasPremium} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined} />
 						</div>
-					</div>
-				</Token.Provider>
+					</Token.Provider>
+				</ServerPath.Provider>
 			</body>
 		</html>
 	);

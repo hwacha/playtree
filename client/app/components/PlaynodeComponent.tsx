@@ -2,7 +2,7 @@ import { Handle, Node, NodeProps, Position } from "@xyflow/react";
 import { PlaytreeEditorAction } from "../reducers/editor";
 import { Playitem, Playroot, Playnode, Playscope } from "../types";
 import { useCallback, useMemo, useState } from "react";
-import SearchField, { queryString, SearchResult } from "./SearchField";
+import SearchField, { SearchResult } from "./SearchField";
 import React from "react";
 import NaturalNumberInputField from "./NaturalNumberInputField";
 import PlayitemComponent from "./PlayitemComponent";

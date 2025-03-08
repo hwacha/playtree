@@ -1,7 +1,7 @@
 import { Link, useFetcher, useLoaderData } from "@remix-run/react"
 import { PlaytreeSummary } from "../types";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
-import { PLAYTREE_SERVER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "../settings/api_endpoints";
+import { SPOTIFY_CURRENT_USER_PATH } from "../settings/spotify_api_endpoints";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useEffect, useRef } from "react";
 
@@ -20,7 +20,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	if (startParam) {
 		start = parseInt(startParam)
 	}
-	const playtreesResponse = await fetch(`${PLAYTREE_SERVER_PLAYTREES_PATH}?start=${start}`)
+	const playtreesResponse = await fetch(`${process.env.PLAYTREE_SERVER_API_PATH}/playtrees?start=${start}`)
 
 	return {
 		authenticated: spotifyResponse.ok,

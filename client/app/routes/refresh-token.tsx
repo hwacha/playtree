@@ -1,4 +1,4 @@
-import { ActionFunctionArgs, LoaderFunctionArgs, redirect } from "@remix-run/node";
+import { ActionFunctionArgs } from "@remix-run/node";
 import { commitSession, getSession } from "../utils/sessions";
 import queryString from "query-string";
 
@@ -32,7 +32,7 @@ export async function action({
 		method: "POST",
 		headers: {
 			'content-type': 'application/x-www-form-urlencoded',
-			'Authorization': 'Basic ' + (new (Buffer as any).from(process.env.VITE_SPOTIFY_CLIENT_ID + ':' + process.env.VITE_SPOTIFY_CLIENT_SECRET).toString('base64')),
+			'Authorization': 'Basic ' + (new (Buffer as any).from(process.env.PLAYTREE_SPOTIFY_CLIENT_ID + ':' + process.env.PLAYTREE_SPOTIFY_CLIENT_SECRET).toString('base64')),
 		},
 	})
 
