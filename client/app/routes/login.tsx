@@ -1,4 +1,4 @@
-import { LoaderFunctionArgs, redirect } from "@remix-run/node";
+import { redirect } from "@remix-run/node";
 import queryString from 'query-string';
 
 const generateRandomString = (length : number) => {
@@ -15,9 +15,9 @@ export async function loader() {
 	return redirect('https://accounts.spotify.com/authorize?' +
 		queryString.stringify({
 			response_type: 'code',
-			client_id: process.env.VITE_SPOTIFY_CLIENT_ID,
+			client_id: process.env.PLAYTREE_SPOTIFY_CLIENT_ID,
 			scope: scope,
-			redirect_uri: process.env.VITE_SPOTIFY_REDIRECT_URI,
+			redirect_uri: process.env.PLAYTREE_REMIX_SERVER_API_PATH + "/callback",
 			state: state
 		}));
 }

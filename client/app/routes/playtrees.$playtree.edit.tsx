@@ -1,5 +1,5 @@
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { Link, useFetcher, useLoaderData, useSubmit } from "@remix-run/react";
+import { isRouteErrorResponse, Link, useFetcher, useLoaderData, useRouteError, useSubmit } from "@remix-run/react";
 import { Background, Controls, MarkerType, ReactFlow, addEdge, OnConnect, useNodesState, useEdgesState } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useCallback, useContext, useEffect, useMemo, useReducer, useState } from "react";
@@ -12,85 +12,73 @@ import PlayedgeComponent, { PlayedgeFlowData } from "../components/PlayedgeCompo
 import { PlayConnectionLine } from "../components/PlayConnectionLine";
 import { intersection, isSubsetOf, isSupersetOf } from "@opentf/std";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
-import { PLAYTREE_SERVER_PLAYTREES_PATH } from "../settings/api_endpoints";
 import Snack from "../components/Snack";
 import Modal from "../components/Modal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import { PlayscopeManager } from "../components/PlayscopeManager";
-import { Token } from "../root";
+import { ServerPath, Token } from "../root";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) : Promise<Parameters<typeof playtreeFromJson>[0]> => {
 	invariant(params.playtree)
-	const response = await serverFetchWithToken(request, `${PLAYTREE_SERVER_PLAYTREES_PATH}/${params.playtree}`)
+	const response = await serverFetchWithToken(request, `${process.env.PLAYTREE_SERVER_API_PATH}/playtrees/${params.playtree}`)
+
 	if (response.ok) {
-		return {
-			authenticated: true,
-			permitted: true,
-			playtree: await response.json()
+		const playtreeJson = await response.json()
+		if (!playtreeJson) {
+			throw new Response("Internal Server Error", { status: 500 })
 		}
+		return playtreeJson
 	} else if (response.status === 401) {
-		return {
-			authenticated: false,
-			permitted: false,
-			playtree: null
-		}
+		throw new Response("Not Authenticated", { status: 401 })
 	} else if (response.status === 403) {
-		return {
-			authenticated: true,
-			permitted: false,
-			playtree: null
-		}
+		throw new Response("Permission Denied", { status: 403 })
 	} else if (response.status === 404) {
-		return {
-			authenticated: true,
-			permitted: true,
-			playtree: null
+		throw new Response("Not Found", { status: 404})
+	} else {
+		throw new Response("Internal Server Error", { status: 500})
+	}
+}
+
+export function ErrorBoundary() {
+	const error = useRouteError()
+	let message: string = "Something went wrong."
+	if (isRouteErrorResponse(error)) {
+		switch (error.status) {
+			case 401:
+				message = "401 Authentication failed: try logging in again."
+				break
+			case 403:
+				message = "403 Permission Denied: this isn't your playtree."
+				break
+			case 404:
+				message = "404 Playtree not found."
+				break
+			case 500:
+				message= "500 Internal Server Error: Something went wrong."
 		}
 	}
-	return {
-		authenticated: true,
-		permitted: true,
-		playtree: null
-	}
+
+	return (
+		<Snack type="error" body={<p className="text-white font-markazi text-lg">{message}</p>} />
+	)
 }
 
 export default function PlaytreeEditor() {
 	const customFlowNodeTypes = useMemo(() => ({ play: PlaynodeComponent }), []);
 	const customFlowEdgeTypes = useMemo(() => ({ play: PlayedgeComponent }), []);
 
-	const loaderData = useLoaderData<typeof loader>()
-
-	if (!loaderData.authenticated) {
-		return (
-			<Snack type="error"
-				body={
-					<p>You are not logged in. <Link to="/login" className="text-blue-400 underline">Log in to Spotify</Link> to edit playtrees.</p>
-				}
-			/>
-		)
-	}
-	if (!loaderData.permitted) {
-		return (
-			<Snack type="error"
-				body={
-					<p>This is not your playtree. You can't edit it. <Link to="/" className="text-blue-400 underline">Go Home</Link></p>
-				}
-			/>
-		)
-	}
-	const initialPlaytree: Playtree | null = playtreeFromJson(loaderData.playtree)
-
-	if (initialPlaytree === null) {
-		return <p></p>
-	}
+	const playtreeJson = useLoaderData<typeof loader>()
 
 	const [state, dispatch] = useReducer<typeof playtreeReducer>(playtreeReducer, {
-		playtree: initialPlaytree,
+		playtree: playtreeFromJson(playtreeJson) as Playtree, // this is guaranteed from the loader
 		unsavedChangesExist: false,
 		messageLog: []
 	})
 
 	const playscopeComparator = useMemo(() => {
+		if (!state.playtree) {
+			return () => 0
+		}
 		const playnodesByPlayscope = new Map<number, Set<string>>()
 		state.playtree.playscopes.forEach(playscope => {
 			playnodesByPlayscope.set(playscope.id, new Set<string>())
@@ -116,9 +104,9 @@ export default function PlaytreeEditor() {
 			}
 			return 0
 		}
-	}, [state.playtree.playscopes, state.playtree.playnodes])
+	}, [state.playtree?.playscopes, state.playtree?.playnodes])
 
-	const initialFlownodeData: PlaynodeFlowData[] = Array.from(initialPlaytree.playnodes.values()).map((playnode, index) => {
+	let initialFlownodeData: PlaynodeFlowData[] = Array.from(state.playtree.playnodes.values()).map((playnode, index) => {
 		return {
 			key: playnode.id,
 			type: "play",
@@ -129,8 +117,8 @@ export default function PlaytreeEditor() {
 			data: {
 				label: playnode.id,
 				playnode: playnode,
-				playroot: initialPlaytree.playroots.get(playnode.id) ?? null,
-				playscopes: initialPlaytree.playscopes,
+				playroot: state.playtree?.playroots.get(playnode.id) ?? null,
+				playscopes: state.playtree?.playscopes ?? [],
 				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
 				playscopeComparator: playscopeComparator
 			}
@@ -160,13 +148,13 @@ export default function PlaytreeEditor() {
 	}, [])
 
 	let initialFlowedgeData: PlayedgeFlowData[] = []
-	initialPlaytree.playnodes.forEach(playnode => {
-		if (playnode.next) {
-			playnode.next.forEach(playedge => {
-				initialFlowedgeData.push(makeNewPlayedgeFlowData(playnode, playedge))
-			})
-		}
-	})
+		state.playtree.playnodes.forEach(playnode => {
+			if (playnode.next) {
+				playnode.next.forEach(playedge => {
+					initialFlowedgeData.push(makeNewPlayedgeFlowData(playnode, playedge))
+				})
+			}
+		})
 
 	const [flownodes, setFlownodes, onFlownodesChange] = useNodesState<PlaynodeFlowData>(initialFlownodeData)
 	const [flowedges, setFlowedges, onFlowedgesChange] = useEdgesState<PlayedgeFlowData>(initialFlowedgeData)
@@ -192,10 +180,10 @@ export default function PlaytreeEditor() {
 			const y = position.y - (node.measured?.height ?? 0) / 2;
 
 			return { ...node, position: { x, y } };
-		})
-		)
+		}))
+		
 		setFlowedges([...flowedges])
-	}, [])
+	}, [state.playtree])
 
 	const onConnect: OnConnect = useCallback(connection => {
 		const sourcePlaynode = state.playtree.playnodes.get(connection.source)
@@ -223,13 +211,13 @@ export default function PlaytreeEditor() {
 					playitems: [],
 					next: []
 				},
-				playscopes: state.playtree.playscopes,
+				playscopes: state.playtree ? state.playtree.playscopes : [],
 				playroot: null,
 				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
 				playscopeComparator: playscopeComparator
 			}
 		}
-	}, [])
+	}, [state.playtree])
 
 	const handleAddPlaynode = useCallback(() => {
 		dispatch({ type: "added_playnode" })
@@ -251,7 +239,7 @@ export default function PlaytreeEditor() {
 					data: {
 						...playnodeFlowDataToUpsert.data,
 						playnode: {...playnode},
-						playscopes: state.playtree.playscopes,
+						playscopes: state.playtree.playscopes ?? [],
 						playroot: state.playtree.playroots.get(playnode.id) ?? null,
 						playscopeComparator: playscopeComparator
 					}
@@ -333,6 +321,9 @@ export default function PlaytreeEditor() {
 		return warnings
 	}, [state.playtree.playroots])
 
+	const serverPaths = useContext(ServerPath)
+	const remixServerPath = serverPaths.remix ?? undefined
+	const playtreeServerPath = serverPaths.playtree
 	const token = useContext(Token)
 
 	const handleSave = useCallback(() => {
@@ -347,7 +338,7 @@ export default function PlaytreeEditor() {
 					return
 				}
 
-				const response = await clientFetchWithToken(token, `http://localhost:8080/playtrees/${state.playtree.summary.id}`, {
+				const response = await clientFetchWithToken(remixServerPath, token, `${playtreeServerPath}/playtrees/${state.playtree.summary.id}`, {
 					method: "PUT",
 					body: JSON.stringify(jsonFromPlaytree(state.playtree))
 				})
@@ -380,6 +371,9 @@ export default function PlaytreeEditor() {
 	}, [state.playtree])
 
 	const handleDragStart = useCallback((event: any) => {
+		if (!state.playtree) {
+			return
+		}
 		if (event && event.target) {
 			event.dataTransfer.setData("index", state.playtree.playroots.size)
 		}
@@ -479,7 +473,7 @@ export default function PlaytreeEditor() {
 							<Controls />
 						</ReactFlow>
 						{
-							playscopeManagerVisible ? <PlayscopeManager playscopes={state.playtree.playscopes} dispatch={dispatch} onExit={handlePlayscopeManagerVisibility(false)}/> : null
+							playscopeManagerVisible ? <PlayscopeManager playscopes={state.playtree.playscopes ?? []} dispatch={dispatch} onExit={handlePlayscopeManagerVisibility(false)}/> : null
 						}
 					</div>
 					<div className="border-green-600 bg-neutral-50 border-r-4 border-t-4 border-b-4 w-full flex-[1] h-full overflow-y-auto flex flex-col-reverse">

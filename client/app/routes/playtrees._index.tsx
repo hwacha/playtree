@@ -1,9 +1,11 @@
-import { Link, useFetcher, useLoaderData } from "@remix-run/react"
+import { Link, useFetcher, useLoaderData, useRouteError } from "@remix-run/react"
 import { PlaytreeSummary } from "../types";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
-import { PLAYTREE_SERVER_PLAYTREES_PATH, SPOTIFY_CURRENT_USER_PATH } from "../settings/api_endpoints";
+import { SPOTIFY_CURRENT_USER_PATH } from "../settings/spotify_api_endpoints";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useEffect, useRef } from "react";
+import { isErrorResponse } from "@remix-run/react/dist/data";
+import Snack from "../components/Snack";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const spotifyResponse = await serverFetchWithToken(request, SPOTIFY_CURRENT_USER_PATH)
@@ -13,14 +15,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		hasPremium = userInfo.product === "premium"
 	}
 	
-	
 	const url = new URL(request.url)
 	const startParam = url.searchParams.get("start")
 	let start = 0
 	if (startParam) {
 		start = parseInt(startParam)
 	}
-	const playtreesResponse = await fetch(`${PLAYTREE_SERVER_PLAYTREES_PATH}?start=${start}`)
+	const playtreesResponse = await fetch(`${process.env.PLAYTREE_SERVER_API_PATH}/playtrees?start=${start}`)
+
+	if (!playtreesResponse.ok) {
+		throw new Response("Internal Server Error", { status: 500 })
+	}
 
 	return {
 		authenticated: spotifyResponse.ok,
@@ -28,6 +33,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		playtrees: await playtreesResponse.json(),
 		start: start
 	}
+}
+
+export function ErrorBoundary() {
+	const error = useRouteError()
+	let message = "Something went wrong."
+	if (isErrorResponse(error) && error.status === 500) {
+		message = "Failed to retreive playtrees from the server."
+	}
+	return (
+		<Snack type="error" body={<p className="text-white font-markazi text-lg">{message}</p>} />
+	)
 }
 
 type SummaryCardProps = {

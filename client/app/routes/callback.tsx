@@ -16,14 +16,14 @@ export async function loader({
 	} else {
 		const query = queryString.stringify({
 			code: code,
-			redirect_uri: process.env.VITE_SPOTIFY_REDIRECT_URI,
+			redirect_uri: process.env.PLAYTREE_REMIX_SERVER_API_PATH + "/callback",
 			grant_type: 'authorization_code'
 		})
 		const tokenResponse = await fetch('https://accounts.spotify.com/api/token?' + query, {
 			method: "POST",
 			headers: {
 				'content-type': 'application/x-www-form-urlencoded',
-				'Authorization': 'Basic ' + (new (Buffer as any).from(process.env.VITE_SPOTIFY_CLIENT_ID + ':' + process.env.VITE_SPOTIFY_CLIENT_SECRET).toString('base64')),
+				'Authorization': 'Basic ' + (new (Buffer as any).from(process.env.PLAYTREE_SPOTIFY_CLIENT_ID + ':' + process.env.PLAYTREE_SPOTIFY_CLIENT_SECRET).toString('base64')),
 			},
 		})
 

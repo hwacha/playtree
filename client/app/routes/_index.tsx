@@ -1,7 +1,7 @@
 import { ActionFunctionArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
-import { SPOTIFY_CURRENT_USER_PATH } from "../settings/api_endpoints";
+import { SPOTIFY_CURRENT_USER_PATH } from "../settings/spotify_api_endpoints";
 import Snack from "../components/Snack";
 
 export const loader = async ({ request }: ActionFunctionArgs) => {

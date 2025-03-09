@@ -66,16 +66,12 @@ export type Playtree = {
 	playscopes: Playscope[];
 }
 
-export const playtreeFromJson = (playtreeWithNodesAsJSObject: { summary: PlaytreeSummary, playnodes: { [key: string]: Playnode }, playroots: { [key: string]: Playroot }, playscopes: Playscope[] } | null): Playtree | null => {
-	if (playtreeWithNodesAsJSObject) {
-		return {
-			...playtreeWithNodesAsJSObject,
-			playnodes: new Map(Object.entries(playtreeWithNodesAsJSObject.playnodes)),
-			playroots: new Map(Object.entries(playtreeWithNodesAsJSObject.playroots)),
-		}
+export const playtreeFromJson = (playtreeWithNodesAsJSObject: { summary: PlaytreeSummary, playnodes: { [key: string]: Playnode }, playroots: { [key: string]: Playroot }, playscopes: Playscope[] }): Playtree => {
+	return {
+		...playtreeWithNodesAsJSObject,
+		playnodes: new Map(Object.entries(playtreeWithNodesAsJSObject.playnodes)),
+		playroots: new Map(Object.entries(playtreeWithNodesAsJSObject.playroots)),
 	}
-
-	return null
 }
 
 export const jsonFromPlaytree = (playtree: Playtree): { summary: PlaytreeSummary, playnodes: { [key: string]: Playnode }, playroots: { [key: string]: Playroot }, playscopes: Playscope[] } => {

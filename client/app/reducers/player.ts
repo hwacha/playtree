@@ -291,15 +291,18 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				}
 			})
 
-			return {
-				...state,
+			const newState = {
 				playheadIndex: 0,
 				playheads: newPlayheads,
 				leastScopeByNode: leastScopeByNode,
 				leastScopeByEdge: leastScopeByEdge,
 				messageLog: [`Playtree "${action.playtree.summary.name}" loaded.`],
-				playing: false
+				playing: false,
+				autoplay: state.autoplay,
+				spotifyPlayerReady: state.spotifyPlayerReady,
 			}
+
+			return newState
 		}
 		case 'played': {
 			const newPlayheads = [...state.playheads]
@@ -317,7 +320,6 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			return {
 				...state,
 				playing: false,
-				messageLog: [...state.messageLog, "Pausing audio."]
 			}
 		}
 		case 'song_ended':
@@ -521,9 +523,15 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					exitingScopes = union([exitingScopes, diff([curNode.playscopes, nextNode.playscopes]) as number[]]) as number[]
 					exitingScopes.forEach(scopeID => {
 						newMessageLog.push(`Exiting scope ${action.playtree.playscopes.find(playscope => playscope.id === scopeID)?.name}. Resetting plays.`)
-						cachedPlaycounters.playitems.set(scopeID, newPlaycounters.playitems.get(scopeID) as Map<string, Map<string, number>>)
-						cachedPlaycounters.playnodes.set(scopeID, newPlaycounters.playnodes.get(scopeID) as Map<string, number>)
-						cachedPlaycounters.playedges.set(scopeID, newPlaycounters.playedges.get(scopeID) as Map<string, Map<string, number>>)
+						if (newPlaycounters.playitems.has(scopeID)) {
+							cachedPlaycounters.playitems.set(scopeID, newPlaycounters.playitems.get(scopeID) as Map<string, Map<string, number>>)
+						}
+						if (newPlaycounters.playnodes.has(scopeID)) {
+							cachedPlaycounters.playnodes.set(scopeID, newPlaycounters.playnodes.get(scopeID) as Map<string, number>)
+						}
+						if (newPlaycounters.playedges.has(scopeID)) {
+							cachedPlaycounters.playedges.set(scopeID, newPlaycounters.playedges.get(scopeID) as Map<string, Map<string, number>>)
+						}
 						newPlaycounters = zeroPlaycountersAtScope(newPlaycounters, scopeID)
 					})
 
@@ -675,6 +683,9 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			}
 		}
 		case 'decremented_playhead': {
+			if (!state.playheads || state.playheads.length === 0) {
+				return state
+			}
 			const newPlayheadIndex = (state.playheadIndex + state.playheads.length - 1) % state.playheads.length
 			return {
 				...state,
@@ -683,6 +694,9 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			}
 		}
 		case 'incremented_playhead': {
+			if (!state.playheads || state.playheads.length === 0) {
+				return state
+			}
 			const newPlayheadIndex = (state.playheadIndex + 1) % state.playheads.length
 			return {
 				...state,
@@ -698,7 +712,9 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 		}
 		case 'song_progress_received': {
 			const newPlayheads = structuredClone(state.playheads)
-			newPlayheads[state.playheadIndex].spotifyPlaybackPosition_ms = action.spotifyPlaybackPosition_ms
+			if (newPlayheads && newPlayheads.length > 0 && newPlayheads[state.playheadIndex]) {
+				newPlayheads[state.playheadIndex].spotifyPlaybackPosition_ms = action.spotifyPlaybackPosition_ms
+			}
 			return {
 				...state,
 				playheads: newPlayheads

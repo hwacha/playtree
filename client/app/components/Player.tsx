@@ -3,10 +3,10 @@ import { Playitem, Playnode, Playtree } from "../types";
 import deepEqual from "deep-equal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import reducer, { Playhead } from "../reducers/player";
-import { SPOTIFY_CURRENT_USER_PATH, SPOTIFY_PAUSE_PATH, SPOTIFY_PLAY_PATH, SPOTIFY_PLAYER_PATH } from "../settings/api_endpoints";
+import { SPOTIFY_PAUSE_PATH, SPOTIFY_PLAY_PATH, SPOTIFY_PLAYER_PATH } from "../settings/spotify_api_endpoints";
 import { getDeviceName } from "../utils/getDeviceName.client";
 import Snack from "./Snack";
-import { Token } from "../root";
+import { ServerPath, Token } from "../root";
 
 type PlayerProps = {
 	playtree: Playtree | null
@@ -32,64 +32,136 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 	const prevPlaybackState = useRef<Spotify.PlaybackState | null>(null)
 	const [spotifyWebPlayer, setSpotifyWebPlayer] = useState<Spotify.Player | null>(null)
 
-	const token = useContext(Token)	
+	const remixServerPath = useContext(ServerPath).remix ?? undefined
+	const token = useContext(Token)
+
+	const spotifyPlayer = useRef<Spotify.Player | null>(null)
+	const spotifyPlayerDeviceID = useRef<string | null>(null)
+	const [songDesynced, setSongDesynced] = useState<boolean>(false)
+
+	const onSpotifyPlayerStateChanged = useCallback((playbackState : Spotify.PlaybackState) => {
+		// set repeat mode to "off" if it's not already.
+		// repeat makes checking for song end not work
+		if (playbackState.repeat_mode) {
+			clientFetchWithToken(remixServerPath, token, `${SPOTIFY_PLAYER_PATH}/repeat/?state=off`, {
+				method: "PUT"
+			})
+		}
+
+		// synchronize playtree player state with spotify playback state
+		// Tests whether the song playing on Spotify is found at all in
+		// the playtree. If not, it warns the user that Spotify is desynced
+		// NOTE: this test yields false negatives. Someone can play another
+		//       song in the playtree other than the one currently playing.
+		//       It's a temporary stopgap.
+		let songIsSynced : boolean = true
+		if (state.playheads.length > 0) {
+			if (playtree) {
+				const allSongURIs : string[] = []
+				playtree.playnodes.forEach(playnode => {
+					playnode.playitems.forEach(playitem => {
+						allSongURIs.push(playitem.uri)
+					})
+				})
+
+				if (playbackState.track_window.current_track) {
+					songIsSynced = allSongURIs.includes(playbackState.track_window.current_track.uri)
+				}
+			}
+		}
+
+		if (state.playheads.length > 0) {
+			const currentPlayhead = state.playheads[state.playheadIndex]
+			if (!songIsSynced && !currentPlayhead.stopped) {
+				setSongDesynced(_ => true)
+			}
+		}
+
+
+		const singleTrackEnded = playbackState.paused && playbackState.position === 0 &&
+			prevPlaybackState.current && !prevPlaybackState.current.paused && prevPlaybackState.current.position > 0;
+
+			const trackEndedWithQueue = prevPlaybackState.current && prevPlaybackState.current.track_window &&
+			prevPlaybackState.current.track_window.next_tracks && playbackState.track_window && playbackState.track_window.current_track &&
+			prevPlaybackState.current.track_window.next_tracks.includes(playbackState.track_window.current_track)
+
+		if (singleTrackEnded || trackEndedWithQueue) {
+			if (playtree) {
+				dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
+			}
+		} else {
+			if (!playbackState.loading && playbackState.paused && state.playing) {
+				dispatch({ type: "paused" })
+			}
+			if (!playbackState.loading && !playbackState.paused && !state.playing) {
+				dispatch({ type: "played" })
+			}
+		}
+
+		prevPlaybackState.current = playbackState
+	}, [playtree, state.playing, state.playheads, state.playheadIndex])
+
+	useEffect(() => {
+		// we need to make a new closure for the event listener
+		// so the old playtree/playing value isn't captured
+		if (spotifyPlayer.current) {
+			spotifyPlayer.current.removeListener('player_state_changed')
+			spotifyPlayer.current.addListener('player_state_changed', onSpotifyPlayerStateChanged)
+		}
+	}, [playtree, state.playing, state.playheads, state.playheadIndex])
 
 	useEffect(() => {
 		if (!authenticatedWithPremium) {
 			return
 		}
-
-		let newPlayer: Spotify.Player | null = null;
 		
 		const script = document.createElement("script");
 		script.src = "https://sdk.scdn.co/spotify-player.js";
 		script.async = true;
 
 		document.body.appendChild(script);
+
 		window.onSpotifyWebPlaybackSDKReady = () => {
 			const deviceName = getDeviceName()
 
-			newPlayer = new window.Spotify.Player({
+			spotifyPlayer.current = new window.Spotify.Player({
 				name: 'Playtree Web Player: ' + deviceName,
 				getOAuthToken: (cb: any) => { cb(token.accessToken); },
 				volume: 1
 			});
 
-			newPlayer.activateElement()
+			spotifyPlayer.current.activateElement()
 
-			newPlayer.addListener('ready', ({ device_id }: any) => {
-				clientFetchWithToken(token, SPOTIFY_PLAYER_PATH, {
+			spotifyPlayer.current.addListener('ready', ({ device_id }: any) => {
+				spotifyPlayerDeviceID.current = device_id
+				clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAYER_PATH, {
 					method: "PUT",
 					body: JSON.stringify({ device_ids: [device_id], play: false })
 				}).then(response => {
 					if (response.ok) {
+						clientFetchWithToken(remixServerPath, token, `${SPOTIFY_PLAYER_PATH}/repeat?state=off&device_id=${device_id}`, {
+							method: "PUT",
+						})
 						dispatch({ type: 'spotify_player_ready' })
 					}
 				})
 			});
 
-			newPlayer.addListener("not_ready", ({device_id}: any) => {
-				if (newPlayer) {
-					newPlayer.disconnect()
+			spotifyPlayer.current.addListener("not_ready", ({device_id}: any) => {
+				if (spotifyPlayer.current) {
+					spotifyPlayer.current.disconnect()
 				}
 			})
 
-			newPlayer.addListener('player_state_changed', playbackState => {
-				if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
-					if (playtree) {
-						dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
-					}
-				}
-				prevPlaybackState.current = playbackState
-			})
+			spotifyPlayer.current.addListener('player_state_changed', onSpotifyPlayerStateChanged)
 
-			newPlayer.addListener('initialization_error', ({ message }) => {
+			spotifyPlayer.current.addListener('initialization_error', ({ message }) => {
 				// TODO make error message in browser more informative
 				dispatch({type: "spotify_player_connection_failed"})
 				console.error('Failed to initialize Spotify Web Player', message)
 			})
 
-			newPlayer.addListener('authentication_error', ({ message }) => {
+			spotifyPlayer.current.addListener('authentication_error', ({ message }) => {
 				// TODO a more informative error message by having the
 				// authentication state be managed by reducer
 				// This will be improtant in the unusual circumstance
@@ -99,7 +171,7 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 				console.error('Web player authentication failed', message)
 			})
 
-			newPlayer.addListener('account_error', ({ message }) => {
+			spotifyPlayer.current.addListener('account_error', ({ message }) => {
 				// TODO same as authentication error
 				// this will be relevant if there are special premium
 				// plans that still fail for the SDK
@@ -107,23 +179,21 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 				console.error('Premium validation failed', message)
 			})
 
-			newPlayer.addListener('playback_error', ({message}) => {
+			spotifyPlayer.current.addListener('playback_error', ({message}) => {
 				dispatch({type: "paused"})
 				console.error('Playback update failed', message)
 			})
 
-			newPlayer.connect().then(success => {
+			spotifyPlayer.current.connect().then(success => {
 				if (!success) {
 					dispatch({type: "spotify_player_connection_failed" })
 				}
 			})
-
-			setSpotifyWebPlayer(newPlayer)
 		}
 
 		return () => {
-			if (newPlayer) {
-				newPlayer.disconnect()
+			if (spotifyPlayer.current) {
+				spotifyPlayer.current.disconnect()
 			}
 		}
 	}, [])
@@ -135,25 +205,39 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		}
 	}, [authenticatedWithPremium])
 
-	const oldPlaytree = useRef<Playtree | null>(null)
+	const curPlaytreeRef = useRef<Playtree | null>(null)
 	useEffect(() => {
-		if (playtree && !deepEqual(playtree, oldPlaytree.current)) {
+		if (playtree && !deepEqual(playtree, curPlaytreeRef.current)) {
 			dispatch({ type: "playtree_loaded", playtree: playtree, selectorRand: Math.random(), autoplay: autoplay })
-			oldPlaytree.current = playtree
+			curPlaytreeRef.current = playtree
 		}
 	}, [playtree])
+
+	const handleRetransferPlaybackToPlayer = useCallback((playbackState: any) => {
+		const deviceID = playbackState.device.id
+		if (deviceID !== spotifyPlayerDeviceID.current) {
+			clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAYER_PATH, {
+				method: "PUT",
+				body: JSON.stringify({ device_ids: [spotifyPlayerDeviceID.current] })
+			}).then(response => {
+				if (response.ok) {
+					spotifyPlayer.current?.activateElement()
+				}
+			})
+		}
+	}, [spotifyPlayer.current, spotifyPlayerDeviceID.current])
 
 	useEffect(() => {
 		const currentPlayhead = state.playheads[state.playheadIndex]
 		if (currentPlayhead) {
-			clientFetchWithToken(token, SPOTIFY_PLAYER_PATH).then(response => {
+			clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAYER_PATH).then(response => {
 				if (response.ok) {
 					response.json().then(playbackState => {
 						const deviceID = playbackState.device.id
 						if (deviceID) {
 							if (state.playing) {
 								const currentSong = currentPlayhead.node.playitems[currentPlayhead.nodeIndex]
-								clientFetchWithToken(token, SPOTIFY_PLAY_PATH, {
+								clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAY_PATH, {
 									method: "PUT",
 									body: JSON.stringify({
 										device_id: deviceID,
@@ -161,9 +245,11 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 										position_ms: currentPlayhead.spotifyPlaybackPosition_ms
 									})
 								})
+								setSongDesynced(_ => false)
 								dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
+								handleRetransferPlaybackToPlayer(playbackState)
 							} else if (playbackState.is_playing) {
-								clientFetchWithToken(token, SPOTIFY_PAUSE_PATH, {
+								clientFetchWithToken(remixServerPath, token, SPOTIFY_PAUSE_PATH, {
 									method: "PUT",
 									body: JSON.stringify({ device_id: deviceID })
 								})
@@ -177,11 +263,11 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 
 	useEffect(() => {
 		if (state.playheads[state.playheadIndex]?.stopped) {
-			clientFetchWithToken(token, SPOTIFY_PLAYER_PATH).then(response => {
+			clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAYER_PATH).then(response => {
 				if (response.ok) {
 					response.json().then(playbackState => {
 						if (playbackState && playbackState.is_playing && playbackState.device.id) {
-							clientFetchWithToken(token, SPOTIFY_PAUSE_PATH, {
+							clientFetchWithToken(remixServerPath, token, SPOTIFY_PAUSE_PATH, {
 								method: "PUT",
 								body: JSON.stringify({ device_id: playbackState.device.id})
 							})
@@ -193,16 +279,20 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 	}, [state.playheads[state.playheadIndex]?.stopped])
 
 	const handlePlayPauseAudio = useCallback((shouldPlay: boolean) => {
+		if (!state.playheads || state.playheads.length === 0) {
+			return
+		}
 		const currentPlayhead = state.playheads[state.playheadIndex]
 		const currentSong = currentPlayhead.node.playitems[currentPlayhead.nodeIndex]
 
-		clientFetchWithToken(token, SPOTIFY_PLAYER_PATH).then(response => {
+		clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAYER_PATH).then(response => {
 			if (response.ok) {
 				response.json().then(playbackState => {
 					const deviceID = playbackState.device.id
+
 					if (deviceID) {
 						if (shouldPlay) {
-							clientFetchWithToken(token, SPOTIFY_PLAY_PATH, {
+							clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAY_PATH, {
 								method: "PUT",
 								body: JSON.stringify({
 									device_id: deviceID,
@@ -210,9 +300,11 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 									position_ms: currentPlayhead.spotifyPlaybackPosition_ms
 								})
 							})
+							setSongDesynced(_ => false)
 							dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
+							handleRetransferPlaybackToPlayer(playbackState)
 						} else {
-							clientFetchWithToken(token, SPOTIFY_PAUSE_PATH, {
+							clientFetchWithToken(remixServerPath, token, SPOTIFY_PAUSE_PATH, {
 								method: "PUT",
 								body: JSON.stringify({ device_id: playbackState.device.id})
 							})
@@ -227,11 +319,10 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		dispatch({ type: "autoplay_set", autoplay: shouldPlay })
 	}, [state.playheads, state.playheadIndex])
 
-
 	const handleChangePlayhead = useCallback((direction: "incremented_playhead" | "decremented_playhead") => {
 		return () => {
 			if (playtree) {
-				clientFetchWithToken(token, SPOTIFY_PLAYER_PATH).then(response => {
+				clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAYER_PATH).then(response => {
 					response.json().then(playbackState => {
 						dispatch({ type: "song_progress_received", spotifyPlaybackPosition_ms: playbackState.progress_ms })
 						dispatch({ type: direction, playtree: playtree })
@@ -241,18 +332,15 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		}
 	}, [playtree])
 
-	const wrapInnerComponentWithBackground = (innerComponent : ReactElement) => {
-		return <div className="w-full h-36 min-h-36 bg-green-600 z-30 overflow-x-auto flex items-center">{innerComponent}</div>
-	}
-
 	const [playheadInfo, playnodeInfo, currentPlayitem, playAndLimitInfo, playitemInfo] = useMemo(() => {
 		if (playtree === null || !authenticatedWithPremium) {
-			return [undefined, undefined, undefined, undefined, undefined]
+			return [undefined, undefined, undefined, undefined, undefined, false]
 		}
 		let currentPlayhead: Playhead | null | undefined = null
 		let currentPlaynode: Playnode | null | undefined = null
 		let currentPlayscope:  number | null | undefined = null
 		let currentPlayitem: Playitem | null | undefined = null
+		let playitemExists: boolean = false
 	
 		let currentNodePlaycount: number | undefined = undefined
 		let currentNodeMaxPlays: number | undefined = undefined
@@ -341,6 +429,10 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		return [playheadInfo, playnodeInfo, currentPlayitem, playAndLimitInfo, playitemInfo]
 	}, [playtree, state.playheads, state.playheadIndex, authenticatedWithPremium])
 
+	const wrapInnerComponentWithBackground = (innerComponent : ReactElement) => {
+		return <div className="w-full h-36 min-h-36 bg-green-600 z-30 overflow-x-auto flex items-center">{innerComponent}</div>
+	}
+
 	if (!authenticatedWithPremium) {
 		return wrapInnerComponentWithBackground(
 			<div className="font-markazi text-xl text-white w-full flex justify-center">
@@ -381,6 +473,11 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		)
 	}
 
+	const changePlayheadAllowed = state.playheads && state.playheads.length > 1
+	const skipBackAllowed = state.playheads && state.playheads.length > 0 && state.playheads[state.playheadIndex].history.length > 0
+	const playPauseAllowed = state && state.spotifyPlayerReady && currentPlayitem
+	const skipForwardAllowed = playPauseAllowed
+
 	return wrapInnerComponentWithBackground(
 		<>
 			<div className="w-full basis-1/4 h-[95%] ml-16 max-h-full overflow-y-auto flex flex-col-reverse">
@@ -403,7 +500,8 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 						<button
 							type="button"
 							title="Previous Playhead"
-							className="rounded-sm p-2 text-white"
+							className={`p-2 text-white ${ changePlayheadAllowed ? "" : "hover:cursor-not-allowed"}`}
+							disabled={!changePlayheadAllowed}
 							onClick={handleChangePlayhead("decremented_playhead")}>
 							{"\u23EB"}
 						</button>
@@ -412,30 +510,33 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 						<button
 							type="button"
 							title="Skip Backward"
-							className="rounded-sm p-2 text-white"
+							className={`p-2 text-white ${ skipBackAllowed ? "" : "hover:cursor-not-allowed"}`}
+							disabled={!skipBackAllowed}
 							onClick={() => dispatch({ type: "skipped_backward", playtree: playtree })}>
 							{"\u23EE"}
 						</button>
 						<button
 							type="button"
 							title={!state.spotifyPlayerReady ? "Loading Player" : state.playing ? "Pause" : "Play"}
-							className={`rounded-sm p-2 text-white fill-white`}
+							className={`p-2 text-white ${ playPauseAllowed ? "" : "hover:cursor-not-allowed"}`}
 							onClick={() => handlePlayPauseAudio(!state.playing)}
-							disabled={ state ? !state.spotifyPlayerReady : true}
+							disabled={!playPauseAllowed}
 						>
 							{!state.spotifyPlayerReady ? "\u23F3" : state.playing ? "\u23F8" : "\u23F5"}
 						</button>
 						<button
 							type="button"
 							title="Skip Forward"
-							className="rounded-sm p-2 text-white"
+							className={`p-2 text-white ${ skipForwardAllowed ? "" : "hover:cursor-not-allowed"}`}
+							disabled={!skipForwardAllowed}
 							onClick={() => dispatch({ type: "skipped_forward", playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random() })}>{"\u23ED"}</button>
 					</div>
 					<div className="w-fit mx-auto">
 						<button
 							type="button"
 							title="Next Playhead"
-							className="rounded-sm p-2 text-white"
+							className={`p-2 text-white ${ changePlayheadAllowed ? "" : "hover:cursor-not-allowed"}`}
+							disabled={!changePlayheadAllowed}
 							onClick={handleChangePlayhead("incremented_playhead")}>
 							{"\u23EC"}
 						</button>
@@ -448,7 +549,10 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 						<tr><td>Playtree</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playtree.summary.name}>{playtree.summary.name}</td></tr>
 						<tr><td>Playhead</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playheadInfo}>{playheadInfo}</td></tr>
 						<tr><td>Playnode</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playnodeInfo}>{playnodeInfo}</td></tr>
-						<tr><td>Song</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={currentPlayitem ? `${currentPlayitem.name} - ${currentPlayitem.creator}${playAndLimitInfo}` : ""}>{playitemInfo}</td></tr>
+						<tr><td>Song{!songDesynced || <span className="font-markazi text-red-300 hover:cursor-help" title="Pause and play to resync.">(desynced)</span>}</td>
+							<td>|</td><td
+								className={`max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis ${songDesynced ? "text-red-300" : ""}`}
+								title={currentPlayitem ? `${currentPlayitem.name} - ${currentPlayitem.creator}${playAndLimitInfo}` : ""}>{playitemInfo}</td></tr>
 					</tbody>
 				</table>
 			</div>

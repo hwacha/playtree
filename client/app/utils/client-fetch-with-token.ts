@@ -1,8 +1,10 @@
-import { useRevalidator } from "@remix-run/react"
 import { TokenType } from "../root"
-import { REMIX_SERVER_API_PATH } from "../settings/api_endpoints"
 
-const clientFetchWithToken = async (token: TokenType, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> => {
+const clientFetchWithToken = async (serverPath: string | undefined, token: TokenType, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> => {
+	if (!serverPath) {
+		console.error("server path not defined")
+		return new Response(null)
+	}
 	let options: any = args[1]
 
 	if (!options) {
@@ -19,7 +21,7 @@ const clientFetchWithToken = async (token: TokenType, ...args: Parameters<typeof
 	if (!accessToken) {
 		// if the access token does not exist but the refresh token does, hit the refresh endpoint
 		if (refreshToken) {
-			const refreshTokenResponse = await fetch(REMIX_SERVER_API_PATH + "/refresh-token", { method: "POST" })
+			const refreshTokenResponse = await fetch(serverPath + "/refresh-token", { method: "POST" })
 			if (!refreshTokenResponse.ok) {
 				return new Response(JSON.stringify({ error: "Could not get access token with refresh token" }), { status: 401 })
 			}
@@ -39,7 +41,7 @@ const clientFetchWithToken = async (token: TokenType, ...args: Parameters<typeof
 	if (initialFetch.ok) {
 		return initialFetch
 	} else if (initialFetch.status === 401) {
-		const refreshTokenResponse = await fetch(REMIX_SERVER_API_PATH + "/refresh-token", { method: "POST" })
+		const refreshTokenResponse = await fetch(serverPath + "/refresh-token", { method: "POST" })
 		if (!refreshTokenResponse.ok) {
 			return new Response(JSON.stringify({ error: "Access token expired, and could not get new access token with refresh token" }), { status: 401 })
 		}
