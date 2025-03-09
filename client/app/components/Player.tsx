@@ -36,6 +36,79 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 	const token = useContext(Token)
 
 	const spotifyPlayer = useRef<Spotify.Player | null>(null)
+	const spotifyPlayerDeviceID = useRef<string | null>(null)
+	const [songDesynced, setSongDesynced] = useState<boolean>(false)
+
+	const onSpotifyPlayerStateChanged = useCallback((playbackState : Spotify.PlaybackState) => {
+		// set repeat mode to "off" if it's not already.
+		// repeat makes checking for song end not work
+		if (playbackState.repeat_mode) {
+			clientFetchWithToken(remixServerPath, token, `${SPOTIFY_PLAYER_PATH}/repeat/?state=off`, {
+				method: "PUT"
+			})
+		}
+
+		// synchronize playtree player state with spotify playback state
+		// Tests whether the song playing on Spotify is found at all in
+		// the playtree. If not, it warns the user that Spotify is desynced
+		// NOTE: this test yields false negatives. Someone can play another
+		//       song in the playtree other than the one currently playing.
+		//       It's a temporary stopgap.
+		let songIsSynced : boolean = true
+		if (state.playheads.length > 0) {
+			if (playtree) {
+				const allSongURIs : string[] = []
+				playtree.playnodes.forEach(playnode => {
+					playnode.playitems.forEach(playitem => {
+						allSongURIs.push(playitem.uri)
+					})
+				})
+
+				if (playbackState.track_window.current_track) {
+					songIsSynced = allSongURIs.includes(playbackState.track_window.current_track.uri)
+				}
+			}
+		}
+
+		if (state.playheads.length > 0) {
+			const currentPlayhead = state.playheads[state.playheadIndex]
+			if (!songIsSynced && !currentPlayhead.stopped) {
+				setSongDesynced(_ => true)
+			}
+		}
+
+
+		const singleTrackEnded = playbackState.paused && playbackState.position === 0 &&
+			prevPlaybackState.current && !prevPlaybackState.current.paused && prevPlaybackState.current.position > 0;
+
+			const trackEndedWithQueue = prevPlaybackState.current && prevPlaybackState.current.track_window &&
+			prevPlaybackState.current.track_window.next_tracks && playbackState.track_window && playbackState.track_window.current_track &&
+			prevPlaybackState.current.track_window.next_tracks.includes(playbackState.track_window.current_track)
+
+		if (singleTrackEnded || trackEndedWithQueue) {
+			if (playtree) {
+				dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
+			}
+		} else {
+			if (!playbackState.loading && playbackState.paused && state.playing) {
+				dispatch({ type: "paused" })
+			}
+			if (!playbackState.loading && !playbackState.paused && !state.playing) {
+				dispatch({ type: "played" })
+			}
+		}
+
+		prevPlaybackState.current = playbackState
+	}, [playtree, state.playing, state.playheads, state.playheadIndex])
+
+	useEffect(() => {
+		// we need to make a new closure for the event listener
+		// so the old playtree/playing value isn't captured
+		if (spotifyPlayer.current) {
+			spotifyPlayer.current.removeListener('player_state_changed')
+			spotifyPlayer.current.addListener('player_state_changed', onSpotifyPlayerStateChanged)
+		}
+	}, [playtree, state.playing, state.playheads, state.playheadIndex])
 
 	useEffect(() => {
 		if (!authenticatedWithPremium) {
@@ -47,6 +120,7 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		script.async = true;
 
 		document.body.appendChild(script);
+
 		window.onSpotifyWebPlaybackSDKReady = () => {
 			const deviceName = getDeviceName()
 
@@ -59,6 +133,7 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 			spotifyPlayer.current.activateElement()
 
 			spotifyPlayer.current.addListener('ready', ({ device_id }: any) => {
+				spotifyPlayerDeviceID.current = device_id
 				clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAYER_PATH, {
 					method: "PUT",
 					body: JSON.stringify({ device_ids: [device_id], play: false })
@@ -78,14 +153,7 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 				}
 			})
 
-			spotifyPlayer.current.addListener('player_state_changed', playbackState => {
-				if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
-					if (playtree) {
-						dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
-					}
-				}
-				prevPlaybackState.current = playbackState
-			})
+			spotifyPlayer.current.addListener('player_state_changed', onSpotifyPlayerStateChanged)
 
 			spotifyPlayer.current.addListener('initialization_error', ({ message }) => {
 				// TODO make error message in browser more informative
@@ -142,22 +210,22 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		if (playtree && !deepEqual(playtree, curPlaytreeRef.current)) {
 			dispatch({ type: "playtree_loaded", playtree: playtree, selectorRand: Math.random(), autoplay: autoplay })
 			curPlaytreeRef.current = playtree
-
-			// we need to make a new closure for the event
-			// listener so the old playtree value isn't captured
-			if (spotifyPlayer.current) {
-				spotifyPlayer.current.removeListener('player_state_changed')
-				spotifyPlayer.current.addListener('player_state_changed', playbackState => {
-					if (prevPlaybackState.current && !prevPlaybackState.current.paused && playbackState.paused && playbackState.position === 0) {
-						if (playtree) {
-							dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
-						}
-					}
-					prevPlaybackState.current = playbackState
-				})
-			}
 		}
 	}, [playtree])
+
+	const handleRetransferPlaybackToPlayer = useCallback((playbackState: any) => {
+		const deviceID = playbackState.device.id
+		if (deviceID !== spotifyPlayerDeviceID.current) {
+			clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAYER_PATH, {
+				method: "PUT",
+				body: JSON.stringify({ device_ids: [spotifyPlayerDeviceID.current] })
+			}).then(response => {
+				if (response.ok) {
+					spotifyPlayer.current?.activateElement()
+				}
+			})
+		}
+	}, [spotifyPlayer.current, spotifyPlayerDeviceID.current])
 
 	useEffect(() => {
 		const currentPlayhead = state.playheads[state.playheadIndex]
@@ -177,7 +245,9 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 										position_ms: currentPlayhead.spotifyPlaybackPosition_ms
 									})
 								})
+								setSongDesynced(_ => false)
 								dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
+								handleRetransferPlaybackToPlayer(playbackState)
 							} else if (playbackState.is_playing) {
 								clientFetchWithToken(remixServerPath, token, SPOTIFY_PAUSE_PATH, {
 									method: "PUT",
@@ -219,6 +289,7 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 			if (response.ok) {
 				response.json().then(playbackState => {
 					const deviceID = playbackState.device.id
+
 					if (deviceID) {
 						if (shouldPlay) {
 							clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAY_PATH, {
@@ -229,7 +300,9 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 									position_ms: currentPlayhead.spotifyPlaybackPosition_ms
 								})
 							})
+							setSongDesynced(_ => false)
 							dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
+							handleRetransferPlaybackToPlayer(playbackState)
 						} else {
 							clientFetchWithToken(remixServerPath, token, SPOTIFY_PAUSE_PATH, {
 								method: "PUT",
@@ -245,7 +318,6 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		dispatch({ type: shouldPlay ? "played" : "paused" })
 		dispatch({ type: "autoplay_set", autoplay: shouldPlay })
 	}, [state.playheads, state.playheadIndex])
-
 
 	const handleChangePlayhead = useCallback((direction: "incremented_playhead" | "decremented_playhead") => {
 		return () => {
@@ -477,7 +549,10 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 						<tr><td>Playtree</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playtree.summary.name}>{playtree.summary.name}</td></tr>
 						<tr><td>Playhead</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playheadInfo}>{playheadInfo}</td></tr>
 						<tr><td>Playnode</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playnodeInfo}>{playnodeInfo}</td></tr>
-						<tr><td>Song</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={currentPlayitem ? `${currentPlayitem.name} - ${currentPlayitem.creator}${playAndLimitInfo}` : ""}>{playitemInfo}</td></tr>
+						<tr><td>Song{!songDesynced || <span className="font-markazi text-red-300 hover:cursor-help" title="Pause and play to resync.">(desynced)</span>}</td>
+							<td>|</td><td
+								className={`max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis ${songDesynced ? "text-red-300" : ""}`}
+								title={currentPlayitem ? `${currentPlayitem.name} - ${currentPlayitem.creator}${playAndLimitInfo}` : ""}>{playitemInfo}</td></tr>
 					</tbody>
 				</table>
 			</div>

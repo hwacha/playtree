@@ -320,7 +320,6 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			return {
 				...state,
 				playing: false,
-				messageLog: [...state.messageLog, "Pausing audio."]
 			}
 		}
 		case 'song_ended':
@@ -524,9 +523,15 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					exitingScopes = union([exitingScopes, diff([curNode.playscopes, nextNode.playscopes]) as number[]]) as number[]
 					exitingScopes.forEach(scopeID => {
 						newMessageLog.push(`Exiting scope ${action.playtree.playscopes.find(playscope => playscope.id === scopeID)?.name}. Resetting plays.`)
-						cachedPlaycounters.playitems.set(scopeID, newPlaycounters.playitems.get(scopeID) as Map<string, Map<string, number>>)
-						cachedPlaycounters.playnodes.set(scopeID, newPlaycounters.playnodes.get(scopeID) as Map<string, number>)
-						cachedPlaycounters.playedges.set(scopeID, newPlaycounters.playedges.get(scopeID) as Map<string, Map<string, number>>)
+						if (newPlaycounters.playitems.has(scopeID)) {
+							cachedPlaycounters.playitems.set(scopeID, newPlaycounters.playitems.get(scopeID) as Map<string, Map<string, number>>)
+						}
+						if (newPlaycounters.playnodes.has(scopeID)) {
+							cachedPlaycounters.playnodes.set(scopeID, newPlaycounters.playnodes.get(scopeID) as Map<string, number>)
+						}
+						if (newPlaycounters.playedges.has(scopeID)) {
+							cachedPlaycounters.playedges.set(scopeID, newPlaycounters.playedges.get(scopeID) as Map<string, Map<string, number>>)
+						}
 						newPlaycounters = zeroPlaycountersAtScope(newPlaycounters, scopeID)
 					})
 
