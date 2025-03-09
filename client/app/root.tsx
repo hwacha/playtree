@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs, LinksFunction, LoaderFunctionArgs } from "@remix-run/node";
 import {
+	Link,
 	Links,
 	Meta,
 	Outlet,
@@ -103,6 +104,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	return { autoplay: true }
 }
 
+export function ErrorBoundary() {
+	return (<html>
+		<head>
+			<title>Something went wrong</title>
+			<Meta/>
+			<Links/>
+		</head>
+		<body>
+			<Scripts/>
+			<div className="h-screen bg-amber-100 justify-center p-8">
+				<h1 className="font-markazi text-3xl text-green-600 mx-auto">Something went wrong.</h1>
+				<Link className="font-markazi text-lg text-blue-400 underline" to="/">Try Again</Link>
+			</div>
+		</body>
+	</html>)
+}
+
 export type TokenType = {accessToken: string | null, refreshToken: string | null}
 export const Token = React.createContext<TokenType>({accessToken: null, refreshToken: null })
 export type ServersType = { remix: string | null, playtree: string | null }
@@ -111,7 +129,7 @@ export const ServerPath = React.createContext<ServersType>({remix: null, playtre
 export default function App() {
 	const data = useLoaderData<typeof loader>()
 	const playerActionData = useFetcher<typeof action>({ key: "player" })
-	const playerPlaytree = playtreeFromJson(data.playerPlaytree)
+	const playerPlaytree = data.playerPlaytree ? playtreeFromJson(data.playerPlaytree) : null
 	const userPlaytreeSummaries = data.userPlaytreeSummaries
 	const location = useLocation() // used for React resolution keys
 

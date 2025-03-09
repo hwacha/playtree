@@ -7,7 +7,7 @@ export type LogMessage = {
 }
 
 export type PlaytreeEditorState = {
-	playtree: Playtree | null,
+	playtree: Playtree,
 	unsavedChangesExist: boolean,
 	messageLog: LogMessage[],
 }
