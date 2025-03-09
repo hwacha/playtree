@@ -63,7 +63,7 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 		}
 	}
 
-	const profileRequest = await serverFetchWithToken(request, SPOTIFY_CURRENT_USER_PATH as string)
+	const profileRequest = await serverFetchWithToken(request, SPOTIFY_CURRENT_USER_PATH)
 	const playerRequest = await serverFetchWithToken(request, `${process.env.PLAYTREE_SERVER_API_PATH}/me/player` )
 	const userPlaytreeSummariesRequest = await serverFetchWithToken(request, `${process.env.PLAYTREE_SERVER_API_PATH}/playtrees/me` as string)
 	

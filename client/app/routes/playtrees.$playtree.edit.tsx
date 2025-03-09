@@ -18,37 +18,50 @@ import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import { PlayscopeManager } from "../components/PlayscopeManager";
 import { ServerPath, Token } from "../root";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+type EditorLoaderType = {
+	authenticated: boolean;
+	permitted: boolean;
+	found: boolean | undefined;
+	playtree: Parameters<typeof playtreeFromJson>[0]
+}
+
+export const loader = async ({ request, params }: LoaderFunctionArgs) : Promise<EditorLoaderType> => {
 	invariant(params.playtree)
 	const response = await serverFetchWithToken(request, `${process.env.PLAYTREE_SERVER_API_PATH}/playtrees/${params.playtree}`)
+
 	if (response.ok) {
 		return {
 			authenticated: true,
 			permitted: true,
+			found: true,
 			playtree: await response.json()
 		}
 	} else if (response.status === 401) {
 		return {
 			authenticated: false,
 			permitted: false,
+			found: undefined,
 			playtree: null
 		}
 	} else if (response.status === 403) {
 		return {
 			authenticated: true,
 			permitted: false,
+			found: undefined,
 			playtree: null
 		}
 	} else if (response.status === 404) {
 		return {
 			authenticated: true,
 			permitted: true,
+			found: false,
 			playtree: null
 		}
 	}
 	return {
 		authenticated: true,
 		permitted: true,
+		found: undefined,
 		playtree: null
 	}
 }
@@ -59,37 +72,16 @@ export default function PlaytreeEditor() {
 
 	const loaderData = useLoaderData<typeof loader>()
 
-	if (!loaderData.authenticated) {
-		return (
-			<Snack type="error"
-				body={
-					<p>You are not logged in. <Link to="/login" className="text-blue-400 underline">Log in to Spotify</Link> to edit playtrees.</p>
-				}
-			/>
-		)
-	}
-	if (!loaderData.permitted) {
-		return (
-			<Snack type="error"
-				body={
-					<p>This is not your playtree. You can't edit it. <Link to="/" className="text-blue-400 underline">Go Home</Link></p>
-				}
-			/>
-		)
-	}
-	const initialPlaytree: Playtree | null = playtreeFromJson(loaderData.playtree)
-
-	if (initialPlaytree === null) {
-		return <p></p>
-	}
-
 	const [state, dispatch] = useReducer<typeof playtreeReducer>(playtreeReducer, {
-		playtree: initialPlaytree,
+		playtree: playtreeFromJson(loaderData.playtree),
 		unsavedChangesExist: false,
 		messageLog: []
 	})
 
 	const playscopeComparator = useMemo(() => {
+		if (!state.playtree) {
+			return () => 0
+		}
 		const playnodesByPlayscope = new Map<number, Set<string>>()
 		state.playtree.playscopes.forEach(playscope => {
 			playnodesByPlayscope.set(playscope.id, new Set<string>())
@@ -115,26 +107,30 @@ export default function PlaytreeEditor() {
 			}
 			return 0
 		}
-	}, [state.playtree.playscopes, state.playtree.playnodes])
+	}, [state.playtree?.playscopes, state.playtree?.playnodes])
 
-	const initialFlownodeData: PlaynodeFlowData[] = Array.from(initialPlaytree.playnodes.values()).map((playnode, index) => {
-		return {
-			key: playnode.id,
-			type: "play",
-			id: playnode.id,
-			label: playnode.name,
-			position: { x: 100 + 300 * (index % 3), y: 50 + Math.floor(index / 3) * 300 },
-			zIndex: 100 - index,
-			data: {
-				label: playnode.id,
-				playnode: playnode,
-				playroot: initialPlaytree.playroots.get(playnode.id) ?? null,
-				playscopes: initialPlaytree.playscopes,
-				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
-				playscopeComparator: playscopeComparator
+	let initialFlownodeData: PlaynodeFlowData[] = []
+	
+	if (state.playtree) {
+		initialFlownodeData = Array.from(state.playtree.playnodes.values()).map((playnode, index) => {
+			return {
+				key: playnode.id,
+				type: "play",
+				id: playnode.id,
+				label: playnode.name,
+				position: { x: 100 + 300 * (index % 3), y: 50 + Math.floor(index / 3) * 300 },
+				zIndex: 100 - index,
+				data: {
+					label: playnode.id,
+					playnode: playnode,
+					playroot: state.playtree?.playroots.get(playnode.id) ?? null,
+					playscopes: state.playtree?.playscopes ?? [],
+					dispatch: (x: PlaytreeEditorAction) => dispatch(x),
+					playscopeComparator: playscopeComparator
+				}
 			}
-		}
-	})
+		})
+	}
 
 	const makeNewPlayedgeFlowData = useCallback((playnode: Playnode, playedge: Playedge): PlayedgeFlowData => {
 		return {
@@ -159,13 +155,15 @@ export default function PlaytreeEditor() {
 	}, [])
 
 	let initialFlowedgeData: PlayedgeFlowData[] = []
-	initialPlaytree.playnodes.forEach(playnode => {
-		if (playnode.next) {
-			playnode.next.forEach(playedge => {
-				initialFlowedgeData.push(makeNewPlayedgeFlowData(playnode, playedge))
-			})
-		}
-	})
+	if (state.playtree) {
+		state.playtree.playnodes.forEach(playnode => {
+			if (playnode.next) {
+				playnode.next.forEach(playedge => {
+					initialFlowedgeData.push(makeNewPlayedgeFlowData(playnode, playedge))
+				})
+			}
+		})
+	}
 
 	const [flownodes, setFlownodes, onFlownodesChange] = useNodesState<PlaynodeFlowData>(initialFlownodeData)
 	const [flowedges, setFlowedges, onFlowedgesChange] = useEdgesState<PlayedgeFlowData>(initialFlowedgeData)
@@ -173,7 +171,7 @@ export default function PlaytreeEditor() {
 	useEffect(() => {
 		const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 		g.setGraph({ rankdir: "TB", align: undefined, acyclicer: "greedy", ranker: "network-simplex" })
-		flowedges.filter(edge => !state.playtree.playroots.has(edge.target)).forEach((edge) => g.setEdge(edge.source, edge.target));
+		flowedges.filter(edge => !state.playtree?.playroots.has(edge.target)).forEach((edge) => g.setEdge(edge.source, edge.target));
 		flownodes.forEach((node) =>
 			g.setNode(node.id, {
 				...node,
@@ -191,19 +189,22 @@ export default function PlaytreeEditor() {
 			const y = position.y - (node.measured?.height ?? 0) / 2;
 
 			return { ...node, position: { x, y } };
-		})
-		)
+		}))
+		
 		setFlowedges([...flowedges])
-	}, [])
+	}, [state.playtree])
 
 	const onConnect: OnConnect = useCallback(connection => {
+		if (!state.playtree) {
+			return
+		}
 		const sourcePlaynode = state.playtree.playnodes.get(connection.source)
 		if (sourcePlaynode) {
 			const playedge = { targetID: connection.target, priority: 0, shares: 1, limit: -1 }
 			setFlowedges((eds) => addEdge(makeNewPlayedgeFlowData(sourcePlaynode, playedge), eds))
 			dispatch({ type: "added_playedge", sourceID: connection.source, targetID: connection.target })
 		}
-	}, [state.playtree.playnodes]);
+	}, [state.playtree?.playnodes]);
 
 	const makeNewPlaynodeFlowData = useCallback((id: string) : PlaynodeFlowData => {
 		return {
@@ -222,25 +223,28 @@ export default function PlaytreeEditor() {
 					playitems: [],
 					next: []
 				},
-				playscopes: state.playtree.playscopes,
+				playscopes: state.playtree ? state.playtree.playscopes : [],
 				playroot: null,
 				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
 				playscopeComparator: playscopeComparator
 			}
 		}
-	}, [])
+	}, [state.playtree])
 
 	const handleAddPlaynode = useCallback(() => {
 		dispatch({ type: "added_playnode" })
 	}, [])
 
 	useEffect(() => { // sync react flow components with playtree state
+		if (!state.playtree) {
+			return
+		}
 		// synchronize flownodes
 		setFlownodes(oldFlownodes => {
 			// next, upsert flownodes w/r/t the now-existing playnodes
 			const upsertedAndFilteredPlaynodeFlowData : PlaynodeFlowData[] = []
 			// Note: this procedure is O(n^2) whose performance could be improved if necessary
-			state.playtree.playnodes.forEach(playnode => {
+			state.playtree?.playnodes.forEach(playnode => {
 				let playnodeFlowDataToUpsert = oldFlownodes.find(flownode => {
 					return flownode.id === playnode.id
 				}) ?? makeNewPlaynodeFlowData(playnode.id)
@@ -250,8 +254,8 @@ export default function PlaytreeEditor() {
 					data: {
 						...playnodeFlowDataToUpsert.data,
 						playnode: {...playnode},
-						playscopes: state.playtree.playscopes,
-						playroot: state.playtree.playroots.get(playnode.id) ?? null,
+						playscopes: state.playtree?.playscopes ?? [],
+						playroot: state.playtree?.playroots.get(playnode.id) ?? null,
 						playscopeComparator: playscopeComparator
 					}
 				}
@@ -265,7 +269,7 @@ export default function PlaytreeEditor() {
 		setFlowedges(oldFlowedges => {
 			// upsert
 			const upsertedAndFilteredPlayedgeFlowData : PlayedgeFlowData[] = []
-			state.playtree.playnodes.forEach(playnode => {
+			state.playtree?.playnodes.forEach(playnode => {
 				playnode.next?.forEach(playedge => {
 					const playedgeFlowDataToUpsert : PlayedgeFlowData = oldFlowedges.find(flowedge => {
 						return flowedge.id === `${playnode.id}-${playedge.targetID}`
@@ -286,6 +290,10 @@ export default function PlaytreeEditor() {
 	}, [state.playtree, playscopeComparator])
 
 	const generateErrors = useCallback(() => {
+		if (!state.playtree) {
+			return []
+		}
+
 		const errors: string[] = []
 		const playnodesByPlayscopeIndex : Set<string>[] = state.playtree.playscopes.map(_ => new Set())
 
@@ -326,11 +334,14 @@ export default function PlaytreeEditor() {
 
 	const generateWarnings = useCallback(() => {
 		const warnings: string[] = []
+		if (!state.playtree) {
+			return warnings
+		}
 		if (state.playtree.playroots.size == 0) {
 			warnings.push("Saved playtree has no playroots. You won't be able to play any music until you attach a playhead.")
 		}
 		return warnings
-	}, [state.playtree.playroots])
+	}, [state.playtree?.playroots])
 
 	const serverPaths = useContext(ServerPath)
 	const remixServerPath = serverPaths.remix ?? undefined
@@ -339,6 +350,9 @@ export default function PlaytreeEditor() {
 
 	const handleSave = useCallback(() => {
 		(async () => {
+			if (!state.playtree) {
+				return
+			}
 			try {
 				const errors = generateErrors()
 
@@ -382,6 +396,9 @@ export default function PlaytreeEditor() {
 	}, [state.playtree])
 
 	const handleDragStart = useCallback((event: any) => {
+		if (!state.playtree) {
+			return
+		}
 		if (event && event.target) {
 			event.dataTransfer.setData("index", state.playtree.playroots.size)
 		}
@@ -391,6 +408,9 @@ export default function PlaytreeEditor() {
 	const submit = useSubmit()
 
 	const handleDelete = useCallback(() => {
+		if (!state.playtree) {
+			return
+		}
 		submit({}, {
 			method: "POST",
 			action: `/playtrees/${state.playtree.summary.id}/delete`
@@ -409,18 +429,55 @@ export default function PlaytreeEditor() {
 		}
 	}, [])
 
+	if (!loaderData.authenticated) {
+		return (
+			<Snack type="error"
+				body={
+					<p>You are not logged in. <Link to="/login" className="text-blue-400 underline">Log in to Spotify</Link> to edit playtrees.</p>
+				}
+			/>
+		)
+	}
+	if (!loaderData.permitted) {
+		return (
+			<Snack type="error"
+				body={
+					<p>This is not your playtree. You can't edit it. <Link to="/" className="text-blue-400 underline">Go Home</Link></p>
+				}
+			/>
+		)
+	}
+
+	if (!loaderData.found) {
+		return (
+			<Snack type="error"
+				body={
+					<p>Playtree not found. <Link to="/" className="text-blue-400 underline">Go Home</Link></p>
+				}
+			/>
+		)
+	}
+
+	if (!state.playtree) {
+		<Snack type="error"
+		body={
+			<p>Something went wrong. <Link to="/" className="text-blue-400 underline">Go Home</Link></p>
+		}
+	/>
+	}
+
 	return (
 		<div className="w-5/6 h-full mx-auto font-lilitaOne flex flex-col justify-end">
 			<div className="w-full h-[95%]">
 				<div className="w-full h-fit flex justify-between">
 					<div className="flex py-1">
-						<h2 title={state.playtree.summary.name} className="max-w-[calc(70vw-18rem)] h-9 flex text-3xl text-green-600 resize-x">
+						<h2 title={state.playtree?.summary.name} className="max-w-[calc(70vw-18rem)] h-9 flex text-3xl text-green-600 resize-x">
 							<div className="whitespace-nowrap overflow-ellipsis overflow-hidden">
-								{state.playtree.summary.name}
+								{state.playtree?.summary.name}
 							</div>
 						</h2>
 						<fetcher.Form method="POST" action="/">
-							<input type="hidden" id="playtreeID" name="playtreeID" value={state.playtree.summary.id} />
+							<input type="hidden" id="playtreeID" name="playtreeID" value={state.playtree?.summary.id} />
 							<button type="submit" className="bg-green-300 font-markazi text-xl rounded-md px-2 py-1 ml-2">Play</button>
 						</fetcher.Form>
 					</div>
@@ -434,7 +491,7 @@ export default function PlaytreeEditor() {
 					deleteModalOn ?
 					<Modal
 						type={"dangerous"}
-						description={`Are you sure you want to delete the playtree '${state.playtree.summary.name}'?`}
+						description={`Are you sure you want to delete the playtree '${state.playtree?.summary.name}'?`}
 						exitAction={() => handleSetDeleteModalVisiblity(false)}
 						primaryAction={{ label: "Delete", callback: handleDelete }}
 					/>
@@ -481,7 +538,7 @@ export default function PlaytreeEditor() {
 							<Controls />
 						</ReactFlow>
 						{
-							playscopeManagerVisible ? <PlayscopeManager playscopes={state.playtree.playscopes} dispatch={dispatch} onExit={handlePlayscopeManagerVisibility(false)}/> : null
+							playscopeManagerVisible ? <PlayscopeManager playscopes={state.playtree?.playscopes ?? []} dispatch={dispatch} onExit={handlePlayscopeManagerVisibility(false)}/> : null
 						}
 					</div>
 					<div className="border-green-600 bg-neutral-50 border-r-4 border-t-4 border-b-4 w-full flex-[1] h-full overflow-y-auto flex flex-col-reverse">
