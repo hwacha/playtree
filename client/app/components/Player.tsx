@@ -209,6 +209,9 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 	}, [state.playheads[state.playheadIndex]?.stopped])
 
 	const handlePlayPauseAudio = useCallback((shouldPlay: boolean) => {
+		if (!state.playheads || state.playheads.length === 0) {
+			return
+		}
 		const currentPlayhead = state.playheads[state.playheadIndex]
 		const currentSong = currentPlayhead.node.playitems[currentPlayhead.nodeIndex]
 
@@ -259,12 +262,13 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 
 	const [playheadInfo, playnodeInfo, currentPlayitem, playAndLimitInfo, playitemInfo] = useMemo(() => {
 		if (playtree === null || !authenticatedWithPremium) {
-			return [undefined, undefined, undefined, undefined, undefined]
+			return [undefined, undefined, undefined, undefined, undefined, false]
 		}
 		let currentPlayhead: Playhead | null | undefined = null
 		let currentPlaynode: Playnode | null | undefined = null
 		let currentPlayscope:  number | null | undefined = null
 		let currentPlayitem: Playitem | null | undefined = null
+		let playitemExists: boolean = false
 	
 		let currentNodePlaycount: number | undefined = undefined
 		let currentNodeMaxPlays: number | undefined = undefined
@@ -397,6 +401,11 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		)
 	}
 
+	const changePlayheadAllowed = state.playheads && state.playheads.length > 1
+	const skipBackAllowed = state.playheads && state.playheads.length > 0 && state.playheads[state.playheadIndex].history.length > 0
+	const playPauseAllowed = state && state.spotifyPlayerReady && currentPlayitem
+	const skipForwardAllowed = playPauseAllowed
+
 	return wrapInnerComponentWithBackground(
 		<>
 			<div className="w-full basis-1/4 h-[95%] ml-16 max-h-full overflow-y-auto flex flex-col-reverse">
@@ -419,7 +428,8 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 						<button
 							type="button"
 							title="Previous Playhead"
-							className="rounded-sm p-2 text-white"
+							className={`p-2 text-white ${ changePlayheadAllowed ? "" : "hover:cursor-not-allowed"}`}
+							disabled={!changePlayheadAllowed}
 							onClick={handleChangePlayhead("decremented_playhead")}>
 							{"\u23EB"}
 						</button>
@@ -428,30 +438,33 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 						<button
 							type="button"
 							title="Skip Backward"
-							className="rounded-sm p-2 text-white"
+							className={`p-2 text-white ${ skipBackAllowed ? "" : "hover:cursor-not-allowed"}`}
+							disabled={!skipBackAllowed}
 							onClick={() => dispatch({ type: "skipped_backward", playtree: playtree })}>
 							{"\u23EE"}
 						</button>
 						<button
 							type="button"
 							title={!state.spotifyPlayerReady ? "Loading Player" : state.playing ? "Pause" : "Play"}
-							className={`rounded-sm p-2 text-white fill-white`}
+							className={`p-2 text-white ${ playPauseAllowed ? "" : "hover:cursor-not-allowed"}`}
 							onClick={() => handlePlayPauseAudio(!state.playing)}
-							disabled={ state ? !state.spotifyPlayerReady : true}
+							disabled={!playPauseAllowed}
 						>
 							{!state.spotifyPlayerReady ? "\u23F3" : state.playing ? "\u23F8" : "\u23F5"}
 						</button>
 						<button
 							type="button"
 							title="Skip Forward"
-							className="rounded-sm p-2 text-white"
+							className={`p-2 text-white ${ skipForwardAllowed ? "" : "hover:cursor-not-allowed"}`}
+							disabled={!skipForwardAllowed}
 							onClick={() => dispatch({ type: "skipped_forward", playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random() })}>{"\u23ED"}</button>
 					</div>
 					<div className="w-fit mx-auto">
 						<button
 							type="button"
 							title="Next Playhead"
-							className="rounded-sm p-2 text-white"
+							className={`p-2 text-white ${ changePlayheadAllowed ? "" : "hover:cursor-not-allowed"}`}
+							disabled={!changePlayheadAllowed}
 							onClick={handleChangePlayhead("incremented_playhead")}>
 							{"\u23EC"}
 						</button>

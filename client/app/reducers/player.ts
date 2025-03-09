@@ -678,6 +678,9 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			}
 		}
 		case 'decremented_playhead': {
+			if (!state.playheads || state.playheads.length === 0) {
+				return state
+			}
 			const newPlayheadIndex = (state.playheadIndex + state.playheads.length - 1) % state.playheads.length
 			return {
 				...state,
@@ -686,6 +689,9 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			}
 		}
 		case 'incremented_playhead': {
+			if (!state.playheads || state.playheads.length === 0) {
+				return state
+			}
 			const newPlayheadIndex = (state.playheadIndex + 1) % state.playheads.length
 			return {
 				...state,
@@ -701,7 +707,9 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 		}
 		case 'song_progress_received': {
 			const newPlayheads = structuredClone(state.playheads)
-			newPlayheads[state.playheadIndex].spotifyPlaybackPosition_ms = action.spotifyPlaybackPosition_ms
+			if (newPlayheads && newPlayheads.length > 0 && newPlayheads[state.playheadIndex]) {
+				newPlayheads[state.playheadIndex].spotifyPlaybackPosition_ms = action.spotifyPlaybackPosition_ms
+			}
 			return {
 				...state,
 				playheads: newPlayheads

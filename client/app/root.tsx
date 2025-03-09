@@ -25,9 +25,6 @@ export const links: LinksFunction = () => [
 ];
 
 export const loader = async ({request} : LoaderFunctionArgs) => {
-	console.log("PLAYTREE_REMIX_SERVER_API_PATH:", process.env.PLAYTREE_REMIX_SERVER_API_PATH);
-	console.log("PLAYTREE_SERVER_API_PATH:", process.env.PLAYTREE_SERVER_API_PATH);
-	
 	const result : {
 		authenticated: boolean,
 		hasPremium: boolean,
