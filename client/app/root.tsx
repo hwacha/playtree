@@ -5,7 +5,6 @@ import {
 	Meta,
 	Outlet,
 	Scripts,
-	useFetcher,
 	useLoaderData,
 	useLocation
 } from "@remix-run/react";
@@ -100,8 +99,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			method: "PUT"
 		})
 	}
-
-	return { autoplay: true }
 }
 
 export function ErrorBoundary() {
@@ -128,7 +125,6 @@ export const ServerPath = React.createContext<ServersType>({remix: null, playtre
 
 export default function App() {
 	const data = useLoaderData<typeof loader>()
-	const playerActionData = useFetcher<typeof action>({ key: "player" })
 	const playerPlaytree = data.playerPlaytree ? playtreeFromJson(data.playerPlaytree) : null
 	const userPlaytreeSummaries = data.userPlaytreeSummaries
 	const location = useLocation() // used for React resolution keys
@@ -150,9 +146,10 @@ export default function App() {
 							<div className="w-full flex flex-col">
 								<Banner isAuthenticated={data.authenticated} displayName={data.displayName}/>
 								<div className="w-full h-full overflow-y-auto">
+									
 									<Outlet key={location.pathname} />
 								</div>
-								<Player playtree={playerPlaytree} authenticatedWithPremium={data.authenticated && data.hasPremium} autoplay={playerActionData.data ? playerActionData.data.autoplay : undefined} />
+								<Player playtree={playerPlaytree} authenticatedWithPremium={data.authenticated && data.hasPremium} />
 							</div>
 						</div>
 					</Token.Provider>

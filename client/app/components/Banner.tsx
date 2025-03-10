@@ -17,7 +17,7 @@ export default function Banner(props: BannerProps) {
 	return (
 		<div className="bg-green-600 z-40 text-white font-lilitaOne w-full p-3 left-64 top-0 flex justify-between">
 			<div className="w-fit">
-				<Link to="/" replace><h1 className='text-4xl underline'>Playtree</h1></Link>
+				<Link to="/?first-visit=false" replace><h1 className='text-4xl underline'>Playtree</h1></Link>
 			</div>
 			<div className="w-fit my-auto mr-4">
 				{

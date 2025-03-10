@@ -1,5 +1,6 @@
 import { diff, intersection, isSupersetOf, union } from "@opentf/std";
 import { Playedge, Playnode, Playroot, Playtree } from "../types";
+import { Kleene } from "../utils/kleene";
 
 export type Playcounters = {
 	// scope ID -> node ID -> content ID -> playcount
@@ -102,14 +103,19 @@ type PlayerState = {
 
 	messageLog: string[];
 
-	spotifyPlayerReady: boolean | undefined;
+	spotifyPlayerReady: Kleene;
+	deviceSynced: Kleene;
+	songSynced: Kleene;
 
 	playing: boolean;
 	autoplay: boolean;
+
+	volume_percent: number;
+	playtreeJustChangedVolume: boolean;
 }
 
 type PlayerAction = {
-	type: 'spotify_player_connection_failed' | 'spotify_player_ready' | 'played' | 'paused';
+	type: 'spotify_player_connection_failed' | 'spotify_player_ready' | 'played' | 'paused' | 'volume_incremented' | 'volume_decremented' | 'flushed_volume_change_action';
 } | {
 	type: 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
 	playtree: Playtree;
@@ -132,6 +138,12 @@ type PlayerAction = {
 } | {
 	type: 'message_logged';
 	message: string;
+} | {
+	type: 'device_sync_updated' | 'song_sync_updated';
+	sync: boolean
+} | {
+	type: 'volume_synced';
+	percent: number;
 }
 
 const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
@@ -300,6 +312,10 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				playing: false,
 				autoplay: state.autoplay,
 				spotifyPlayerReady: state.spotifyPlayerReady,
+				deviceSynced: state.deviceSynced,
+				songSynced: state.songSynced,
+				volume_percent: state.volume_percent,
+				playtreeJustChangedVolume: state.playtreeJustChangedVolume
 			}
 
 			return newState
@@ -704,6 +720,33 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				messageLog: [...state.messageLog, `Moving to playhead ${state.playheads[newPlayheadIndex].name}.`]
 			}
 		}
+		case 'volume_synced': {
+			return {
+				...state,
+				volume_percent: action.percent,
+				playtreeJustChangedVolume: false
+			}
+		}
+		case 'volume_incremented': {
+			return {
+				...state, 
+				volume_percent: Math.min(Math.floor(state.volume_percent / 10) * 10 + 10, 100),
+				playtreeJustChangedVolume: true
+			}
+		}
+		case 'volume_decremented': {
+			return {
+				...state,
+				volume_percent: Math.max(Math.ceil(state.volume_percent / 10) * 10 - 10, 0),
+				playtreeJustChangedVolume: true
+			}
+		}
+		case 'flushed_volume_change_action': {
+			return {
+				...state,
+				playtreeJustChangedVolume: false
+			}
+		}
 		case 'autoplay_set': {
 			return {
 				...state,
@@ -723,13 +766,27 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 		case 'spotify_player_ready': {
 			return {
 				...state,
-				spotifyPlayerReady: true
+				spotifyPlayerReady: true,
 			}
 		}
 		case 'spotify_player_connection_failed': {
 			return {
 				...state,
 				spotifyPlayerReady: false,
+				deviceSynced: undefined,
+				songSynced: undefined
+			}
+		}
+		case 'device_sync_updated': {
+			return {
+				...state,
+				deviceSynced: action.sync
+			}
+		}
+		case 'song_sync_updated': {
+			return {
+				...state,
+				songSynced: action.sync
 			}
 		}
 		case 'message_logged': {

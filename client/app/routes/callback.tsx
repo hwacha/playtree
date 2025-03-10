@@ -12,7 +12,7 @@ export async function loader({
 	const state = searchParams.get("state");
 
 	if (state === null) {
-		redirect("/?just-tried=login")
+		redirect("/?just-tried=login&first-visit=false")
 	} else {
 		const query = queryString.stringify({
 			code: code,
@@ -37,13 +37,13 @@ export async function loader({
 			session.set("spotify_access_token", accessToken.access_token)
 			session.set("spotify_refresh_token", accessToken.refresh_token)
 
-			return redirect("/?just-tried=login", {
+			return redirect("/?just-tried=login&first-visit=false", {
 				headers: {
 					"Set-Cookie": await commitSession(session),
 				},
 			})
 		} else {
-			return redirect("/?just-tried=login")
+			return redirect("/?just-tried=login&first-visit=false")
 		}
 	}
 }

@@ -1,4 +1,4 @@
-import { FormEventHandler, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { FormEventHandler, useContext, useEffect, useMemo, useState } from "react";
 import { SPOTIFY_SEARCH_API_PATH } from "../settings/spotify_api_endpoints";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import { ServerPath, Token } from "../root";
