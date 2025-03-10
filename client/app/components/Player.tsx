@@ -7,14 +7,14 @@ import { SPOTIFY_PAUSE_PATH, SPOTIFY_PLAY_PATH, SPOTIFY_PLAYER_PATH } from "../s
 import { getDeviceName } from "../utils/getDeviceName.client";
 import Snack from "./Snack";
 import { ServerPath, Token } from "../root";
+import { definitely, definitelyNot, maybe, maybeNot } from "../utils/kleene";
 
 type PlayerProps = {
 	playtree: Playtree | null
 	authenticatedWithPremium: boolean
-	autoplay: boolean | undefined
 }
 
-export default function Player({ playtree, authenticatedWithPremium, autoplay }: PlayerProps) {
+export default function Player({ playtree, authenticatedWithPremium }: PlayerProps) {
 	const initialPlayheadIndex = 0
 	let initialPlayheads: Playhead[] = []
 
@@ -24,9 +24,13 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		leastScopeByNode: new Map<string, number>(),
 		leastScopeByEdge: new Map<string, Map<string, number>>(),
 		messageLog:[],
+		volume_percent: 100,
 		playing: false,
-		autoplay: autoplay ?? false,
+		autoplay: false,
 		spotifyPlayerReady: undefined,
+		deviceSynced: undefined,
+		songSynced: undefined,
+		playtreeJustChangedVolume: false,
 	})
 
 	const prevPlaybackState = useRef<Spotify.PlaybackState | null>(null)
@@ -37,7 +41,6 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 
 	const spotifyPlayer = useRef<Spotify.Player | null>(null)
 	const spotifyPlayerDeviceID = useRef<string | null>(null)
-	const [songDesynced, setSongDesynced] = useState<boolean>(false)
 
 	const onSpotifyPlayerStateChanged = useCallback((playbackState : Spotify.PlaybackState) => {
 		// set repeat mode to "off" if it's not already.
@@ -49,6 +52,20 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 		}
 
 		// synchronize playtree player state with spotify playback state
+
+		// From experimentation, an event with an empty playback_id seems
+		// to be fired when playback is transfered to another device.
+		if (playbackState.playback_id === "") {
+			dispatch({ type:"device_sync_updated", sync: false })
+
+			// if the song was synced up to this point in playback,
+			// record the playback position of the song that was playing
+			// before device playback changed hands
+			if (state.songSynced && prevPlaybackState.current) {
+				dispatch({ type:"song_progress_received", spotifyPlaybackPosition_ms: prevPlaybackState.current.position })
+			}
+		}
+
 		// Tests whether the song playing on Spotify is found at all in
 		// the playtree. If not, it warns the user that Spotify is desynced
 		// NOTE: this test yields false negatives. Someone can play another
@@ -70,22 +87,27 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 			}
 		}
 
-		if (state.playheads.length > 0) {
-			const currentPlayhead = state.playheads[state.playheadIndex]
-			if (!songIsSynced && !currentPlayhead.stopped) {
-				setSongDesynced(_ => true)
+		if (songIsSynced) {
+			if (maybeNot(state.songSynced)) {
+				dispatch({ type: "song_sync_updated", sync: true})
+			}
+		} else {
+			if (maybe(state.songSynced)) {
+				dispatch({ type: "song_sync_updated", sync: false })
+			}
+			if (definitely(state.songSynced) && prevPlaybackState.current) {
+				dispatch({ type: "song_progress_received", spotifyPlaybackPosition_ms: prevPlaybackState.current.position })
 			}
 		}
 
-
-		const singleTrackEnded = playbackState.paused && playbackState.position === 0 &&
-			prevPlaybackState.current && !prevPlaybackState.current.paused && prevPlaybackState.current.position > 0;
+		const singleTrackEnded = playbackState.playback_id !== "" && playbackState.paused && playbackState.position === 0 &&
+			prevPlaybackState.current && !prevPlaybackState.current.paused && prevPlaybackState.current.position > 0
 
 			const trackEndedWithQueue = prevPlaybackState.current && prevPlaybackState.current.track_window &&
 			prevPlaybackState.current.track_window.next_tracks && playbackState.track_window && playbackState.track_window.current_track &&
 			prevPlaybackState.current.track_window.next_tracks.includes(playbackState.track_window.current_track)
 
-		if (singleTrackEnded || trackEndedWithQueue) {
+		if (songIsSynced && (singleTrackEnded || trackEndedWithQueue)) {
 			if (playtree) {
 				dispatch({ type: "song_ended", playtree: playtree, selectorRand: Math.random(), edgeRand: Math.random() })
 			}
@@ -127,22 +149,23 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 			spotifyPlayer.current = new window.Spotify.Player({
 				name: 'Playtree Web Player: ' + deviceName,
 				getOAuthToken: (cb: any) => { cb(token.accessToken); },
-				volume: 1
+				volume: state.volume_percent / 100.0
 			});
 
 			spotifyPlayer.current.activateElement()
 
 			spotifyPlayer.current.addListener('ready', ({ device_id }: any) => {
 				spotifyPlayerDeviceID.current = device_id
+				dispatch({ type: 'spotify_player_ready' })
 				clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAYER_PATH, {
 					method: "PUT",
 					body: JSON.stringify({ device_ids: [device_id], play: false })
 				}).then(response => {
 					if (response.ok) {
+						dispatch({ type: 'device_sync_updated', sync: true })
 						clientFetchWithToken(remixServerPath, token, `${SPOTIFY_PLAYER_PATH}/repeat?state=off&device_id=${device_id}`, {
 							method: "PUT",
 						})
-						dispatch({ type: 'spotify_player_ready' })
 					}
 				})
 			});
@@ -208,19 +231,19 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 	const curPlaytreeRef = useRef<Playtree | null>(null)
 	useEffect(() => {
 		if (playtree && !deepEqual(playtree, curPlaytreeRef.current)) {
-			dispatch({ type: "playtree_loaded", playtree: playtree, selectorRand: Math.random(), autoplay: autoplay })
+			dispatch({ type: "playtree_loaded", playtree: playtree, selectorRand: Math.random() })
 			curPlaytreeRef.current = playtree
 		}
 	}, [playtree])
 
-	const handleRetransferPlaybackToPlayer = useCallback((playbackState: any) => {
-		const deviceID = playbackState.device.id
-		if (deviceID !== spotifyPlayerDeviceID.current) {
+	const handleRetransferPlaybackToPlayer = useCallback(() => {
+		if (spotifyPlayerDeviceID.current) {
 			clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAYER_PATH, {
 				method: "PUT",
 				body: JSON.stringify({ device_ids: [spotifyPlayerDeviceID.current] })
 			}).then(response => {
 				if (response.ok) {
+					dispatch({ type: "device_sync_updated", sync: true })
 					spotifyPlayer.current?.activateElement()
 				}
 			})
@@ -245,9 +268,10 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 										position_ms: currentPlayhead.spotifyPlaybackPosition_ms
 									})
 								})
-								setSongDesynced(_ => false)
+								if (maybeNot(state.songSynced)) {
+									dispatch({ type: "song_sync_updated", sync: true})
+								}
 								dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
-								handleRetransferPlaybackToPlayer(playbackState)
 							} else if (playbackState.is_playing) {
 								clientFetchWithToken(remixServerPath, token, SPOTIFY_PAUSE_PATH, {
 									method: "PUT",
@@ -255,11 +279,32 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 								})
 							}
 						}
+						handleSyncVolume(playbackState)
 					})
 				}
 			})
 		}
 	}, [state.playheadIndex, state.playheads[state.playheadIndex]?.node.id, state.playheads[state.playheadIndex]?.nodeIndex, state.playheads[state.playheadIndex]?.multIndex])
+
+	useEffect(() => {
+		if (state.playtreeJustChangedVolume) {
+			clientFetchWithToken(remixServerPath, token, `${SPOTIFY_PLAYER_PATH}/volume?volume_percent=${state.volume_percent}`, {
+				method: "PUT"
+			})
+			dispatch({ type: 'flushed_volume_change_action' })
+		}
+	}, [state.volume_percent, state.playtreeJustChangedVolume])
+
+
+	// called whenever an input action requests
+	// the Spotify playback state
+	const handleSyncVolume = useCallback((playbackState : any) => {
+		if (!state.playtreeJustChangedVolume) {
+			if (playbackState.device && playbackState.device.volume_percent !== state.volume_percent) {
+				dispatch({ type: "volume_synced", percent: playbackState.device.volume_percent })
+			}
+		}
+	}, [state.volume_percent, state.playtreeJustChangedVolume])
 
 	useEffect(() => {
 		if (state.playheads[state.playheadIndex]?.stopped) {
@@ -272,11 +317,13 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 								body: JSON.stringify({ device_id: playbackState.device.id})
 							})
 						}
+						handleSyncVolume(playbackState)
 					})
 				}
 			})
 		}
 	}, [state.playheads[state.playheadIndex]?.stopped])
+
 
 	const handlePlayPauseAudio = useCallback((shouldPlay: boolean) => {
 		if (!state.playheads || state.playheads.length === 0) {
@@ -300,32 +347,39 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 									position_ms: currentPlayhead.spotifyPlaybackPosition_ms
 								})
 							})
-							setSongDesynced(_ => false)
+							if (maybeNot(state.songSynced)) {
+								dispatch({ type: "song_sync_updated", sync: true })
+							}
 							dispatch({type: "message_logged", message: `Now playing ${currentSong.name}.`})
-							handleRetransferPlaybackToPlayer(playbackState)
 						} else {
 							clientFetchWithToken(remixServerPath, token, SPOTIFY_PAUSE_PATH, {
 								method: "PUT",
 								body: JSON.stringify({ device_id: playbackState.device.id})
 							})
-							dispatch({ type: "song_progress_received", spotifyPlaybackPosition_ms: playbackState.progress_ms })
+							if (definitely(state.songSynced)) {
+								dispatch({ type: "song_progress_received", spotifyPlaybackPosition_ms: playbackState.progress_ms })
+							}
 							dispatch({ type: "message_logged", message: "Paused." })
 						}
 					}
+					handleSyncVolume(playbackState)
 				})
 			}
 		})
 		dispatch({ type: shouldPlay ? "played" : "paused" })
 		dispatch({ type: "autoplay_set", autoplay: shouldPlay })
-	}, [state.playheads, state.playheadIndex])
+	}, [state.playheads, state.playheadIndex, state.songSynced])
 
 	const handleChangePlayhead = useCallback((direction: "incremented_playhead" | "decremented_playhead") => {
 		return () => {
 			if (playtree) {
 				clientFetchWithToken(remixServerPath, token, SPOTIFY_PLAYER_PATH).then(response => {
 					response.json().then(playbackState => {
-						dispatch({ type: "song_progress_received", spotifyPlaybackPosition_ms: playbackState.progress_ms })
+						if (definitely(state.songSynced)) {
+							dispatch({ type: "song_progress_received", spotifyPlaybackPosition_ms: playbackState.progress_ms })
+						}
 						dispatch({ type: direction, playtree: playtree })
+						handleSyncVolume(playbackState)
 					})
 				})
 			}
@@ -494,68 +548,102 @@ export default function Player({ playtree, authenticatedWithPremium, autoplay }:
 			<div className="w-full basis-1/6 min-w-32 my-auto">
 				<img src="/images/Full_Logo_White_RGB.svg" ></img>
 			</div>
-			<div className="w-full basis-1/12 min-w-32 my-auto">
-				<div className="w-fit float-right mr-8">
-					<div className="w-fit mx-auto">
-						<button
-							type="button"
-							title="Previous Playhead"
-							className={`p-2 text-white ${ changePlayheadAllowed ? "" : "hover:cursor-not-allowed"}`}
-							disabled={!changePlayheadAllowed}
-							onClick={handleChangePlayhead("decremented_playhead")}>
-							{"\u23EB"}
-						</button>
+			<div className="w-full h-full basis-1/12 min-w-32">
+				{
+					definitely(state.deviceSynced) ?
+					<div className="w-full h-full flex flex-col p-2">
+						<div className="w-full flex justify-center">
+							<button
+								type="button"
+								title="Previous Playhead"
+								className={`py-[0.3125rem] text-white ${ changePlayheadAllowed ? "" : "hover:cursor-not-allowed"}`}
+								disabled={!changePlayheadAllowed}
+								onClick={handleChangePlayhead("decremented_playhead")}>
+								{"\u23EB"}
+							</button>
+						</div>
+						<div className="w-full flex justify-evenly">
+							<button
+								type="button"
+								title="Skip Backward"
+								className={`py-[0.3125rem] text-white ${ skipBackAllowed ? "" : "hover:cursor-not-allowed"}`}
+								disabled={!skipBackAllowed}
+								onClick={() => dispatch({ type: "skipped_backward", playtree: playtree })}>
+								{"\u23EE"}
+							</button>
+							<button
+								type="button"
+								title={!state.spotifyPlayerReady ? "Loading Player" : state.playing ? "Pause" : "Play"}
+								className={`py-[0.3125rem] text-white ${ playPauseAllowed ? "" : "hover:cursor-not-allowed"}`}
+								onClick={() => handlePlayPauseAudio(!state.playing)}
+								disabled={!playPauseAllowed}
+							>
+								{!state.spotifyPlayerReady ? "\u23F3" : state.playing ? "\u23F8" : "\u23F5"}
+							</button>
+							<button
+								type="button"
+								title="Skip Forward"
+								className={`py-[0.3125rem] text-white ${ skipForwardAllowed ? "" : "hover:cursor-not-allowed"}`}
+								disabled={!skipForwardAllowed}
+								onClick={() => dispatch({ type: "skipped_forward", playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random() })}>{"\u23ED"}</button>
+						</div>
+						<div className="w-full flex justify-center">
+							<button
+								type="button"
+								title="Next Playhead"
+								className={`py-[0.3125rem] text-white ${ changePlayheadAllowed ? "" : "hover:cursor-not-allowed"}`}
+								disabled={!changePlayheadAllowed}
+								onClick={handleChangePlayhead("incremented_playhead")}>
+								{"\u23EC"}
+							</button>
+						</div>
+						<div className="w-full flex justify-around">
+							<button
+								type="button"
+								title="Decrease Volume"
+								className={`py-[0.3125rem] text-white`}
+								onClick={() => dispatch({ type: "volume_decremented" })}>
+								{"\u2796"}
+							</button>
+							<div title="Volume" className="font-markazi text-md text-white my-auto">{state.volume_percent}</div>
+							<button
+								type="button"
+								title="Increase Volume"
+								className={`py-[0.3125rem] text-white`}
+								onClick={() => dispatch({ type: "volume_incremented" })}>
+								{"\u2795"}
+							</button>
+						</div>
+					</div> :
+					definitelyNot(state.deviceSynced) ?
+					<div className="font-markazi text-md text-white p-2">
+						<button className="bg-green-300 text-black rounded-lg px-2 py-1" onClick={handleRetransferPlaybackToPlayer}>Retransfer</button>
+					</div> :
+					<div className="font-markazi text-md text-white p-2">
+						<p>Waiting for web player device to sync...</p>
 					</div>
-					<div className="w-fit mx-auto">
-						<button
-							type="button"
-							title="Skip Backward"
-							className={`p-2 text-white ${ skipBackAllowed ? "" : "hover:cursor-not-allowed"}`}
-							disabled={!skipBackAllowed}
-							onClick={() => dispatch({ type: "skipped_backward", playtree: playtree })}>
-							{"\u23EE"}
-						</button>
-						<button
-							type="button"
-							title={!state.spotifyPlayerReady ? "Loading Player" : state.playing ? "Pause" : "Play"}
-							className={`p-2 text-white ${ playPauseAllowed ? "" : "hover:cursor-not-allowed"}`}
-							onClick={() => handlePlayPauseAudio(!state.playing)}
-							disabled={!playPauseAllowed}
-						>
-							{!state.spotifyPlayerReady ? "\u23F3" : state.playing ? "\u23F8" : "\u23F5"}
-						</button>
-						<button
-							type="button"
-							title="Skip Forward"
-							className={`p-2 text-white ${ skipForwardAllowed ? "" : "hover:cursor-not-allowed"}`}
-							disabled={!skipForwardAllowed}
-							onClick={() => dispatch({ type: "skipped_forward", playtree: playtree, edgeRand: Math.random(), selectorRand: Math.random() })}>{"\u23ED"}</button>
-					</div>
-					<div className="w-fit mx-auto">
-						<button
-							type="button"
-							title="Next Playhead"
-							className={`p-2 text-white ${ changePlayheadAllowed ? "" : "hover:cursor-not-allowed"}`}
-							disabled={!changePlayheadAllowed}
-							onClick={handleChangePlayhead("incremented_playhead")}>
-							{"\u23EC"}
-						</button>
-					</div>
+				}
+			</div>
+			{
+				maybe(state.deviceSynced) ?
+				<div className="w-full basis-1/2 mr-8 my-auto text-white font-lilitaOne">
+					<table>
+						<tbody>
+							<tr><td>Playtree</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playtree.summary.name}>{playtree.summary.name}</td></tr>
+							<tr><td>Playhead</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playheadInfo}>{playheadInfo}</td></tr>
+							<tr><td>Playnode</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playnodeInfo}>{playnodeInfo}</td></tr>
+							<tr><td>Song{maybe(state.songSynced) || <span className="font-markazi text-red-300 hover:cursor-help" title="Pause and play to resync.">(desynced)</span>}</td>
+								<td>|</td><td
+									className={`max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis ${definitelyNot(state.songSynced) ? "text-red-300" : ""}`}
+									title={currentPlayitem ? `${currentPlayitem.name} - ${currentPlayitem.creator}${playAndLimitInfo}` : ""}>{playitemInfo}</td></tr>
+						</tbody>
+					</table>
+				</div> :
+				<div className="w-full basis-1/2 mr-8 my-auto text-white font-markazi">
+					<p>Spotify playback was transferred to another device.</p>
 				</div>
-			</div>
-			<div className="w-full basis-1/2 mr-8 my-auto text-white font-lilitaOne">
-				<table>
-					<tbody>
-						<tr><td>Playtree</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playtree.summary.name}>{playtree.summary.name}</td></tr>
-						<tr><td>Playhead</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playheadInfo}>{playheadInfo}</td></tr>
-						<tr><td>Playnode</td><td>|</td><td className="max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis" title={playnodeInfo}>{playnodeInfo}</td></tr>
-						<tr><td>Song{!songDesynced || <span className="font-markazi text-red-300 hover:cursor-help" title="Pause and play to resync.">(desynced)</span>}</td>
-							<td>|</td><td
-								className={`max-w-[25vw] text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis ${songDesynced ? "text-red-300" : ""}`}
-								title={currentPlayitem ? `${currentPlayitem.name} - ${currentPlayitem.creator}${playAndLimitInfo}` : ""}>{playitemInfo}</td></tr>
-					</tbody>
-				</table>
-			</div>
+			}
+
 		</>
 	)
 }

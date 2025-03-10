@@ -3,6 +3,8 @@ import { Link, useLoaderData } from "@remix-run/react";
 import { serverFetchWithToken } from "../utils/server-fetch-with-token.server";
 import { SPOTIFY_CURRENT_USER_PATH } from "../settings/spotify_api_endpoints";
 import Snack from "../components/Snack";
+import { useMemo, useState } from "react";
+import Modal from "../components/Modal";
 
 export const loader = async ({ request }: ActionFunctionArgs) => {
 	const url = new URL(request.url)
@@ -10,9 +12,13 @@ export const loader = async ({ request }: ActionFunctionArgs) => {
 	const justTriedLogin : boolean = justTriedParam ? justTriedParam === "login" : false
 	const justTriedLogout : boolean = justTriedParam ? justTriedParam === "logout" : false
 
+	const firstVisitParam : string | null = url.searchParams.get("first-visit")
+	const firstVisit : boolean = firstVisitParam ? firstVisitParam !== "false" : true
+
 	const cookie = request.headers.get("Cookie")
 	if (justTriedLogout) {
 		return {
+			firstVisit: firstVisit,
 			justTriedLogin: justTriedLogin,
 			justTriedLogout: justTriedLogout,
 			authenticated: cookie !== null && cookie.includes("__session=")
@@ -21,18 +27,21 @@ export const loader = async ({ request }: ActionFunctionArgs) => {
 	const response = await serverFetchWithToken(request, SPOTIFY_CURRENT_USER_PATH)
 	if (response.ok) {
 		return {
+			firstVisit: firstVisit,
 			justTriedLogin: justTriedLogin,
 			justTriedLogout: justTriedLogout,
 			authenticated: true
 		}
 	} else if (response.status === 401) {
 		return {
+			firstVisit: firstVisit,
 			justTriedLogin: justTriedLogin,
 			justTriedLogout: justTriedLogout,
 			authenticated: false
 		}
 	}
 	return {
+		firstVisit: firstVisit,
 		justTriedLogin: justTriedLogin,
 		justTriedLogout: justTriedLogout,
 		authenticated: false
@@ -73,21 +82,30 @@ const ActionCard = (props: LinkCardProps) => {
 	)
 }
 
+
+
 export default function Index() {
-	const authenticationInfo = useLoaderData<typeof loader>()
+	const data = useLoaderData<typeof loader>()
+
+	const [supportModalVisible, setSupportModalVisible] = useState<boolean>(data.firstVisit)
+	const supportString = useMemo(() => "This application uses the Spotify API, which is currently limited to invited users. \
+		If you haven't already, send your full name and the email associated with your Spotify Prime account \
+		to support@playtree.gdn to try out the Spotify features.", [])
+
 	return (
 		<div className="w-full h-full flex flex-col">
 			<div className="w-full h-full basis-1/12 min-h-[calc(100%/12)]">
 			{
-				authenticationInfo.justTriedLogin || authenticationInfo.justTriedLogout ?
+				data.justTriedLogin || data.justTriedLogout ?
 				
 					<Snack
-						type={authenticationInfo.authenticated === authenticationInfo.justTriedLogin ? "success" : "error"}
-						body={<p>{authenticationInfo.justTriedLogin ? "Login" : "Logout"} {authenticationInfo.authenticated === authenticationInfo.justTriedLogin ? "successful" : "failed"}.</p>} />
+						type={data.authenticated === data.justTriedLogin ? "success" : "error"}
+						body={<p>{data.justTriedLogin ? "Login" : "Logout"} {data.authenticated === data.justTriedLogin ? "successful" : "failed"}.</p>} />
 				
 				: null
 			}
 			</div>
+			{ !supportModalVisible || <Modal type="normal" description={supportString} exitAction={() => setSupportModalVisible(_ => false)}/> }
 			<div className="w-full h-full basis-11/12 flex justify-center items-center flex-wrap">
 				<ActionCard title="Arboretum" imageSrc="/images/tree-garden.jpg" description="A compendium of all public playtrees." action="Check it Out" path="/playtrees" />
 				<ActionCard title="Seedling" imageSrc="/images/seedling.jpg" description="Create a new playtree." action="Create" path="/playtrees/create" />

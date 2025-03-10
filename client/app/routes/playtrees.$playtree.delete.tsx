@@ -6,5 +6,5 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 		method: "DELETE"
 	})
 
-	return redirect("/")
+	return redirect("/?first-visit=false")
 }
