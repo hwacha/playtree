@@ -3,6 +3,7 @@ import { useCallback } from "react";
 
 type BannerProps = {
 	isAuthenticated: boolean;
+	accountID: string | null;
 	displayName: string | null;
 }
 
@@ -23,7 +24,13 @@ export default function Banner(props: BannerProps) {
 				{
 					props.isAuthenticated ?
 					<div className="flex">
-						<h4 className="text-xl my-auto mr-4">{props.displayName}</h4>
+						<a
+							target="_blank"
+							rel="noopener noreferrer"
+							href={`https://open.spotify.com/user/${props.accountID}`}
+							className="my-auto">
+							<h4 className="text-xl mr-4 my-auto underline">{props.displayName}</h4>
+						</a>
 						<Form method="POST" action="/logout">
 							<button
 								type="submit"

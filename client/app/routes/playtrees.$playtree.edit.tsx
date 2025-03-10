@@ -426,6 +426,7 @@ export default function PlaytreeEditor() {
 					deleteModalOn ?
 					<Modal
 						type={"dangerous"}
+						size="small"
 						description={`Are you sure you want to delete the playtree '${state.playtree.summary.name}'?`}
 						exitAction={() => handleSetDeleteModalVisiblity(false)}
 						primaryAction={{ label: "Delete", callback: handleDelete }}

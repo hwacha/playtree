@@ -5,11 +5,21 @@ type PlayscopeManagerProps = {
 	playscopes: Playscope[];
 	dispatch: (action: PlaytreeEditorAction) => void;
 	onExit: () => void;
+
 }
 export const PlayscopeManager = (props: PlayscopeManagerProps) => {
+	const bannerSize = "4rem"
+	const sidebarSize = "13.5rem"
+	const bannerPlusPlayerSize = "13rem"
+
+	const anchorLeft = `left-[calc(${sidebarSize}+0.125*(100%-${sidebarSize}))]`
+	const width = `w-[calc(0.5*(100%-${sidebarSize}))]`
+	const anchorTop = `top-[calc(${bannerSize}+0.25*(100%-${bannerPlusPlayerSize}))]`
+	const height = `h-[calc(0.5*(100%-${bannerPlusPlayerSize}))]`
+	
 	return (
-		<div className="absolute z-10 left-1/4 top-1/4 h-96 w-96 border-2 border-indigo-300 bg-indigo-100 rounded-lg overflow-hidden font-markazi p-4">
-			<div className="max-h-64 overflow-y-auto">
+		<div className={`absolute z-10 ${anchorLeft} ${anchorTop} ${width} ${height} border-2 border-indigo-300 bg-indigo-100 rounded-lg overflow-hidden font-markazi p-4`}>
+			<div className={`max-h-[calc(100%-5rem)] overflow-y-auto`}>
 				<table className="table-fixed w-full text-xl">
 					<colgroup>
 						<col className="w-2/3"></col>

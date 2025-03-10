@@ -105,7 +105,7 @@ export default function Index() {
 				: null
 			}
 			</div>
-			{ !supportModalVisible || <Modal type="normal" description={supportString} exitAction={() => setSupportModalVisible(_ => false)}/> }
+			{ !supportModalVisible || <Modal type="normal" size="large" description={supportString} exitAction={() => setSupportModalVisible(_ => false)}/> }
 			<div className="w-full h-full basis-11/12 flex justify-center items-center flex-wrap">
 				<ActionCard title="Arboretum" imageSrc="/images/tree-garden.jpg" description="A compendium of all public playtrees." action="Check it Out" path="/playtrees" />
 				<ActionCard title="Seedling" imageSrc="/images/seedling.jpg" description="Create a new playtree." action="Create" path="/playtrees/create" />

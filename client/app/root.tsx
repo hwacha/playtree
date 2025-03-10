@@ -28,6 +28,7 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 	const result : {
 		authenticated: boolean,
 		hasPremium: boolean,
+		accountID: null,
 		displayName: string | null,
 		playerPlaytree: {
 			summary: PlaytreeSummary,
@@ -43,6 +44,7 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 	} = {
 		authenticated: false,
 		hasPremium: false,
+		accountID: null,
 		displayName: null,
 		playerPlaytree: null,
 		userPlaytreeSummaries: null,
@@ -72,6 +74,7 @@ export const loader = async ({request} : LoaderFunctionArgs) => {
 		const profileJson = await profileRequest.json()
 		result.hasPremium = profileJson.product === "premium"
 		result.displayName = profileJson.display_name
+		result.accountID = profileJson.id
 	}
 	if (playerRequest.ok) {
 		result.playerPlaytree = await playerRequest.json()
@@ -99,6 +102,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			method: "PUT"
 		})
 	}
+
+	return null
 }
 
 export function ErrorBoundary() {
@@ -144,9 +149,8 @@ export default function App() {
 						<div className="h-screen overflow-hidden flex">
 							<UserSidebar userPlaytreeSummaries={userPlaytreeSummaries} />
 							<div className="w-full flex flex-col">
-								<Banner isAuthenticated={data.authenticated} displayName={data.displayName}/>
+								<Banner isAuthenticated={data.authenticated} accountID={data.accountID} displayName={data.displayName}/>
 								<div className="w-full h-full overflow-y-auto">
-									
 									<Outlet key={location.pathname} />
 								</div>
 								<Player playtree={playerPlaytree} authenticatedWithPremium={data.authenticated && data.hasPremium} />
