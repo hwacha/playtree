@@ -88,8 +88,8 @@ export default function Index() {
 	const data = useLoaderData<typeof loader>()
 
 	const [supportModalVisible, setSupportModalVisible] = useState<boolean>(data.firstVisit)
-	const supportString = useMemo(() => "This application uses the Spotify API, which is currently limited to invited users. \
-		If you haven't already, send your full name and the email associated with your Spotify Prime account \
+	const supportString = useMemo(() => "This application uses the Spotify API, which limits third-party applications in development to invited users. \
+		If you haven't already, send your full name and the email associated with your Spotify Premium account \
 		to support@playtree.gdn to try out the Spotify features.", [])
 
 	return (
