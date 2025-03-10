@@ -87,11 +87,13 @@ export default function Player({ playtree, authenticatedWithPremium }: PlayerPro
 			}
 		}
 
+		const justLoadedNewPlaytree = state.messageLog.length <= 1
+
 		if (songIsSynced) {
 			if (maybeNot(state.songSynced)) {
 				dispatch({ type: "song_sync_updated", sync: true})
 			}
-		} else {
+		} else if (!justLoadedNewPlaytree) {
 			if (maybe(state.songSynced)) {
 				dispatch({ type: "song_sync_updated", sync: false })
 			}
@@ -616,10 +618,10 @@ export default function Player({ playtree, authenticatedWithPremium }: PlayerPro
 						</div>
 					</div> :
 					definitelyNot(state.deviceSynced) ?
-					<div className="font-markazi text-md text-white p-2">
-						<button className="bg-green-300 text-black rounded-lg px-2 py-1" onClick={handleRetransferPlaybackToPlayer}>Retransfer</button>
+					<div className="w-full h-full font-markazi text-md flex flex-col justify-center text-white p-2 ">
+						<button className="bg-green-300 text-black my-auto rounded-lg px-2 py-1" onClick={handleRetransferPlaybackToPlayer}>Retransfer</button>
 					</div> :
-					<div className="font-markazi text-md text-white p-2">
+					<div className="w-full h-full font-markazi text-md flex flex-col justify-center text-white p-2">
 						<p>Waiting for web player device to sync...</p>
 					</div>
 				}
