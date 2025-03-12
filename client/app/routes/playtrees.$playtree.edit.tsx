@@ -104,26 +104,28 @@ export default function PlaytreeEditor() {
 			}
 			return 0
 		}
-	}, [state.playtree?.playscopes, state.playtree?.playnodes])
+	}, [state.playtree.playscopes, state.playtree.playnodes])
 
-	let initialFlownodeData: PlaynodeFlowData[] = Array.from(state.playtree.playnodes.values()).map((playnode, index) => {
-		return {
-			key: playnode.id,
-			type: "play",
-			id: playnode.id,
-			label: playnode.name,
-			position: { x: 100 + 300 * (index % 3), y: 50 + Math.floor(index / 3) * 300 },
-			zIndex: 100 - index,
-			data: {
-				label: playnode.id,
-				playnode: playnode,
-				playroot: state.playtree?.playroots.get(playnode.id) ?? null,
-				playscopes: state.playtree?.playscopes ?? [],
-				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
-				playscopeComparator: playscopeComparator
+	let initialFlownodeData: PlaynodeFlowData[] = useMemo(() => {
+		return Array.from(state.playtree.playnodes.values()).map((playnode, index) => {
+			return {
+				key: playnode.id,
+				type: "play",
+				id: playnode.id,
+				label: playnode.name,
+				position: { x: 100 + 300 * (index % 3), y: 50 + Math.floor(index / 3) * 300 },
+				zIndex: 100 - index,
+				data: {
+					label: playnode.id,
+					playnode: playnode,
+					playroot: state.playtree?.playroots.get(playnode.id) ?? null,
+					playscopes: state.playtree?.playscopes ?? [],
+					dispatch: (x: PlaytreeEditorAction) => dispatch(x),
+					playscopeComparator: playscopeComparator
+				}
 			}
-		}
-	})
+		})
+	}, [])
 
 	const makeNewPlayedgeFlowData = useCallback((playnode: Playnode, playedge: Playedge): PlayedgeFlowData => {
 		return {
@@ -183,7 +185,7 @@ export default function PlaytreeEditor() {
 		}))
 		
 		setFlowedges([...flowedges])
-	}, [state.playtree])
+	}, [])
 
 	const onConnect: OnConnect = useCallback(connection => {
 		const sourcePlaynode = state.playtree.playnodes.get(connection.source)
@@ -211,7 +213,7 @@ export default function PlaytreeEditor() {
 					playitems: [],
 					next: []
 				},
-				playscopes: state.playtree ? state.playtree.playscopes : [],
+				playscopes: state.playtree.playscopes,
 				playroot: null,
 				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
 				playscopeComparator: playscopeComparator
@@ -233,13 +235,13 @@ export default function PlaytreeEditor() {
 				let playnodeFlowDataToUpsert = oldFlownodes.find(flownode => {
 					return flownode.id === playnode.id
 				}) ?? makeNewPlaynodeFlowData(playnode.id)
-
+				
 				playnodeFlowDataToUpsert = {
 					...playnodeFlowDataToUpsert,
 					data: {
 						...playnodeFlowDataToUpsert.data,
 						playnode: {...playnode},
-						playscopes: state.playtree.playscopes ?? [],
+						playscopes: state.playtree.playscopes,
 						playroot: state.playtree.playroots.get(playnode.id) ?? null,
 						playscopeComparator: playscopeComparator
 					}
