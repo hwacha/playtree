@@ -92,6 +92,7 @@ export type Playhead = {
 
 	stopped: boolean;
 	spotifyPlaybackPosition_ms: number;
+	songDuration_ms: number;
 }
 
 type PlayerState = {
@@ -108,6 +109,7 @@ type PlayerState = {
 	songSynced: Kleene;
 
 	playing: boolean;
+	positionLastSet_ms: number;
 	autoplay: boolean;
 
 	volume_percent: number;
@@ -115,7 +117,10 @@ type PlayerState = {
 }
 
 type PlayerAction = {
-	type: 'spotify_player_connection_failed' | 'spotify_player_ready' | 'played' | 'paused' | 'volume_incremented' | 'volume_decremented' | 'flushed_volume_change_action';
+	type: 'spotify_player_connection_failed' | 'spotify_player_ready' | 'paused' | 'volume_incremented' | 'volume_decremented' | 'flushed_volume_change_action';
+} | {
+	type: 'played';
+	timestamp_ms: number;
 } | {
 	type: 'skipped_backward' | 'incremented_playhead' | 'decremented_playhead';
 	playtree: Playtree;
@@ -129,12 +134,15 @@ type PlayerAction = {
 	playtree: Playtree;
 	selectorRand: number;
 	edgeRand: number;
+	timestamp_ms: number;
 } | {
 	type: 'autoplay_set';
 	autoplay: boolean;
 } | {
 	type: 'song_progress_received';
 	spotifyPlaybackPosition_ms: number;
+	songDuration_ms: number;
+	timestamp_ms: number;
 } | {
 	type: 'message_logged';
 	message: string;
@@ -299,6 +307,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 						playcounters: initialPlaycounters,
 						stopped: false,
 						spotifyPlaybackPosition_ms: 0,
+						songDuration_ms: -Infinity,
 					}
 				}
 			})
@@ -310,6 +319,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				leastScopeByEdge: leastScopeByEdge,
 				messageLog: [`Playtree "${action.playtree.summary.name}" loaded.`],
 				playing: false,
+				positionLastSet_ms: -Infinity,
 				autoplay: state.autoplay,
 				spotifyPlayerReady: state.spotifyPlayerReady,
 				deviceSynced: state.deviceSynced,
@@ -329,6 +339,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			return {
 				...state,
 				playing: true,
+				positionLastSet_ms: action.timestamp_ms,
 				playheads: newPlayheads
 			};
 		}
@@ -408,11 +419,14 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 						newPlayheads[state.playheadIndex].multIndex = nextMultIndex
 						newPlayheads[state.playheadIndex].nodeIndex = nextNodeIndex
 						newPlayheads[state.playheadIndex].playcounters = newPlaycounters
+						newPlayheads[state.playheadIndex].spotifyPlaybackPosition_ms = 0
+						newPlayheads[state.playheadIndex].songDuration_ms = -Infinity
 
 						return {
 							...state,
+							positionLastSet_ms: action.timestamp_ms,
 							playheads: newPlayheads,
-							messageLog: newMessageLog
+							messageLog: newMessageLog,
 						}
 					}
 				}
@@ -456,7 +470,9 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 						history: [],
 						playcounters: zeroedPlaycounters,
 						stopped: true,
-						spotifyPlaybackPosition_ms: 0
+						spotifyPlaybackPosition_ms: 0,
+						songDuration_ms: -Infinity
+
 					}
 				}
 				// move to next playhead
@@ -480,7 +496,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					break;
 				}
 				if (!curNodeForEdgeTraversal.next) {
-					newMessageLog.push(`Playnode ${curNodeForEdgeTraversal.name} has no outgoing edges. Resetting playhead.`)
+					newMessageLog.push(`Playnode '${curNodeForEdgeTraversal.name}' has no outgoing edges. Resetting playhead.`)
 					break;
 				}
 
@@ -538,7 +554,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					newMessageLog.push(`Traversing playedge '${curNodeForEdgeTraversal.name} => ${nextNode.name}'${edgePlaycount !== undefined ? ` (${edgePlaycount + 1} / ${selectedEdge.limit})` : ""}`)
 					exitingScopes = union([exitingScopes, diff([curNode.playscopes, nextNode.playscopes]) as number[]]) as number[]
 					exitingScopes.forEach(scopeID => {
-						newMessageLog.push(`Exiting scope ${action.playtree.playscopes.find(playscope => playscope.id === scopeID)?.name}. Resetting plays.`)
+						newMessageLog.push(`Exiting scope '${action.playtree.playscopes.find(playscope => playscope.id === scopeID)?.name}'. Resetting plays.`)
 						if (newPlaycounters.playitems.has(scopeID)) {
 							cachedPlaycounters.playitems.set(scopeID, newPlaycounters.playitems.get(scopeID) as Map<string, Map<string, number>>)
 						}
@@ -622,6 +638,8 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					newPlayheads[state.playheadIndex].multIndex = 0
 				}
 				newPlayheads[state.playheadIndex].playcounters = newPlaycounters
+				newPlayheads[state.playheadIndex].spotifyPlaybackPosition_ms = 0
+				newPlayheads[state.playheadIndex].songDuration_ms = 0
 				return {
 					...state,
 					playheads: newPlayheads,
@@ -635,6 +653,7 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 				playheadIndex: nextPlayheadIndex,
 				playheads: newPlayheads,
 				playing: playheadShouldPlay,
+				positionLastSet_ms: action.timestamp_ms,
 				autoplay: playheadShouldPlay,
 				messageLog: newMessageLog
 			}
@@ -692,6 +711,8 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 					}
 				}
 				newPlayheads[state.playheadIndex].playcounters = newPlaycounters
+				newPlayheads[state.playheadIndex].spotifyPlaybackPosition_ms = 0
+				newPlayheads[state.playheadIndex].songDuration_ms = -Infinity
 				return {
 					...state,
 					playheads: newPlayheads
@@ -757,10 +778,12 @@ const reducer = (state: PlayerState, action: PlayerAction): PlayerState => {
 			const newPlayheads = structuredClone(state.playheads)
 			if (newPlayheads && newPlayheads.length > 0 && newPlayheads[state.playheadIndex]) {
 				newPlayheads[state.playheadIndex].spotifyPlaybackPosition_ms = action.spotifyPlaybackPosition_ms
+				newPlayheads[state.playheadIndex].songDuration_ms = action.songDuration_ms
 			}
 			return {
 				...state,
-				playheads: newPlayheads
+				playheads: newPlayheads,
+				positionLastSet_ms: action.timestamp_ms,
 			}
 		}
 		case 'spotify_player_ready': {
