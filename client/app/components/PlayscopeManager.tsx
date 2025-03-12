@@ -8,17 +8,21 @@ type PlayscopeManagerProps = {
 
 }
 export const PlayscopeManager = (props: PlayscopeManagerProps) => {
-	const bannerSize = "4rem"
-	const sidebarSize = "13.5rem"
-	const bannerPlusPlayerSize = "13rem"
-
-	const anchorLeft = `left-[calc(${sidebarSize}+0.125*(100%-${sidebarSize}))]`
-	const width = `w-[calc(0.5*(100%-${sidebarSize}))]`
-	const anchorTop = `top-[calc(${bannerSize}+0.25*(100%-${bannerPlusPlayerSize}))]`
-	const height = `h-[calc(0.5*(100%-${bannerPlusPlayerSize}))]`
+	// TODO find a way to manage the following variables programmatically
+	//      so they don't have to be hard-coded into the tailwind classes
+	//      simply variable substitution means that tailind doesn't precompile,
+	//      and it's unclear how to save these results in the tailwind config file
+	// banner height: 4rem
+	// sidebar width: 13.5rem
+	// player height: 9rem
+	// banner plus player height: 13 rem
+	const anchorLeft = `left-[calc(13.5rem+0.125*(100%-13.5rem))]`
+	const width = `w-[calc(0.5*(100%-13.5rem))]`
+	const anchorTop = `top-[calc(4rem+0.25*(100%-13rem))]`
+	const height = `h-[calc(0.5*(100%-13rem))]`
 	
 	return (
-		<div className={`absolute z-10 ${anchorLeft} ${anchorTop} ${width} ${height} border-2 border-indigo-300 bg-indigo-100 rounded-lg overflow-hidden font-markazi p-4`}>
+		<div className={`absolute z-10 ${anchorLeft} ${anchorTop} ${width} ${height} min-h-40 border-2 border-indigo-300 bg-indigo-100 rounded-lg overflow-hidden font-markazi p-4`}>
 			<div className={`max-h-[calc(100%-5rem)] overflow-y-auto`}>
 				<table className="table-fixed w-full text-xl">
 					<colgroup>
