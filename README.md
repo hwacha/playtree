@@ -30,4 +30,4 @@ Then, in the course of adding new features to playtree and testing it out, I rea
 
 Or, you can make a "party" playtree that separates the night out into phases, while still allowing for replayability the next weekend: randomly chose 5 from a large pool of karaoke classics, and then move on to play 12 bangers before moving into an infinite loop of ambient comedown tracks. You get structure and randomness working in tandem.
 
-In any case, I made playtree so that people can try out a new way to structure music listening. Maybe an inspired musician could chose the playtree structure instead of an album format for their next project. You should [give it a try](https://playtree.gdn) and chart out something new!
+In any case, I made playtree so that people can try out a new way to structure music listening. Maybe an inspired musician could choose the playtree structure instead of an album format for their next project. You should [give it a try](https://playtree.gdn) and chart out something new!
