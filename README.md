@@ -31,7 +31,7 @@ From the repository directory, in a separate tab from the server:
 1. `cd client/`
 2. `touch .env.local`
 ```
-# env.local
+# .env.local
 PLAYTREE_SERVER_API_PATH=http://localhost:8080
 PLAYTREE_REMIX_SERVER_API_PATH=http://localhost:5173
 PLAYTREE_SPOTIFY_CLIENT_ID=[your Spotify application ID]
