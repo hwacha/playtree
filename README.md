@@ -23,7 +23,7 @@ From the repository directory:
 1. `cd server/`
 2. `go run *.go`
 
-The server will start running on localhost:8080.
+The server will start running on `localhost:8080`.
 
 ### Client
 #### Dev Build
