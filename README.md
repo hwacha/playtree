@@ -56,4 +56,4 @@ If you would like to run a production build of Playtree:
 6. Visit `localhost:3000` on your browser.
 
 ## Learn More
-Learn more about Playtree at [my personal site](https://hwacha.github.io).
+Learn more about Playtree at [my personal site](https://wgmarcy.github.io/posts/playtree-technical-overview).
