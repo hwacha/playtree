@@ -13,8 +13,8 @@ Created by [@hwacha](https://github.com/hwacha).
 ## Setup
 
 ### Prerequisites
-1. [Install Go](https://go.dev/doc/install) (1.23.3+)
-2. [Install npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) (11.2.0+)
+1. [Install Go (1.23.3)](https://go.dev/doc/install)
+2. [Install node (22.11.0) and npm (11.2.0)](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
 3. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create a new application.
 4. Clone this repository.
  
