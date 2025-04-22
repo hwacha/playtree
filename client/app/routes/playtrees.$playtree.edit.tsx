@@ -1,6 +1,6 @@
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { isRouteErrorResponse, Link, useFetcher, useLoaderData, useRouteError, useSubmit } from "@remix-run/react";
-import { Background, Controls, MarkerType, ReactFlow, addEdge, OnConnect, useNodesState, useEdgesState } from "@xyflow/react";
+import { Background, Controls, MarkerType, ReactFlow, addEdge, OnConnect, useNodesState, useEdgesState, MiniMap, useReactFlow, ReactFlowProvider } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useCallback, useContext, useEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
@@ -60,6 +60,26 @@ export function ErrorBoundary() {
 
 	return (
 		<Snack type="error" body={<p className="text-white font-markazi text-lg">{message}</p>} />
+	)
+}
+
+type AddNodeButtonProps = {
+	onClick: (x: number, y: number) => void
+}
+
+const AddNodeButton = (props: AddNodeButtonProps) => {
+	const reactFlowInstance = useReactFlow()
+
+	const handleClick = useCallback(() => {
+		const viewport = reactFlowInstance.getViewport()
+		props.onClick(-viewport.x + 42, -viewport.y + 10)
+	}, [])
+
+	return (
+		<button
+			title="Add Playnode"
+			className="rounded-lg bg-green-400 px-2 py-1"
+			onClick={handleClick}>➕</button>
 	)
 }
 
@@ -196,15 +216,17 @@ export default function PlaytreeEditor() {
 		}
 	}, [state.playtree.playnodes]);
 
-	const makeNewPlaynodeFlowData = useCallback((id: string) : PlaynodeFlowData => {
+	const makeNewPlaynodeFlowData = useCallback((id: string, x: number, y: number) : PlaynodeFlowData => {
 		return {
 			id: id,
 			type: "play",
-			position: { x: 0, y: 0 },
+			position: { x: x, y: y },
 			zIndex: 100 - parseInt(id),
 			data: {
 				playnode: {
 					id: id,
+					x: x,
+					y: y,
 					name: "Playnode",
 					type: "sequencer",
 					repeat: 1,
@@ -221,8 +243,8 @@ export default function PlaytreeEditor() {
 		}
 	}, [state.playtree])
 
-	const handleAddPlaynode = useCallback(() => {
-		dispatch({ type: "added_playnode" })
+	const handleAddPlaynode = useCallback((x : number, y: number) => {
+		dispatch({ type: "added_playnode", x: x, y: y })
 	}, [])
 
 	useEffect(() => { // sync react flow components with playtree state
@@ -234,7 +256,7 @@ export default function PlaytreeEditor() {
 			state.playtree.playnodes.forEach(playnode => {
 				let playnodeFlowDataToUpsert = oldFlownodes.find(flownode => {
 					return flownode.id === playnode.id
-				}) ?? makeNewPlaynodeFlowData(playnode.id)
+				}) ?? makeNewPlaynodeFlowData(playnode.id, playnode.x, playnode.y)
 				
 				playnodeFlowDataToUpsert = {
 					...playnodeFlowDataToUpsert,
@@ -435,13 +457,11 @@ export default function PlaytreeEditor() {
 					/>
 					: null
 				}
+				<ReactFlowProvider>
 				<div className="h-[85%] flex">
 					<div className="h-full w-full flex-[4] border-4 border-green-600 bg-neutral-100">
 						<div className="z-10 w-fit absolute m-1 gap-1 flex flex-col">
-							<button
-								title="Add Playnode"
-								className="rounded-lg bg-green-400 px-2 py-1"
-								onClick={handleAddPlaynode}>➕</button>
+							<AddNodeButton onClick={handleAddPlaynode}/>
 							<button
 								id="playhead-spawner"
 								title="Add Playhead"
@@ -491,6 +511,7 @@ export default function PlaytreeEditor() {
 						</ul>
 					</div>
 				</div>
+				</ReactFlowProvider>
 			</div>
 		</div>
 	)

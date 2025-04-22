@@ -16,7 +16,11 @@ export type PlaytreeEditorAction = {
 	type: "loaded_playtree",
 	playtree: Playtree
 } | {
-	type: "added_playnode" | "added_playscope" | "saved_playtree",
+	type: "added_playscope" | "saved_playtree",
+} | {
+	type: "added_playnode",
+	x: number,
+	y: number
 } | {
 	type: "updated_playnode",
 	playnodeID: string,
@@ -100,6 +104,8 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 			})
 			const newPlaynode: Playnode = {
 				id: (maxValue + 1).toString(),
+				x: action.x,
+				y: action.y,
 				name: "Playnode",
 				type: "sequencer",
 				repeat: 1,
