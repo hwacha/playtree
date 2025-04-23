@@ -104,8 +104,10 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 			})
 			const newPlaynode: Playnode = {
 				id: (maxValue + 1).toString(),
-				x: action.x,
-				y: action.y,
+				position: {
+					x: action.x,
+					y: action.y,
+				},
 				name: "Playnode",
 				type: "sequencer",
 				repeat: 1,

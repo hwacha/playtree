@@ -133,7 +133,7 @@ export default function PlaytreeEditor() {
 				type: "play",
 				id: playnode.id,
 				label: playnode.name,
-				position: { x: 100 + 300 * (index % 3), y: 50 + Math.floor(index / 3) * 300 },
+				position: { x: playnode.position.x, y: playnode.position.y },
 				zIndex: 100 - index,
 				data: {
 					label: playnode.id,
@@ -194,7 +194,8 @@ export default function PlaytreeEditor() {
 		);
 
 		Dagre.layout(g);
-		setFlownodes(flownodes.map((node) => {
+
+		flownodes.map((node) => {
 			const position = g.node(node.id);
 			position.x *= 1.25
 			position.y *= 1.25
@@ -203,19 +204,8 @@ export default function PlaytreeEditor() {
 			const x = position.x - (node.measured?.width ?? 0) / 2;
 			const y = position.y - (node.measured?.height ?? 0) / 2;
 
-			return {
-				...node,
-				position: { x, y },
-				data: {
-					...node.data,
-					playnode: {
-						...node.data.playnode,
-						x: x,
-						y: y
-					}
-				}
-			};
-		}))
+			dispatch({ type: "updated_playnode", playnodeID: node.id, patch: { position: { x: x, y: y }}})
+		})
 		
 		setFlowedges([...flowedges])
 	}, [state.playtree.playroots, flownodes, flowedges])
@@ -238,8 +228,10 @@ export default function PlaytreeEditor() {
 			data: {
 				playnode: {
 					id: id,
-					x: x,
-					y: y,
+					position: {
+						x: x,
+						y: y,
+					},
 					name: "Playnode",
 					type: "sequencer",
 					repeat: 1,
@@ -269,10 +261,14 @@ export default function PlaytreeEditor() {
 			state.playtree.playnodes.forEach(playnode => {
 				let playnodeFlowDataToUpsert = oldFlownodes.find(flownode => {
 					return flownode.id === playnode.id
-				}) ?? makeNewPlaynodeFlowData(playnode.id, playnode.x, playnode.y)
+				}) ?? makeNewPlaynodeFlowData(playnode.id, playnode.position.x, playnode.position.y)
 				
 				playnodeFlowDataToUpsert = {
 					...playnodeFlowDataToUpsert,
+					position: {
+						x: playnode.position.x,
+						y: playnode.position.y,
+					},
 					data: {
 						...playnodeFlowDataToUpsert.data,
 						playnode: {...playnode},
@@ -488,7 +484,7 @@ export default function PlaytreeEditor() {
 							<button
 								title="Auto-layout Graph"
 								className="rounded-lg bg-sky-300 px-2 py-1"
-								onClick={handleAutolayoutGraph}>🔲</button>
+								onClick={handleAutolayoutGraph}>🔄</button>
 							{
 								state.unsavedChangesExist ?
 									<button

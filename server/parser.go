@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/go-playground/validator/v10"
@@ -32,8 +33,14 @@ type (
 		Limit    int    `json:"limit" validate:"min=-1"`
 	}
 
+	Position struct {
+		X float64 `json:"x"`
+		Y float64 `json:"y"`
+	}
+
 	Playnode struct {
 		ID         string     `json:"id" validate:"required"`
+		Position   Position   `json:"position" validate:"required"`
 		Type       string     `json:"type" validate:"required,oneof=sequencer selector simulplexer"`
 		Name       string     `json:"name" validate:"required"`
 		Repeat     int        `json:"repeat" validate:"min=0"`
@@ -115,6 +122,7 @@ func (ci *Playitem) UnmarshalJSON(data []byte) error {
 func (pni *Playnode) UnmarshalJSON(data []byte) error {
 	type PlaynodeTmp struct {
 		ID         string     `json:"id" validate:"required"`
+		Position   Position   `json:"position" validate:"required"`
 		Type       string     `json:"type" validate:"required,oneof=sequencer selector simulplexer"`
 		Name       string     `json:"name" validate:"required"`
 		Repeat     int        `json:"repeat" validate:"min=0"`
@@ -126,6 +134,7 @@ func (pni *Playnode) UnmarshalJSON(data []byte) error {
 
 	pni2 := &PlaynodeTmp{
 		ID:         "",
+		Position:   Position{X: 0, Y: 0},
 		Name:       "",
 		Type:       "",
 		Repeat:     1,
@@ -141,6 +150,7 @@ func (pni *Playnode) UnmarshalJSON(data []byte) error {
 	}
 
 	pni.ID = pni2.ID
+	pni.Position = pni2.Position
 	pni.Name = pni2.Name
 	pni.Type = pni2.Type
 	pni.Limit = pni2.Limit
@@ -211,7 +221,9 @@ func playtreeInfoFromJSON(r io.Reader) (*Playtree, error) {
 	}
 
 	for _, node := range pti.Playnodes {
+
 		if nodeValidationErr := v.Struct(node); nodeValidationErr != nil {
+			fmt.Println(nodeValidationErr)
 			return nil, nodeValidationErr
 		}
 		for _, playitems := range node.Playitems {

@@ -31,8 +31,10 @@ export type Playedge = {
 
 export type Playnode = {
 	id: string;
-	x: number;
-	y: number;
+	position: {
+		x: number;
+		y: number;
+	}
 	type: "sequencer" | "selector" | "simulplexer";
 	name: string;
 	repeat: number;

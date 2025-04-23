@@ -8,9 +8,13 @@
 	"playnodes": {
 		"0": {
 			"id": "0",
+			"position": {
+				"x": 226.75,
+				"y": 9
+			},
 			"type": "selector",
 			"name": "Early 2010s Indie Shuffle",
-			"repeat": 1,
+			"repeat": 0,
 			"limit": -1,
 			"playscopes": [
 				0
@@ -132,9 +136,13 @@
 		},
 		"2": {
 			"id": "2",
+			"position": {
+				"x": 33,
+				"y": 161.5
+			},
 			"type": "selector",
 			"name": "90s Rock Shuffle",
-			"repeat": 1,
+			"repeat": 0,
 			"limit": -1,
 			"playscopes": [
 				0
@@ -236,9 +244,13 @@
 		},
 		"3": {
 			"id": "3",
+			"position": {
+				"x": 424.5,
+				"y": 165.5
+			},
 			"type": "sequencer",
 			"name": "EDM",
-			"repeat": 1,
+			"repeat": 0,
 			"limit": -1,
 			"playscopes": [],
 			"playitems": [
@@ -296,9 +308,13 @@
 		},
 		"4": {
 			"id": "4",
+			"position": {
+				"x": 618.25,
+				"y": 13
+			},
 			"type": "sequencer",
 			"name": "Playnode",
-			"repeat": 1,
+			"repeat": 0,
 			"limit": 9999,
 			"playscopes": [],
 			"playitems": [

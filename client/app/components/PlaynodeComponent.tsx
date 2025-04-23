@@ -1,7 +1,7 @@
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
 import { PlaytreeEditorAction } from "../reducers/editor";
 import { Playitem, Playroot, Playnode, Playscope } from "../types";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SearchField, { SearchResult } from "./SearchField";
 import React from "react";
 import NaturalNumberInputField from "./NaturalNumberInputField";
@@ -19,6 +19,24 @@ export type PlaynodeFlowData = Node<{
 
 export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 	const [scopeView, setScopeView] = useState<boolean>(false)
+
+	// when dragging stops, update the playnode position
+	const wasDragging = useRef<boolean>(false)
+	useEffect(() => {
+		if (wasDragging.current && !props.dragging) {
+			props.data.dispatch({
+				type: "updated_playnode",
+				playnodeID: props.data.playnode.id,
+				patch: {
+					position: {
+						x: props.positionAbsoluteX,
+						y: props.positionAbsoluteY,
+					}
+				}
+			})
+		}
+		wasDragging.current = props.dragging
+	}, [props.dragging])
 
 	const handleContentSelect = useCallback((newPlayitemAsSearchResult: SearchResult): boolean => {
 		if (newPlayitemAsSearchResult.uri === null) {
