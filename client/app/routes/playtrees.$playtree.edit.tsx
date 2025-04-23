@@ -181,7 +181,7 @@ export default function PlaytreeEditor() {
 	const [flownodes, setFlownodes, onFlownodesChange] = useNodesState<PlaynodeFlowData>(initialFlownodeData)
 	const [flowedges, setFlowedges, onFlowedgesChange] = useEdgesState<PlayedgeFlowData>(initialFlowedgeData)
 
-	useEffect(() => {
+	const handleAutolayoutGraph = useCallback(() => {
 		const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 		g.setGraph({ rankdir: "TB", align: undefined, acyclicer: "greedy", ranker: "network-simplex" })
 		flowedges.filter(edge => !state.playtree.playroots.has(edge.target)).forEach((edge) => g.setEdge(edge.source, edge.target));
@@ -196,16 +196,29 @@ export default function PlaytreeEditor() {
 		Dagre.layout(g);
 		setFlownodes(flownodes.map((node) => {
 			const position = g.node(node.id);
+			position.x *= 1.25
+			position.y *= 1.25
 			// We are shifting the dagre node position (anchor=center center) to the top left
 			// so it matches the React Flow node anchor point (top left).
 			const x = position.x - (node.measured?.width ?? 0) / 2;
 			const y = position.y - (node.measured?.height ?? 0) / 2;
 
-			return { ...node, position: { x, y } };
+			return {
+				...node,
+				position: { x, y },
+				data: {
+					...node.data,
+					playnode: {
+						...node.data.playnode,
+						x: x,
+						y: y
+					}
+				}
+			};
 		}))
 		
 		setFlowedges([...flowedges])
-	}, [])
+	}, [state.playtree.playroots, flownodes, flowedges])
 
 	const onConnect: OnConnect = useCallback(connection => {
 		const sourcePlaynode = state.playtree.playnodes.get(connection.source)
@@ -472,6 +485,10 @@ export default function PlaytreeEditor() {
 								title="Manage Scopes"
 								className="rounded-lg bg-indigo-300 px-2 py-1"
 								onClick={handlePlayscopeManagerVisibility(true)}>🔲</button>
+							<button
+								title="Auto-layout Graph"
+								className="rounded-lg bg-sky-300 px-2 py-1"
+								onClick={handleAutolayoutGraph}>🔲</button>
 							{
 								state.unsavedChangesExist ?
 									<button
