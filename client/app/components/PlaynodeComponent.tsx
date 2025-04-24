@@ -115,32 +115,32 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 		{
 			props.selected && !props.dragging ?
 				<div
-					className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl p-4 text-${color}-600`}
+					className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl text-${color}-600`}
 					style={{ width: `${PLAYNODE_EXPANDED_WIDTH}rem`, marginLeft: `calc(-${PLAYNODE_EXPANDED_WIDTH}rem/4)` }}
 					onDrop={handleDrop}
 					onDragOver={e => e.preventDefault()}
 				>
-					<div className="mb-5">
+					<div className="flex justify-between">
+						<div>
 						<button
-							className={`bg-${color}-300 rounded-lg px-2 py-1 absolute left-[1.25rem]`}
-							style={{left: 4 * (1 + numScopes) - (PLAYNODE_EXPANDED_WIDTH*4), top: 4 * (1 + numScopes)}}
+							className={`bg-${color}-300 rounded-lg px-2 py-1 mr-1`}
 							onClick={handleTogglePlaynodeType} title={`Toggle node type from ${props.data.playnode.type} to ${otherType}`}>
 								{isSequence ? <>🔢</> : <>🎲</>}
 						</button>
 						<button
-							className={`bg-indigo-300 rounded-lg px-2 py-1 absolute left-[3.5rem]`}
-							style={{left: 4 * (9.5 + numScopes) - (PLAYNODE_EXPANDED_WIDTH*4), top: 4 * (1 + numScopes)}}
+							className={`bg-indigo-300 rounded-lg px-2 py-1`}
 							onClick={handleToggleScope} title={scopeView ? "Toggle Song View" : "Toggle Scope View"}>
 								{scopeView ? <>🎶</> : <>🔲</>}
 						</button>
+						</div>
 						<button
-							className={`bg-red-300 rounded-lg px-2 py-1 absolute right-[1.25rem]`}
-							style={{right: 4 * (1 + numScopes), top: 4 * (1 + numScopes)}}
+							className={`bg-red-300 rounded-lg px-2 py-1`}
 							onClick={handleDeleteSelf}
 							title="Delete Playnode">
 								🗑️
 						</button>
 					</div>
+					<div className="px-4 pb-4">
 					<input id="text" name="text" title={props.data.playnode.name} value={props.data.playnode.name} onChange={handleChangeName} className={`w-full bg-${color}-100 text-center`} />
 					{
 						scopeView ?
@@ -220,6 +220,7 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 							<SearchField onContentSelect={handleContentSelect} />
 						</>
 					}
+					</div>
 				</div> :
 				<div
 					className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl h-16 py-4 text-center text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis`}
