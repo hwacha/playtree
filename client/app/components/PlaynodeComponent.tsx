@@ -1,4 +1,4 @@
-import { Handle, Node, NodeProps, Position } from "@xyflow/react";
+import { Handle, Node, NodeProps, Position, useKeyPress } from "@xyflow/react";
 import { PlaytreeEditorAction } from "../reducers/editor";
 import { Playitem, Playroot, Playnode, Playscope } from "../types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -37,6 +37,14 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 		}
 		wasDragging.current = props.dragging
 	}, [props.dragging])
+
+	// delete node with backspace or delete
+	const deleteKeyPressed = useKeyPress(['Backspace', 'Delete'])
+	useEffect(() => {
+		if (props.selected && deleteKeyPressed) {
+			handleDeleteSelf()
+		}
+	}, [deleteKeyPressed])
 
 	const handleContentSelect = useCallback((newPlayitemAsSearchResult: SearchResult): boolean => {
 		if (newPlayitemAsSearchResult.uri === null) {

@@ -1,5 +1,5 @@
-import { BaseEdge, Edge, EdgeLabelRenderer, EdgeProps, getBezierPath } from "@xyflow/react";
-import React from "react";
+import { BaseEdge, Edge, EdgeLabelRenderer, EdgeProps, getBezierPath, useKeyPress } from "@xyflow/react";
+import React, { useEffect } from "react";
 import NaturalNumberInputField from "./NaturalNumberInputField";
 import { Playedge } from "../types";
 import { PlaytreeEditorAction } from "../reducers/editor";
@@ -13,6 +13,13 @@ export default function PlayedgeComponent(props: EdgeProps<PlayedgeFlowData>) {
     if (!props.data) {
         return null
     }
+
+    const deleteKeyPressed = useKeyPress(['Backspace', 'Delete'])
+    useEffect(() => {
+        if (props.selected && deleteKeyPressed) {
+            props.data?.dispatch({type: "deleted_playedge", sourceID: props.source, targetID: props.target})
+        }
+    }, [deleteKeyPressed])
 
     const { sourceX, sourceY, targetX, targetY, markerEnd } = props;
     let [edgePath, labelX, labelY] = getBezierPath(props)

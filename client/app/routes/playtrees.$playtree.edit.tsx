@@ -1,6 +1,6 @@
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { isRouteErrorResponse, Link, useFetcher, useLoaderData, useRouteError, useSubmit } from "@remix-run/react";
-import { Background, Controls, MarkerType, ReactFlow, addEdge, OnConnect, useNodesState, useEdgesState, MiniMap, useReactFlow, ReactFlowProvider } from "@xyflow/react";
+import { isRouteErrorResponse, useFetcher, useLoaderData, useRouteError, useSubmit } from "@remix-run/react";
+import { Background, Controls, MarkerType, ReactFlow, addEdge, OnConnect, useNodesState, useEdgesState, useReactFlow, ReactFlowProvider } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { useCallback, useContext, useEffect, useMemo, useReducer, useState } from "react";
 import invariant from "tiny-invariant";
@@ -17,6 +17,9 @@ import Modal from "../components/Modal";
 import { clientFetchWithToken } from "../utils/client-fetch-with-token";
 import { PlayscopeManager } from "../components/PlayscopeManager";
 import { ServerPath, Token } from "../root";
+import PaneContextMenu from "../components/PaneContextMenu";
+import PlaynodeContextMenu from "../components/PlaynodeContextMenu";
+import PlayedgeContextMenu from "../components/PlayedgeContextMenu";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) : Promise<Parameters<typeof playtreeFromJson>[0]> => {
 	invariant(params.playtree)
@@ -72,7 +75,7 @@ const AddNodeButton = (props: AddNodeButtonProps) => {
 
 	const handleClick = useCallback(() => {
 		const viewport = reactFlowInstance.getViewport()
-		props.onClick(-viewport.x + 42, -viewport.y + 10)
+		props.onClick((-viewport.x + 42) / viewport.zoom, (-viewport.y + 10) / viewport.zoom)
 	}, [])
 
 	return (
@@ -434,6 +437,38 @@ export default function PlaytreeEditor() {
 		}
 	}, [])
 
+	const [paneContextMenuPosition, setPaneContextMenuPosition] = useState<{x: number, y: number} | null>(null)
+	const handleDisplayAndMovePaneContextMenu = useCallback((position: {x: number; y: number} | null) => {
+		setPaneContextMenuPosition(position)
+	}, [])
+
+	type PlaynodeContextMenuState = {
+		playnodeFlowData: PlaynodeFlowData;
+		position: {
+			x: number;
+			y: number;
+		};
+	} | null;
+
+	const [playnodeContextMenuState, setPlaynodeContextMenuState] = useState<PlaynodeContextMenuState>(null)
+	const handleDisplayAndMovePlaynodeContextMenu = useCallback((menuState: PlaynodeContextMenuState) => {
+		setPlaynodeContextMenuState(menuState)
+	}, [])
+
+	type PlayedgeContextMenuState = {
+		playedgeFlowData: PlayedgeFlowData;
+		position: {
+			x: number;
+			y: number;
+		};
+	} | null;
+
+	const [playedgeContextMenuState, setPlayedgeContextMenuState] = useState<PlayedgeContextMenuState>(null)
+	const handleDisplayAndMovePlayedgeContextMenu = useCallback((menuState: PlayedgeContextMenuState) => {
+		setPlayedgeContextMenuState(menuState)
+	}, [])
+
+
 	return (
 		<div className="w-5/6 h-full mx-auto font-lilitaOne flex flex-col justify-end">
 			<div className="w-full h-[95%]">
@@ -468,13 +503,27 @@ export default function PlaytreeEditor() {
 				}
 				<ReactFlowProvider>
 				<div className="h-[85%] flex">
+					<PaneContextMenu position={paneContextMenuPosition} dispatch={dispatch} onExit={() => handleDisplayAndMovePaneContextMenu(null)} />
+					<PlaynodeContextMenu
+						playnodeFlowData={playnodeContextMenuState?.playnodeFlowData ?? null}
+						position={playnodeContextMenuState?.position ?? null}
+						dispatch={dispatch}
+						onExit={() => handleDisplayAndMovePlaynodeContextMenu(null)}
+					/>
+					<PlayedgeContextMenu
+						playedgeFlowData={playedgeContextMenuState?.playedgeFlowData ?? null}
+						position={playedgeContextMenuState?.position ?? null}
+						dispatch={dispatch}
+						onExit={() => handleDisplayAndMovePlayedgeContextMenu(null)}
+					/>
+
 					<div className="h-full w-full flex-[4] border-4 border-green-600 bg-neutral-100">
 						<div className="z-10 w-fit absolute m-1 gap-1 flex flex-col">
 							<AddNodeButton onClick={handleAddPlaynode}/>
 							<button
 								id="playhead-spawner"
 								title="Add Playhead"
-								className="rounded-lg bg-purple-300 px-2 py-1"
+								className="rounded-lg bg-purple-300 px-2 py-1 hover:cursor-grab"
 								draggable={true}
 								onDragStart={handleDragStart}>💽</button>
 							<button
@@ -504,6 +553,19 @@ export default function PlaytreeEditor() {
 							onEdgesChange={onFlowedgesChange}
 							connectionLineComponent={PlayConnectionLine}
 							onConnect={onConnect}
+							deleteKeyCode={null}
+							onPaneContextMenu={event => {
+								event.preventDefault();
+								handleDisplayAndMovePaneContextMenu({ x: event.clientX, y: event.clientY})
+							}}
+							onNodeContextMenu={(event, flownode) => {
+								event.preventDefault();
+								handleDisplayAndMovePlaynodeContextMenu({ playnodeFlowData: flownode, position: { x: event.clientX, y: event.clientY } })
+							}}
+							onEdgeContextMenu={(event, flowedge) => {
+								event.preventDefault();
+								handleDisplayAndMovePlayedgeContextMenu({ playedgeFlowData: flowedge, position: { x: event.clientX, y: event.clientY }})
+							}}
 						>
 							<Background />
 							<Controls />
