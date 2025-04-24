@@ -17,6 +17,9 @@ export type PlaynodeFlowData = Node<{
 	playscopeComparator: (i: number, j: number) => number;
 }, 'play'>;
 
+export const PLAYNODE_COLLAPSED_WIDTH = 16;
+export const PLAYNODE_EXPANDED_WIDTH  = 32;
+
 export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 	const [scopeView, setScopeView] = useState<boolean>(false)
 
@@ -108,20 +111,25 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 	const numScopes = playscopesOnPlaynode.length
 
 	let component = <div className="opacity-100" style={{zIndex: props.zIndex}}>
-		<Handle type="target" isConnectableStart={false} position={Position.Top} style={{ width: 12, height: 12, top: 2 + 4 * numScopes }} />
+		<Handle type="target" isConnectableStart={false} position={Position.Top} style={{ width: 12, height: 12, top: 2 + 4 * numScopes, left: 128 }} />
 		{
 			props.selected && !props.dragging ?
-				<div className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl w-[32rem] p-4 text-${color}-600`} onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
+				<div
+					className={`border-${color}-600 bg-${color}-100 border-4 rounded-xl p-4 text-${color}-600`}
+					style={{ width: `${PLAYNODE_EXPANDED_WIDTH}rem`, marginLeft: `calc(-${PLAYNODE_EXPANDED_WIDTH}rem/4)` }}
+					onDrop={handleDrop}
+					onDragOver={e => e.preventDefault()}
+				>
 					<div className="mb-5">
 						<button
 							className={`bg-${color}-300 rounded-lg px-2 py-1 absolute left-[1.25rem]`}
-							style={{left: 4 * (1 + numScopes), top: 4 * (1 + numScopes)}}
+							style={{left: 4 * (1 + numScopes) - (PLAYNODE_EXPANDED_WIDTH*4), top: 4 * (1 + numScopes)}}
 							onClick={handleTogglePlaynodeType} title={`Toggle node type from ${props.data.playnode.type} to ${otherType}`}>
 								{isSequence ? <>🔢</> : <>🎲</>}
 						</button>
 						<button
 							className={`bg-indigo-300 rounded-lg px-2 py-1 absolute left-[3.5rem]`}
-							style={{left: 4 * (9.5 + numScopes), top: 4 * (1 + numScopes)}}
+							style={{left: 4 * (9.5 + numScopes) - (PLAYNODE_EXPANDED_WIDTH*4), top: 4 * (1 + numScopes)}}
 							onClick={handleToggleScope} title={scopeView ? "Toggle Song View" : "Toggle Scope View"}>
 								{scopeView ? <>🎶</> : <>🔲</>}
 						</button>
@@ -214,13 +222,14 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 					}
 				</div> :
 				<div
-					className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl w-64 h-16 py-4 text-center text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis`}
+					className={`border-${color}-600 bg-${color}-100 text-${color}-600 border-4 rounded-xl h-16 py-4 text-center text-nowrap whitespace-nowrap overflow-hidden overflow-ellipsis`}
+					style={{ width: `${PLAYNODE_COLLAPSED_WIDTH}rem`}}
 					title={props.data.playnode.name}
 					onDrop={handleDrop}
 					onDragOver={e => e.preventDefault()}
 				>{props.data.playnode.name}</div>
 		}
-		<Handle type="source" position={Position.Bottom} id="a" style={{ width: 12, height: 12, bottom: 2 + 4 * numScopes }} />
+		<Handle type="source" position={Position.Bottom} id="a" style={{ width: 12, height: 12, bottom: 2 + 4 * numScopes, left: 128 }} />
 	</div>
 
 	playscopesOnPlaynode.forEach((playscope, depth) => {

@@ -179,6 +179,7 @@ export default function Player({ playtree, authenticatedWithPremium }: PlayerPro
 	}, [playtree, state.playing, state.positionLastSet_ms, state.playheadIndex, state.playheads.length > 0 ? state.playheads[state.playheadIndex].node.id : undefined])
 
 	useEffect(() => {
+		return // console.log DEBUG
 		if (!authenticatedWithPremium) {
 			return
 		}
