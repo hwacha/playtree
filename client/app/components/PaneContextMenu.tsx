@@ -2,6 +2,7 @@ import { useReactFlow } from "@xyflow/react";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useCallback, useRef } from "react";
 import { PlaytreeEditorAction } from "../reducers/editor";
+import { PLAYNODE_COLLAPSED_WIDTH } from "./PlaynodeComponent";
 
 type PaneContextMenuProps = {
 	position: {
@@ -20,7 +21,7 @@ export default function PaneContextMenu(props: PaneContextMenuProps) {
 	const handleAddPlaynode = useCallback(() => {
 		if (props.position) {
 			const viewport = reactFlowInstance.getViewport()
-			const origin = reactFlowInstance.screenToFlowPosition({x: props.position.x, y: props.position.y})
+			const origin = reactFlowInstance.screenToFlowPosition({x: props.position.x - PLAYNODE_COLLAPSED_WIDTH * 8, y: props.position.y - 32})
 			props.dispatch({ type: "added_playnode", x: origin.x, y: origin.y })
 		}
 		props.onExit()
