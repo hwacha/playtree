@@ -210,7 +210,8 @@ export default function PlaytreeEditor() {
 
 		Dagre.layout(g);
 
-		flownodes.map((node) => {
+		const newPositions = new Map<string, {x: number, y: number}>()
+		flownodes.forEach((node) => {
 			const position = g.node(node.id);
 			position.x *= 1.25
 			position.y *= 1.25
@@ -219,8 +220,10 @@ export default function PlaytreeEditor() {
 			const x = position.x - (node.measured?.width ?? 0) / 2;
 			const y = position.y - (node.measured?.height ?? 0) / 2;
 
-			dispatch({ type: "updated_playnode", playnodeID: node.id, patch: { position: { x: x, y: y }}})
+			newPositions.set(node.id, {x: x, y: y})
 		})
+
+		dispatch({ type: "applied_autolayout", newPositions: newPositions})
 		
 		setFlowedges([...flowedges])
 	}, [state.playtree.playroots, flownodes, flowedges])

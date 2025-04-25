@@ -16,6 +16,9 @@ export type PlaytreeEditorAction = {
 	type: "loaded_playtree",
 	playtree: Playtree
 } | {
+	type: "applied_autolayout",
+	newPositions: Map<string, {x: number, y: number}>,
+} | {
 	type: "added_playscope" | "saved_playtree",
 } | {
 	type: "added_playnode",
@@ -92,6 +95,19 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 			return {
 				...state,
 				unsavedChangesExist: unsavedChangesExist
+			}
+		}
+		case "applied_autolayout": {
+			const newPlaynodes = structuredClone(state.playtree.playnodes)
+			newPlaynodes.forEach(playnode => {
+				playnode.position = action.newPositions.get(playnode.id) ?? playnode.position
+			})
+			return {
+				...state,
+				playtree: {
+					...state.playtree,
+					playnodes: newPlaynodes
+				}
 			}
 		}
 		case "added_playnode": {
