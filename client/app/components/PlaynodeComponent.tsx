@@ -15,6 +15,7 @@ export type PlaynodeFlowData = Node<{
 	playscopes: Playscope[];
 	dispatch: (action: PlaytreeEditorAction) => void;
 	playscopeComparator: (i: number, j: number) => number;
+	onDeselect: (playnodeID: string) => void;
 }, 'play'>;
 
 export const PLAYNODE_COLLAPSED_WIDTH = 16;
@@ -37,6 +38,7 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 					}
 				}
 			})
+			props.data.onDeselect(props.data.playnode.id)
 		}
 		wasDragging.current = props.dragging
 	}, [props.dragging])

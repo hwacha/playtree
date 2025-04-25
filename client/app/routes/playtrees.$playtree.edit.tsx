@@ -129,6 +129,17 @@ export default function PlaytreeEditor() {
 		}
 	}, [state.playtree.playscopes, state.playtree.playnodes])
 
+	const handleDeselectPlaynode = useCallback((playnodeID: string) => {
+		setFlownodes(oldFlownodes => {
+			const newFlownodes = [...oldFlownodes]
+			const flownodeToDeselect = newFlownodes.find(flownode => flownode.id === playnodeID)
+			if (flownodeToDeselect) {
+				flownodeToDeselect.selected = false
+			}
+			return newFlownodes
+		})
+	}, []);
+
 	let initialFlownodeData: PlaynodeFlowData[] = useMemo(() => {
 		return Array.from(state.playtree.playnodes.values()).map((playnode, index) => {
 			return {
@@ -144,7 +155,8 @@ export default function PlaytreeEditor() {
 					playroot: state.playtree?.playroots.get(playnode.id) ?? null,
 					playscopes: state.playtree?.playscopes ?? [],
 					dispatch: (x: PlaytreeEditorAction) => dispatch(x),
-					playscopeComparator: playscopeComparator
+					playscopeComparator: playscopeComparator,
+					onDeselect: handleDeselectPlaynode
 				}
 			}
 		})
@@ -246,7 +258,8 @@ export default function PlaytreeEditor() {
 				playscopes: state.playtree.playscopes,
 				playroot: null,
 				dispatch: (x: PlaytreeEditorAction) => dispatch(x),
-				playscopeComparator: playscopeComparator
+				playscopeComparator: playscopeComparator,
+				onDeselect: handleDeselectPlaynode
 			}
 		}
 	}, [state.playtree])
@@ -254,6 +267,8 @@ export default function PlaytreeEditor() {
 	const handleAddPlaynode = useCallback((x : number, y: number) => {
 		dispatch({ type: "added_playnode", x: x, y: y })
 	}, [])
+
+
 
 	useEffect(() => { // sync react flow components with playtree state
 		// synchronize flownodes
