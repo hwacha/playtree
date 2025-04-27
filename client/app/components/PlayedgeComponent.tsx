@@ -89,21 +89,21 @@ export default function PlayedgeComponent(props: EdgeProps<PlayedgeFlowData>) {
                         <div className="w-24 flex">
                             <div className="w-full h-fit">Priority</div>
                             <div className="w-fit">|</div>
-                            <NaturalNumberInputField onChange={n =>
+                            <NaturalNumberInputField onCommit={n =>
                                 props.data?.dispatch({type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {priority: n} })
                             } canBeInfinite={false} defaultValue={0} value={props.data.playedge.priority} />
                         </div>
                         <div className="w-24 flex">
                             <div className="w-full h-fit">Shares</div>
                             <div className="w-fit">|</div>
-                            <NaturalNumberInputField onChange={n => {
+                            <NaturalNumberInputField onCommit={n => {
                                 props.data?.dispatch({ type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {shares: n}})
                             }} canBeInfinite={false} defaultValue={1} value={props.data.playedge.shares} />
                         </div>
                         <div className="w-24 flex">
                             <div className="w-full h-fit">Limit</div>
                             <div className="w-fit">|</div>
-                            <NaturalNumberInputField onChange={n =>
+                            <NaturalNumberInputField onCommit={n =>
                                 props.data?.dispatch({type: "updated_playedge", sourceID: props.source, targetID: props.target, patch: {limit: n} })
                             } canBeInfinite={true} defaultValue={1} value={props.data.playedge.limit} />
                         </div>

@@ -8,6 +8,7 @@ import NaturalNumberInputField from "./NaturalNumberInputField";
 import PlayitemComponent from "./PlayitemComponent";
 import PlayrootComponent from "./PlayrootComponent";
 import { hexToRGB } from "@opentf/std";
+import TextInputField from "./TextInputField";
 
 export type PlaynodeFlowData = Node<{
 	playnode: Playnode;
@@ -85,9 +86,9 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 		props.data.dispatch({ type: "deleted_playhead", playnodeID: props.data.playnode.id })
 	}, [])
 
-	const handleChangeName = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-		props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { name: event.target.value } })
-	}, [props.data.playnode.name]);
+	const handleChangeName = useCallback((s: string) => {
+		props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { name: s } })
+	}, []);
 
 	const handleDrop = useCallback((event: any) => {
 		event.preventDefault();
@@ -142,8 +143,8 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 								🗑️
 						</button>
 					</div>
-					<div className="px-4 pb-4">
-					<input id="text" name="text" title={props.data.playnode.name} value={props.data.playnode.name} onChange={handleChangeName} className={`w-full bg-${color}-100 text-center`} />
+					<div className="px-4 pb-4 pt-1">
+					<TextInputField value={props.data.playnode.name} onCommit={handleChangeName} className={`w-full bg-${color}-100 text-center`}/>
 					{
 						scopeView ?
 						<ul className="my-3 font-markazi">
@@ -172,7 +173,7 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 												canBeInfinite={false}
 												defaultValue={1}
 												value={props.data.playnode.repeat}
-												onChange={(n : number) => props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { repeat: n } })}/>
+												onCommit={(n : number) => props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { repeat: n } })}/>
 										</div>
 									</div>
 								</div>
@@ -181,9 +182,9 @@ export default function PlaynodeComponent(props: NodeProps<PlaynodeFlowData>) {
 									<div className="w-8">
 										<NaturalNumberInputField
 											canBeInfinite={true}
-											defaultValue={1}
+											defaultValue={-1}
 											value={props.data.playnode.limit}
-											onChange={(n : number) => props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { limit: n } })}/>
+											onCommit={(n : number) => props.data.dispatch({ type: "updated_playnode", playnodeID: props.data.playnode.id, patch: { limit: n } })}/>
 									</div>
 								</div>
 								<div className="w-fit h-5 flex">

@@ -20,6 +20,7 @@ import { ServerPath, Token } from "../root";
 import PaneContextMenu from "../components/PaneContextMenu";
 import PlaynodeContextMenu from "../components/PlaynodeContextMenu";
 import PlayedgeContextMenu from "../components/PlayedgeContextMenu";
+import TextInputField from "../components/TextInputField";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) : Promise<Parameters<typeof playtreeFromJson>[0]> => {
 	invariant(params.playtree)
@@ -486,16 +487,16 @@ export default function PlaytreeEditor() {
 		setPlayedgeContextMenuState(menuState)
 	}, [])
 
-
 	return (
 		<div className="w-5/6 h-full mx-auto font-lilitaOne flex flex-col justify-end">
 			<div className="w-full h-[95%]">
 				<div className="w-full h-fit flex justify-between">
 					<div className="flex py-1">
 						<h2 title={state.playtree.summary.name} className="max-w-[calc(70vw-18rem)] h-9 flex text-3xl text-green-600 resize-x">
-							<div className="whitespace-nowrap overflow-ellipsis overflow-hidden">
-								{state.playtree.summary.name}
-							</div>
+							<TextInputField
+								value={state.playtree.summary.name}
+								onCommit={(s) => dispatch({ type: "updated_name", name: s})}
+								className="whitespace-nowrap overflow-ellipsis overflow-hidden" />
 						</h2>
 						<fetcher.Form method="POST" action="/">
 							<input type="hidden" id="playtreeID" name="playtreeID" value={state.playtree.summary.id} />

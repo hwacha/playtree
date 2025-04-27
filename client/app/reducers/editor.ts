@@ -16,6 +16,9 @@ export type PlaytreeEditorAction = {
 	type: "loaded_playtree",
 	playtree: Playtree
 } | {
+	type: "updated_name",
+	name: string,
+} | {
 	type: "applied_autolayout",
 	newPositions: Map<string, {x: number, y: number}>,
 } | {
@@ -94,6 +97,19 @@ const playtreeReducer = (state: PlaytreeEditorState, action: PlaytreeEditorActio
 		case "saved_playtree": {
 			return {
 				...state,
+				unsavedChangesExist: unsavedChangesExist
+			}
+		}
+		case "updated_name": {
+			return {
+				...state,
+				playtree: {
+					...state.playtree,
+					summary: {
+						...state.playtree.summary,
+						name: action.name
+					}
+				},
 				unsavedChangesExist: unsavedChangesExist
 			}
 		}
