@@ -492,16 +492,16 @@ export default function PlaytreeEditor() {
 			<div className="w-full h-[95%]">
 				<div className="w-full h-fit flex justify-between">
 					<div className="flex py-1">
+						<fetcher.Form method="POST" action="/">
+							<input type="hidden" id="playtreeID" name="playtreeID" value={state.playtree.summary.id} />
+							<button type="submit" className="bg-green-300 font-markazi text-xl rounded-md px-2 py-1 mr-2">Play</button>
+						</fetcher.Form>
 						<h2 title={state.playtree.summary.name} className="max-w-[calc(70vw-18rem)] h-9 flex text-3xl text-green-600 resize-x">
 							<TextInputField
 								value={state.playtree.summary.name}
 								onCommit={(s) => dispatch({ type: "updated_name", name: s})}
 								className="whitespace-nowrap overflow-ellipsis overflow-hidden" />
 						</h2>
-						<fetcher.Form method="POST" action="/">
-							<input type="hidden" id="playtreeID" name="playtreeID" value={state.playtree.summary.id} />
-							<button type="submit" className="bg-green-300 font-markazi text-xl rounded-md px-2 py-1 ml-2">Play</button>
-						</fetcher.Form>
 					</div>
 					<button
 						type="button"
