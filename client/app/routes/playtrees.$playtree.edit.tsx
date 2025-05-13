@@ -204,8 +204,8 @@ export default function PlaytreeEditor() {
 		flownodes.forEach((node) =>
 			g.setNode(node.id, {
 				...node,
-				width: node.measured?.width ?? 250,
-				height: node.measured?.height ?? 175,
+				width: node.measured?.width,
+				height: node.measured?.height,
 			}),
 		);
 
@@ -214,8 +214,6 @@ export default function PlaytreeEditor() {
 		const newPositions = new Map<string, {x: number, y: number}>()
 		flownodes.forEach((node) => {
 			const position = g.node(node.id);
-			position.x *= 1.25
-			position.y *= 1.25
 			// We are shifting the dagre node position (anchor=center center) to the top left
 			// so it matches the React Flow node anchor point (top left).
 			const x = position.x - (node.measured?.width ?? 0) / 2;
@@ -564,6 +562,8 @@ export default function PlaytreeEditor() {
 							}
 						</div>
 						<ReactFlow
+							snapToGrid={true}
+							snapGrid={[96, 96]}
 							nodeTypes={customFlowNodeTypes}
 							nodes={flownodes}
 							onNodesChange={onFlownodesChange}
